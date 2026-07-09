@@ -1,0 +1,807 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>HyperShift Merge Queue Health</title>
+<style>
+:root {
+  --surface: #fcfcfb;
+  --surface-page: #f9f9f7;
+  --text-primary: #0b0b0b;
+  --text-secondary: #52514e;
+  --text-muted: #898781;
+  --gridline: #e1e0d9;
+  --baseline: #c3c2b7;
+  --good: #0ca30c;
+  --warning: #fab219;
+  --serious: #ec835a;
+  --critical: #d03b3b;
+  --delta-good: #006300;
+  --delta-bad: #d03b3b;
+  --series-1: #2a78d6;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --surface: #1a1a19;
+    --surface-page: #0d0d0d;
+    --text-primary: #ffffff;
+    --text-secondary: #c3c2b7;
+    --text-muted: #898781;
+    --gridline: #2c2c2a;
+    --baseline: #383835;
+    --good: #0ca30c;
+    --warning: #fab219;
+    --serious: #ec835a;
+    --critical: #d03b3b;
+    --delta-good: #0ca30c;
+    --delta-bad: #e66767;
+    --series-1: #3987e5;
+  }
+}
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body {
+  font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+  background: var(--surface-page);
+  color: var(--text-primary);
+  line-height: 1.5;
+  padding: 24px 32px;
+  max-width: 1400px;
+  margin: 0 auto;
+}
+h1 { font-size: 20px; font-weight: 600; }
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  margin-bottom: 20px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--gridline);
+}
+.header-meta {
+  font-size: 13px;
+  color: var(--text-muted);
+}
+.alert-banner {
+  background: color-mix(in srgb, var(--critical) 8%, var(--surface));
+  border: 1px solid color-mix(in srgb, var(--critical) 25%, var(--surface));
+  border-radius: 6px;
+  padding: 12px 16px;
+  margin-bottom: 20px;
+  display: none;
+}
+.alert-banner h2 {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin-bottom: 6px;
+}
+.alert-banner ul {
+  list-style: none;
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+.alert-banner li { padding: 2px 0; }
+.alert-banner .test-name { color: var(--text-primary); font-weight: 500; }
+.alert-banner .job-names { color: var(--text-muted); font-size: 12px; }
+
+table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  background: var(--surface);
+  border-radius: 8px;
+  border: 1px solid var(--gridline);
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+}
+thead th {
+  text-align: left;
+  font-weight: 500;
+  color: var(--text-muted);
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--baseline);
+  white-space: nowrap;
+}
+tbody td {
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--gridline);
+  vertical-align: middle;
+}
+tbody tr:last-child td { border-bottom: none; }
+.job-name a {
+  color: var(--text-primary);
+  text-decoration: none;
+  font-weight: 500;
+}
+.job-name a:hover { text-decoration: underline; }
+.category-row td {
+  padding: 6px 12px;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-muted);
+  background: var(--surface-page);
+}
+
+.pass-rate { font-weight: 500; }
+.rate-cell { position: relative; white-space: nowrap; }
+.rate-cell .prev-tip {
+  display: none;
+  position: absolute;
+  bottom: 100%;
+  left: 0;
+  background: var(--text-primary);
+  color: var(--surface);
+  font-size: 11px;
+  font-weight: 400;
+  padding: 2px 6px;
+  border-radius: 3px;
+  white-space: nowrap;
+  pointer-events: none;
+  z-index: 10;
+}
+.rate-cell:hover .prev-tip { display: block; }
+.rate-good { color: var(--delta-good); }
+.rate-warn { color: color-mix(in srgb, var(--text-primary) 80%, var(--warning)); }
+.rate-bad { color: var(--delta-bad); }
+.rate-na { color: var(--text-muted); }
+
+.trend-up { color: var(--delta-good); }
+.trend-down { color: var(--delta-bad); }
+.trend-flat { color: var(--text-muted); }
+
+.status-dot {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  margin-right: 4px;
+  vertical-align: middle;
+}
+.status-good { background: var(--good); }
+.status-warn { background: var(--warning); }
+.status-bad { background: var(--critical); }
+.status-na { background: var(--text-muted); }
+
+.periodic-row td {
+  padding-top: 2px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--gridline);
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+.periodic-row + tr:not(.periodic-row) td,
+.periodic-row + .category-row td { border-top: none; }
+tr:has(+ .periodic-row) td { border-bottom: none; }
+.periodic-name { padding-left: 24px !important; }
+.periodic-link {
+  color: var(--text-secondary);
+  text-decoration: none;
+  font-size: 12px;
+}
+.periodic-link:hover { text-decoration: underline; }
+.periodic-release {
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+.sparkline-cell { padding: 4px 4px; }
+.sparkline-legend {
+  font-size: 11px;
+  color: var(--text-muted);
+  padding: 8px 12px 0;
+  display: flex;
+  gap: 16px;
+  justify-content: flex-end;
+}
+.sparkline-legend span {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.loading {
+  text-align: center;
+  padding: 48px;
+  color: var(--text-muted);
+  font-size: 14px;
+}
+.header-meta { display: flex; align-items: baseline; gap: 8px; }
+.refresh-btn {
+  background: none;
+  border: 1px solid var(--gridline);
+  border-radius: 4px;
+  color: var(--text-muted);
+  cursor: pointer;
+  font-size: 13px;
+  padding: 2px 8px;
+  line-height: 1.4;
+}
+.refresh-btn:hover { color: var(--text-primary); border-color: var(--baseline); }
+.refresh-btn.spinning { animation: spin 1s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+.cache-stale { color: var(--text-muted); }
+.cache-fresh { color: var(--delta-good); }
+.cache-error { color: var(--serious); }
+.window-toggle {
+  display: inline-flex;
+  border: 1px solid var(--gridline);
+  border-radius: 4px;
+  overflow: hidden;
+}
+.window-toggle button {
+  background: none;
+  border: none;
+  border-right: 1px solid var(--gridline);
+  color: var(--text-muted);
+  cursor: pointer;
+  font-size: 12px;
+  padding: 2px 10px;
+  line-height: 1.4;
+}
+.window-toggle button:last-child { border-right: none; }
+.window-toggle button:hover { color: var(--text-primary); }
+.window-toggle button.active {
+  background: var(--gridline);
+  color: var(--text-primary);
+  font-weight: 500;
+}
+</style>
+</head>
+<body>
+
+<div class="header">
+  <h1>HyperShift Merge Queue Health</h1>
+  <div class="header-meta">
+    <div class="window-toggle" id="window-toggle">
+      <button data-window="2d" onclick="setActiveWindow('2d')">2d</button>
+      <button data-window="7d" onclick="setActiveWindow('7d')">7d</button>
+    </div>
+    <span id="last-updated">Loading…</span>
+    <button class="refresh-btn" id="refresh-btn" onclick="loadDashboard(true)" title="Force refresh">↻</button>
+  </div>
+</div>
+
+<div id="alert-banner" class="alert-banner"></div>
+
+<div id="dashboard">
+  <div class="loading" id="loading">Loading data from Sippy…</div>
+</div>
+
+<script>
+const SIPPY = "https://sippy.dptools.openshift.org";
+const CACHE_PREFIX = "sippy_";
+
+const BLOCKING_JOBS = [
+  { name: "e2e-aws", prow: "pull-ci-openshift-hypershift-main-e2e-aws", category: "e2e",
+    periodic: { name: "e2e-aws-ovn", prow: "periodic-ci-openshift-hypershift-release-5.0-periodics-e2e-aws-ovn", release: "5.0" }},
+  { name: "e2e-aks", prow: "pull-ci-openshift-hypershift-main-e2e-aks", category: "e2e",
+    periodic: { name: "e2e-aks", prow: "periodic-ci-openshift-hypershift-release-5.0-periodics-e2e-aks", release: "5.0" }},
+  { name: "e2e-azure-v2-self-managed", prow: "pull-ci-openshift-hypershift-main-e2e-azure-v2-self-managed", category: "e2e",
+    periodic: { name: "e2e-azure-v2-self-managed", prow: "periodic-ci-openshift-hypershift-release-5.0-periodics-e2e-azure-v2-self-managed", release: "5.0" }},
+  { name: "e2e-aws-upgrade-hypershift-operator", prow: "pull-ci-openshift-hypershift-main-e2e-aws-upgrade-hypershift-operator", category: "e2e",
+    periodic: { name: "e2e-aws-upgrade", prow: "periodic-ci-openshift-hypershift-release-5.0-periodics-e2e-aws-upgrade", release: "5.0" }},
+  { name: "e2e-v2-gke", prow: "pull-ci-openshift-hypershift-main-e2e-v2-gke", category: "e2e",
+    periodic: { name: "e2e-v2-gke", prow: "periodic-ci-openshift-hypershift-release-5.0-periodics-e2e-v2-gke", release: "5.0" }},
+  { name: "e2e-aws-4-22", prow: "pull-ci-openshift-hypershift-main-e2e-aws-4-22", category: "e2e",
+    periodic: { name: "e2e-aws-ovn", prow: "periodic-ci-openshift-hypershift-release-4.22-periodics-e2e-aws-ovn", release: "4.22" }},
+  { name: "e2e-aks-4-22", prow: "pull-ci-openshift-hypershift-main-e2e-aks-4-22", category: "e2e",
+    periodic: { name: "e2e-aks", prow: "periodic-ci-openshift-hypershift-release-4.22-periodics-e2e-aks", release: "4.22" }},
+  { name: "e2e-kubevirt-aws-ovn-reduced", prow: "pull-ci-openshift-hypershift-main-e2e-kubevirt-aws-ovn-reduced", category: "e2e",
+    periodic: { name: "e2e-kubevirt-aws-ovn-csi", prow: "periodic-ci-openshift-hypershift-release-4.22-periodics-e2e-kubevirt-aws-ovn-csi", release: "4.22" }},
+  { name: "e2e-v2-aws", prow: "pull-ci-openshift-hypershift-main-e2e-v2-aws", category: "e2e",
+    periodic: null },
+  { name: "e2e-aws-override", prow: "pull-ci-openshift-hypershift-main-e2e-aws-override", category: "e2e",
+    periodic: null },
+  { name: "e2e-aks-override", prow: "pull-ci-openshift-hypershift-main-e2e-aks-override", category: "e2e",
+    periodic: null },
+  { name: "images", prow: "pull-ci-openshift-hypershift-main-images", category: "build",
+    periodic: null },
+  { name: "okd-scos-images", prow: "pull-ci-openshift-hypershift-main-okd-scos-images", category: "build",
+    periodic: null },
+  { name: "verify-deps", prow: "pull-ci-openshift-hypershift-main-verify-deps", category: "build",
+    periodic: null },
+  { name: "security", prow: "pull-ci-openshift-hypershift-main-security", category: "build",
+    periodic: null },
+];
+
+const WINDOWS = {
+  "2d": { sparkSlotHours: 2, sparkSlots: 24, sparkLabel: "Last 2d", prevLabel: "Prev 7d" },
+  "7d": { sparkSlotHours: 6, sparkSlots: 28, sparkLabel: "Last 7d", prevLabel: "Prev 7d" },
+};
+let activeWindow = localStorage.getItem("sippy_window") || "7d";
+let loadGeneration = 0;
+
+// --- Cache layer ---
+
+function cacheGet(key) {
+  try {
+    const raw = localStorage.getItem(CACHE_PREFIX + key);
+    if (!raw) return null;
+    return JSON.parse(raw);
+  } catch { return null; }
+}
+
+function cacheSet(key, data) {
+  const entry = JSON.stringify({ d: data, ts: Date.now() });
+  try {
+    localStorage.setItem(CACHE_PREFIX + key, entry);
+  } catch {
+    clearCache();
+    try { localStorage.setItem(CACHE_PREFIX + key, entry); } catch {}
+  }
+}
+
+function clearCache() {
+  for (let i = localStorage.length - 1; i >= 0; i--) {
+    const k = localStorage.key(i);
+    if (k && k.startsWith(CACHE_PREFIX)) localStorage.removeItem(k);
+  }
+}
+
+function loadFromCache() {
+  const entry = cacheGet("data");
+  if (!entry) return null;
+  return { states: entry.d.states, ts: entry.ts };
+}
+
+function saveToCache(states) {
+  cacheSet("data", { states });
+}
+
+// --- Helpers ---
+
+function sippyUrl(path, params) {
+  const u = new URL(path, SIPPY);
+  for (const [k, v] of Object.entries(params)) u.searchParams.set(k, v);
+  return u.toString();
+}
+
+function jobFilter(value) {
+  return JSON.stringify({
+    items: [{ columnField: "name", operatorValue: "contains", value }],
+    linkOperator: "and"
+  });
+}
+
+function sippyJobLink(jobName, release) {
+  const filters = JSON.stringify({
+    items: [{ columnField: "name", operatorValue: "equals", value: jobName }]
+  });
+  return `${SIPPY}/sippy-ng/jobs/${encodeURIComponent(release)}/analysis?filters=${encodeURIComponent(filters)}`;
+}
+
+async function fetchJson(path, params) {
+  const url = sippyUrl(path, params);
+  const resp = await fetch(url);
+  if (!resp.ok) throw new Error(`${resp.status} ${resp.statusText}: ${url}`);
+  return resp.json();
+}
+
+function esc(s) {
+  const d = document.createElement("div");
+  d.textContent = s;
+  return d.innerHTML;
+}
+
+function rateClass(rate, runs) {
+  if (runs === 0) return "rate-na";
+  if (rate >= 80) return "rate-good";
+  if (rate >= 60) return "rate-warn";
+  return "rate-bad";
+}
+
+function statusClass(rate, runs) {
+  if (runs === 0) return "status-na";
+  if (rate >= 80) return "status-good";
+  if (rate >= 60) return "status-warn";
+  return "status-bad";
+}
+
+function trendHtml(improvement) {
+  if (improvement == null) return '<span class="trend-flat">—</span>';
+  const val = improvement.toFixed(1);
+  if (improvement > 1) return `<span class="trend-up">▲ +${val}</span>`;
+  if (improvement < -1) return `<span class="trend-down">▼ ${val}</span>`;
+  return `<span class="trend-flat">— ${val}</span>`;
+}
+
+function formatAge(ms) {
+  const sec = Math.floor(ms / 1000);
+  if (sec < 60) return "just now";
+  const min = Math.floor(sec / 60);
+  if (min < 60) return `${min}m ago`;
+  const hrs = Math.floor(min / 60);
+  return `${hrs}h ${min % 60}m ago`;
+}
+
+// --- Sparklines ---
+
+function buildSparkline(hourlyData, showDates) {
+  if (showDates === undefined) showDates = true;
+  if (!hourlyData) return "";
+  const win = WINDOWS[activeWindow];
+  const now = new Date();
+  const slotData = [];
+  for (let i = win.sparkSlots - 1; i >= 0; i--) {
+    const t = new Date(now);
+    t.setMinutes(0, 0, 0);
+    const slotBase = Math.floor(t.getHours() / win.sparkSlotHours) * win.sparkSlotHours;
+    t.setHours(slotBase - i * win.sparkSlotHours);
+    const key = t.getFullYear() + "-" +
+      String(t.getMonth() + 1).padStart(2, "0") + "-" +
+      String(t.getDate()).padStart(2, "0") + " " +
+      String(t.getHours()).padStart(2, "0") + ":00";
+    slotData.push({ val: hourlyData[key] || null, day: t.getDate(), month: t.getMonth() + 1 });
+  }
+
+  const gap = 1, dayGap = 4;
+  const isDayBound = slotData.map((s, i) => i > 0 && s.day !== slotData[i - 1].day);
+  const dayBounds = isDayBound.filter(Boolean).length;
+  const totalGap = (win.sparkSlots - 1 - dayBounds) * gap + dayBounds * dayGap;
+  const svgW = 168, barH = 16, svgH = (showDates && dayBounds > 0) ? 28 : barH;
+  const slotW = (svgW - totalGap) / win.sparkSlots;
+
+  let svg = `<svg width="${svgW}" height="${svgH}" viewBox="0 0 ${svgW} ${svgH}" xmlns="http://www.w3.org/2000/svg">`;
+  let x = 0;
+  const labels = [];
+  for (let i = 0; i < win.sparkSlots; i++) {
+    if (i > 0) {
+      if (isDayBound[i]) {
+        labels.push({ x: x + dayGap / 2, text: `${slotData[i].month}/${slotData[i].day}` });
+        x += dayGap;
+      } else {
+        x += gap;
+      }
+    }
+    const slot = slotData[i].val;
+    let fill;
+    if (!slot || slot.total_runs === 0) {
+      fill = "var(--gridline)";
+    } else {
+      const s = (slot.result_count && slot.result_count.S) || 0;
+      const ratio = s / slot.total_runs;
+      if (ratio >= 0.8) fill = "var(--good)";
+      else if (ratio >= 0.5) fill = "var(--warning)";
+      else fill = "var(--critical)";
+    }
+    const title = slot
+      ? `${slot.total_runs} runs, ${(slot.result_count && slot.result_count.S) || 0} pass`
+      : "no runs";
+    svg += `<rect x="${x}" y="0" width="${slotW}" height="${barH}" rx="2" fill="${fill}"><title>${title}</title></rect>`;
+    x += slotW;
+  }
+  if (showDates) {
+    for (const l of labels) {
+      svg += `<text x="${l.x}" y="${svgH - 1}" text-anchor="middle" font-size="9" font-family="system-ui,sans-serif" fill="var(--text-muted)">${l.text}</text>`;
+    }
+  }
+  svg += "</svg>";
+  return svg;
+}
+
+function bucketJobRuns(jobRuns, slotHours, totalSlots) {
+  const hourlyData = {};
+  const cutoff = Date.now() - totalSlots * slotHours * 60 * 60 * 1000;
+  for (const run of (jobRuns.rows || [])) {
+    if (run.timestamp < cutoff) continue;
+    const job = run.job;
+    if (!hourlyData[job]) hourlyData[job] = {};
+    const t = new Date(run.timestamp);
+    const slotHour = Math.floor(t.getHours() / slotHours) * slotHours;
+    const key = t.getFullYear() + "-" +
+      String(t.getMonth() + 1).padStart(2, "0") + "-" +
+      String(t.getDate()).padStart(2, "0") + " " +
+      String(slotHour).padStart(2, "0") + ":00";
+    if (!hourlyData[job][key]) {
+      hourlyData[job][key] = { total_runs: 0, result_count: {} };
+    }
+    const slot = hourlyData[job][key];
+    slot.total_runs++;
+    const rc = run.overall_result || (run.succeeded ? "S" : "F");
+    slot.result_count[rc] = (slot.result_count[rc] || 0) + 1;
+  }
+  return hourlyData;
+}
+
+// --- Transform layer ---
+
+const BLOCKING_PROW_NAMES = new Set(BLOCKING_JOBS.map(j => j.prow));
+
+function transformRawData(raw, windowKey) {
+  const win = WINDOWS[windowKey];
+  const windowData = raw.windows[windowKey];
+  const presubmitMap = {};
+  for (const j of (windowData.presubmits || [])) presubmitMap[j.name] = j;
+  const periodicMap = {};
+  for (const j of (windowData.periodic50 || [])) periodicMap[j.name] = j;
+  for (const j of (windowData.periodic422 || [])) periodicMap[j.name] = j;
+
+  const sparklines = bucketJobRuns(raw.jobRuns || {}, win.sparkSlotHours, win.sparkSlots);
+  const periodicSparklines = bucketJobRuns(raw.periodicJobRuns || {}, win.sparkSlotHours, win.sparkSlots);
+
+  const jobs = BLOCKING_JOBS.map(cfg => {
+    const d = presubmitMap[cfg.prow] || {};
+    const runs = d.current_runs ?? 0;
+
+    let periodic = null;
+    if (cfg.periodic) {
+      const pd = periodicMap[cfg.periodic.prow];
+      periodic = {
+        name: cfg.periodic.name,
+        prow: cfg.periodic.prow,
+        release: cfg.periodic.release,
+        rate: pd ? pd.current_pass_percentage ?? null : null,
+        prev: pd ? pd.previous_pass_percentage ?? null : null,
+        prevRuns: pd ? pd.previous_runs ?? 0 : 0,
+        trend: pd ? pd.net_improvement ?? null : null,
+        runs: pd ? pd.current_runs ?? 0 : 0,
+        fails: pd ? pd.current_fails ?? 0 : 0,
+        sparkline: periodicSparklines[cfg.periodic.prow] || null,
+      };
+    }
+
+
+    return {
+      name: cfg.name,
+      prow: cfg.prow,
+      category: cfg.category,
+      rate: d.current_pass_percentage ?? 0,
+      prev: d.previous_pass_percentage ?? 0,
+      prevRuns: d.previous_runs ?? 0,
+      trend: d.net_improvement ?? null,
+      runs,
+      fails: d.current_fails ?? 0,
+      periodic,
+      sparkline: sparklines[cfg.prow] || null,
+    };
+  });
+
+  const failureRows = (raw.recentFailures && raw.recentFailures.rows) || [];
+  const alerts = failureRows.map(f => {
+    const matching = (f.outputs || []).filter(o => BLOCKING_PROW_NAMES.has(o.prow_job_name));
+    if (matching.length === 0) return null;
+    return {
+      testName: f.test_name,
+      failureCount: matching.length,
+      jobs: [...new Set(matching.map(o => o.prow_job_name).filter(Boolean))]
+        .map(j => j.replace("pull-ci-openshift-hypershift-main-", "")),
+    };
+  }).filter(Boolean);
+
+  return { ts: raw.ts || Date.now(), jobs, alerts };
+}
+
+// --- Alert banner ---
+
+function buildAlertBanner(alerts) {
+  const banner = document.getElementById("alert-banner");
+  if (alerts.length === 0) {
+    banner.style.display = "none";
+    return;
+  }
+  const displayed = alerts.slice(0, 8);
+  banner.style.display = "block";
+  let html = `<h2>${alerts.length} test${alerts.length > 1 ? "s" : ""} newly failing in the last 4 hours</h2><ul>`;
+  for (const a of displayed) {
+    html += `<li><span class="test-name">${esc(a.testName)}</span>`;
+    html += ` <span class="job-names">(${a.failureCount} failure${a.failureCount > 1 ? "s" : ""}`;
+    if (a.jobs.length) html += ` in ${a.jobs.join(", ")}`;
+    html += `)</span></li>`;
+  }
+  if (alerts.length > 8) {
+    html += `<li style="color:var(--text-muted)">… and ${alerts.length - 8} more</li>`;
+  }
+  html += "</ul>";
+  banner.innerHTML = html;
+}
+
+// --- Table rendering ---
+
+function buildTable(jobs) {
+  const sortByRate = (a, b) => {
+    const aSort = a.runs > 0 ? a.rate : 999;
+    const bSort = b.runs > 0 ? b.rate : 999;
+    return aSort - bSort;
+  };
+  const e2e = jobs.filter(j => j.category === "e2e").sort(sortByRate);
+  const build = jobs.filter(j => j.category === "build").sort(sortByRate);
+
+  const win = WINDOWS[activeWindow];
+  let html = `<table>
+    <thead><tr>
+      <th>Job</th>
+      <th>Rate (${activeWindow})</th>
+      <th>Runs</th>
+      <th>Fails</th>
+      <th>${win.sparkLabel}</th>
+    </tr></thead>
+    <tbody>`;
+
+  html += '<tr class="category-row"><td colspan="5">E2E Presubmits</td></tr>';
+  for (const j of e2e) html += buildRow(j);
+
+  html += '<tr class="category-row"><td colspan="5">Build &amp; Lint</td></tr>';
+  for (const j of build) html += buildRow(j);
+
+  html += "</tbody></table>";
+  html += `<div class="sparkline-legend">
+    <span><svg width="8" height="8"><rect width="8" height="8" rx="1" fill="var(--good)"/></svg> ≥80% pass</span>
+    <span><svg width="8" height="8"><rect width="8" height="8" rx="1" fill="var(--warning)"/></svg> 50–80%</span>
+    <span><svg width="8" height="8"><rect width="8" height="8" rx="1" fill="var(--critical)"/></svg> &lt;50%</span>
+    <span><svg width="8" height="8"><rect width="8" height="8" rx="1" fill="var(--gridline)"/></svg> no runs</span>
+  </div>`;
+  return html;
+}
+
+function rateTrendHtml(rate, prev, prevRuns, trend, runs) {
+  if (runs === 0) return '<span class="rate-na">—</span>';
+  const prevTip = prevRuns > 0 ? `prev ${prev.toFixed(1)}%` : "no prev data";
+  return `<div class="rate-cell"><span class="prev-tip">${prevTip}</span><span class="pass-rate ${rateClass(rate, runs)}">${rate.toFixed(1)}%</span> ${trendHtml(trend)}</div>`;
+}
+
+function buildRow(j) {
+  let html = `<tr>
+    <td class="job-name"><span class="status-dot ${statusClass(j.rate, j.runs)}"></span><a href="${sippyJobLink(j.prow, "Presubmits")}" target="_blank">${esc(j.name)}</a></td>
+    <td>${rateTrendHtml(j.rate, j.prev, j.prevRuns, j.trend, j.runs)}</td>
+    <td>${j.runs}</td>
+    <td>${j.fails > 0 ? j.fails : "—"}</td>
+    <td class="sparkline-cell">${buildSparkline(j.sparkline, !j.periodic)}</td>
+  </tr>`;
+
+  if (j.periodic) {
+    const p = j.periodic;
+    const pRate = p.rate != null ? p.rate : 0;
+    const pRuns = p.runs ?? 0;
+    const pPrev = p.prev != null ? p.prev : 0;
+    const pPrevRuns = p.prevRuns ?? 0;
+    const pFails = p.fails ?? 0;
+    html += `<tr class="periodic-row">
+      <td class="job-name periodic-name"><span class="status-dot ${statusClass(pRate, pRuns)}"></span><a class="periodic-link" href="${sippyJobLink(p.prow, p.release)}" target="_blank">${esc(p.name)}</a> <span class="periodic-release">${p.release}</span></td>
+      <td>${rateTrendHtml(pRate, pPrev, pPrevRuns, p.trend, pRuns)}</td>
+      <td>${pRuns}</td>
+      <td>${pFails > 0 ? pFails : "—"}</td>
+      <td class="sparkline-cell">${buildSparkline(p.sparkline)}</td>
+    </tr>`;
+  }
+
+  return html;
+}
+
+// --- Render orchestration ---
+
+function renderDashboard(state) {
+  const dashboard = document.getElementById("dashboard");
+  dashboard.innerHTML = buildTable(state.jobs);
+  buildAlertBanner(state.alerts);
+}
+
+function setStatus(text, cls) {
+  const el = document.getElementById("last-updated");
+  el.textContent = text;
+  el.className = cls || "";
+}
+
+async function fetchAllFreshData() {
+  const [
+    presub7d, per50_7d, per422_7d,
+    presub2d, per50_2d, per422_2d,
+    recentFailures
+  ] = await Promise.all([
+    fetchJson("/api/jobs", { release: "Presubmits", filter: jobFilter("hypershift-main") }),
+    fetchJson("/api/jobs", { release: "5.0", filter: jobFilter("hypershift") }),
+    fetchJson("/api/jobs", { release: "4.22", filter: jobFilter("hypershift") }),
+    fetchJson("/api/jobs", { release: "Presubmits", filter: jobFilter("hypershift-main"), period: "twoDay" }),
+    fetchJson("/api/jobs", { release: "5.0", filter: jobFilter("hypershift"), period: "twoDay" }),
+    fetchJson("/api/jobs", { release: "4.22", filter: jobFilter("hypershift"), period: "twoDay" }),
+    fetchJson("/api/tests/recent_failures", { release: "Presubmits", period: "4h", previousPeriod: "24h", perPage: "50", includeOutputs: "true" }),
+  ]);
+
+  const [jobRuns, jobRuns50, jobRuns422] = await Promise.all([
+    fetchJson("/api/jobs/runs", {
+      release: "Presubmits",
+      filter: jobFilter("hypershift-main"),
+      perPage: "1500",
+      sortField: "timestamp",
+      sort: "desc"
+    }),
+    fetchJson("/api/jobs/runs", {
+      release: "5.0",
+      filter: jobFilter("hypershift"),
+      perPage: "1500",
+      sortField: "timestamp",
+      sort: "desc"
+    }),
+    fetchJson("/api/jobs/runs", {
+      release: "4.22",
+      filter: jobFilter("hypershift"),
+      perPage: "1500",
+      sortField: "timestamp",
+      sort: "desc"
+    }),
+  ]);
+
+  return {
+    windows: {
+      "7d": { presubmits: presub7d, periodic50: per50_7d, periodic422: per422_7d },
+      "2d": { presubmits: presub2d, periodic50: per50_2d, periodic422: per422_2d },
+    },
+    recentFailures,
+    jobRuns,
+    periodicJobRuns: { rows: [...(jobRuns50.rows || []), ...(jobRuns422.rows || [])] },
+  };
+}
+
+function computeAllStates(raw) {
+  const states = {};
+  for (const w of Object.keys(WINDOWS)) {
+    states[w] = transformRawData(raw, w);
+  }
+  return states;
+}
+
+async function loadDashboard(forceRefresh = false) {
+  const gen = ++loadGeneration;
+  const btn = document.getElementById("refresh-btn");
+
+  // Phase 1: render from pre-computed cached state
+  if (!forceRefresh) {
+    const cached = loadFromCache();
+    if (cached && cached.states[activeWindow]) {
+      renderDashboard(cached.states[activeWindow]);
+      setStatus(`Cached ${formatAge(Date.now() - cached.ts)} · refreshing…`, "cache-stale");
+    }
+  }
+
+  // Phase 2: fetch all windows, transform once per window, cache atomically
+  btn.classList.add("spinning");
+  try {
+    const raw = await fetchAllFreshData();
+    if (gen !== loadGeneration) return;
+    const states = computeAllStates(raw);
+    saveToCache(states);
+    renderDashboard(states[activeWindow]);
+    setStatus(`Updated ${new Date().toLocaleTimeString()}`, "cache-fresh");
+  } catch (err) {
+    if (gen !== loadGeneration) return;
+    console.error("Dashboard refresh failed:", err);
+    const cached = loadFromCache();
+    if (cached && cached.states[activeWindow]) {
+      setStatus(`Refresh failed · cached ${formatAge(Date.now() - cached.ts)}`, "cache-error");
+    } else {
+      document.getElementById("dashboard").innerHTML =
+        `<div class="loading" style="color:var(--critical)">Failed to load: ${esc(err.message)}</div>`;
+    }
+  } finally {
+    if (gen === loadGeneration) btn.classList.remove("spinning");
+  }
+}
+
+function setActiveWindow(w) {
+  activeWindow = w;
+  localStorage.setItem("sippy_window", w);
+  document.querySelectorAll("#window-toggle button").forEach(b => {
+    b.classList.toggle("active", b.dataset.window === w);
+  });
+  const cached = loadFromCache();
+  if (cached && cached.states[w]) {
+    renderDashboard(cached.states[w]);
+    setStatus(`Cached ${formatAge(Date.now() - cached.ts)}`, "cache-stale");
+  } else {
+    loadDashboard();
+  }
+}
+
+document.querySelectorAll("#window-toggle button").forEach(b => {
+  b.classList.toggle("active", b.dataset.window === activeWindow);
+});
+loadDashboard();
+setInterval(() => loadDashboard(), 5 * 60 * 1000);
+</script>
+</body>
+</html>
