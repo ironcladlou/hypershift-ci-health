@@ -1,0 +1,13 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: ci-health
+  namespace: ci-health
+  labels:
+    app: ci-health
+spec:
+  selector:
+    app: ci-health
+  ports:
+    - port: 8080
+      targetPort: 8080

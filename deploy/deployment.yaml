@@ -1,0 +1,31 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ci-health
+  namespace: ci-health
+  labels:
+    app: ci-health
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: ci-health
+  template:
+    metadata:
+      labels:
+        app: ci-health
+    spec:
+      containers:
+        - name: nginx
+          image: registry.redhat.io/ubi9/nginx-126:latest
+          command: ["/usr/libexec/s2i/run"]
+          ports:
+            - containerPort: 8080
+          volumeMounts:
+            - name: html
+              mountPath: /opt/app-root/src
+              readOnly: true
+      volumes:
+        - name: html
+          configMap:
+            name: ci-health-html

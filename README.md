@@ -2,23 +2,6 @@
 
 A single-page dashboard that surfaces the health of hypershift's merge-blocking presubmit jobs by consuming [Sippy's](https://sippy.dptools.openshift.org) API.
 
-## Problem
-
-The hypershift repo has ~15 presubmit jobs that block merges to main. Today there's no single view that shows:
-
-- All blocking jobs and their current pass rates
-- Each presubmit correlated with its periodic counterpart (which may be in a different Sippy release)
-- Acute signals: sudden pass rate drops, newly failing tests
-
-Sippy has all the underlying data, but you have to navigate between the Presubmits, 5.0, and 4.22 releases manually and know which jobs to look for.
-
-## What this adds over Sippy
-
-1. **Blocking job config** — static mapping of which jobs gate merges (derived from Prow config)
-2. **Presubmit-to-periodic mapping** — static config correlating each presubmit with its periodic counterpart across Sippy releases
-3. **A single curated view** — one table with pass rates, trends, sparklines, and an alert banner for newly failing tests
-4. **Time window selector** — 2d/7d toggle that aligns pass rates, sparklines, and periodic rates to the same window
-
 ## Running
 
 ```bash
@@ -26,39 +9,40 @@ python3 -m http.server 8080
 open http://localhost:8080
 ```
 
-## Design principles
+## What it shows
 
-**Single file, no build step.** The entire app is one `index.html` — HTML, CSS, JS. No framework, no bundler, no backend. Serve it with any static file server.
+- **Blocking job table** — all 11 e2e presubmit jobs that gate merges, sorted by pass rate
+- **Presubmit-to-periodic pairing** — each presubmit is paired with its periodic counterpart (across Sippy releases 5.0 and 4.22) as a sub-row
+- **Fail rate charts** — per-slot error rate line chart for each job (Chart.js), presubmit in blue, periodic in orange
+- **Sparkline bars** — per-slot pass/fail colored bars with correlation markers (orange ticks above presubmit sparklines when the periodic also fails in that slot)
+- **Flake badges** — periodic jobs with flaky runs link to Sippy drill-downs
+- **Alert banner** — tests newly failing in the last 4 hours across blocking jobs
+- **Time window toggle** — 2d/7d switch; re-renders from pre-computed state with no network round-trip
 
-**Fetch max, narrow client-side.** All data for the widest time window (7d default + 2d via Sippy's `period=twoDay`) is fetched in one batch of parallel API calls. Switching the time window is a pure client-side re-read of pre-computed state — no network round-trip.
+## Design
 
-**Raw cache, computed state, clean boundary.** Raw Sippy API responses are cached in `localStorage` alongside pre-computed dashboard state for each time window. A single `localStorage.setItem` replaces both atomically on refresh. The UI only reads pre-computed state; rendering functions never touch raw API data.
+**Single file, no build step.** The entire app is one `index.html` — HTML, CSS, JS, plus Chart.js from CDN. No framework, no bundler, no backend.
 
-**Stale-while-revalidate.** On page load, the dashboard renders instantly from cached state, then fetches fresh data in the background. A generation counter prevents stale in-flight fetches from overwriting after a window switch.
+**Stale-while-revalidate cache.** On page load, renders instantly from `localStorage` cached pre-computed state, then fetches fresh data in the background. Only pre-computed states are cached (not raw API data) to stay within `localStorage` size limits. Auto-refreshes every 5 minutes.
 
-**Static config over dynamic discovery.** Which jobs block merges, which presubmit maps to which periodic, and which Sippy release each lives in — all hardcoded. These change rarely and are not discoverable from Sippy's API alone.
+**Static config over dynamic discovery.** Which jobs block merges, which presubmit maps to which periodic, and which Sippy release each lives in — all hardcoded in `BLOCKING_JOBS`. These change rarely and are not discoverable from Sippy's API alone.
 
 ## Architecture
 
 ```
 Sippy API ──fetch──▶ raw responses ──transform──▶ per-window state
-                          │                            │
-                          └──── localStorage ──────────┘
-                                (atomic write)
-                                      │
-                          UI reads pre-computed state
+                                                       │
+                                               localStorage cache
+                                               (pre-computed only)
+                                                       │
+                                              UI reads cached state
 ```
 
-- `fetchAllFreshData()` — 8 parallel API calls: 3 releases × 2 windows + recent failures + job runs
-- `transformRawData(raw, windowKey)` — extracts job stats, correlates periodics, buckets sparklines, filters alerts
+- `fetchAllFreshData()` — 10 parallel API calls: 3 releases × 2 windows + recent failures + 3 job-run queries
+- `transformRawData(raw, windowKey)` — extracts job stats, correlates periodics, buckets sparklines, computes correlation, counts flakes, filters alerts
 - `computeAllStates(raw)` — runs the transform for each window
-- `saveToCache(raw, states)` — one atomic `localStorage` write
-- `renderDashboard(state)` — reads only the pre-computed state for the active window
-
-## Development tools
-
-- `sippy_explore.py` — CLI utility for exploring Sippy API endpoints. Run with no args for usage.
-- `screenshot.sh` — Captures a screenshot and HTML dump via headless Chrome for visual debugging.
+- `saveToCache(states)` — one atomic `localStorage` write (pre-computed states only)
+- `renderDashboard(state)` — reads pre-computed state for the active window, builds table HTML, initializes Chart.js charts
 
 ## Presubmit-to-periodic mapping
 
@@ -71,10 +55,10 @@ Sippy API ──fetch──▶ raw responses ──transform──▶ per-window
 | e2e-v2-gke | e2e-v2-gke | 5.0 |
 | e2e-aws-4-22 | e2e-aws-ovn | 4.22 |
 | e2e-aks-4-22 | e2e-aks | 4.22 |
-| e2e-kubevirt-aws-ovn-reduced | e2e-kubevirt-aws-ovn-csi (approximate) | 4.22 |
+| e2e-kubevirt-aws-ovn-reduced | e2e-kubevirt-aws-ovn-csi | 4.22 |
 | e2e-v2-aws | none | — |
-| e2e-aws-override | none (trigger-scoped) | — |
-| e2e-aks-override | none (trigger-scoped) | — |
+| e2e-aws-override | none | — |
+| e2e-aks-override | none | — |
 
 ## Sippy API endpoints used
 
@@ -82,13 +66,10 @@ Sippy API ──fetch──▶ raw responses ──transform──▶ per-window
 |----------|---------|
 | `/api/jobs?release=Presubmits` | Presubmit pass rates (7d default, 2d via `period=twoDay`) |
 | `/api/jobs?release={5.0,4.22}` | Periodic counterpart pass rates |
-| `/api/jobs/runs?release=Presubmits` | Individual job runs for sparkline bucketing (1500 most recent) |
-| `/api/tests/recent_failures?release=Presubmits&period=4h&previousPeriod=24h` | Newly failing tests for the alert banner |
+| `/api/jobs/runs?release=Presubmits` | Presubmit job runs for sparkline bucketing (1500 most recent) |
+| `/api/jobs/runs?release={5.0,4.22}` | Periodic job runs for sparklines, flake counting, and correlation analysis |
+| `/api/tests/recent_failures?release=Presubmits` | Newly failing tests for the alert banner |
 
-## Related projects
+## Development tools
 
-| Path | What |
-|------|------|
-| `~/Projects/sippy` | Sippy source — API handlers in `pkg/api/`, routes in `pkg/sippyserver/server.go` |
-| `~/Projects/openshift-release/ci-operator/jobs/openshift/hypershift/` | Prow job configs (which jobs block merges) |
-| `~/Projects/openshift-release/ci-operator/config/openshift/hypershift/` | CI operator test definitions (presubmit and periodic configs) |
+- `screenshot.sh` — captures a screenshot and HTML dump via headless Chrome for visual debugging
