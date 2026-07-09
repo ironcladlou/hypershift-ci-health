@@ -580,7 +580,7 @@ function extractErrorRates(sparklineData) {
       rates.push(null);
     } else {
       const passRate = ((slot.result_count && slot.result_count.S) || 0) / slot.total_runs * 100;
-      rates.push(+(100 - passRate).toFixed(1));
+      rates.push(+passRate.toFixed(1));
     }
   }
   return { rates, labels };
@@ -596,7 +596,7 @@ function externalRateTooltip(context) {
   const lines = [];
   if (tooltip.title && tooltip.title[0]) lines.push(tooltip.title[0]);
   for (const dp of (tooltip.dataPoints || [])) {
-    if (dp.parsed.y != null) lines.push(`${dp.parsed.y.toFixed(1)}% fail`);
+    if (dp.parsed.y != null) lines.push(`${dp.parsed.y.toFixed(1)}% pass`);
   }
   tip.innerHTML = lines.join('<br>');
   const canvasRect = context.chart.canvas.getBoundingClientRect();
@@ -814,7 +814,7 @@ function buildTable(jobs) {
   let html = `<table>
     <thead><tr>
       <th>Job</th>
-      <th>Fail Rate</th>
+      <th>Pass Rate</th>
       <th>${win.sparkLabel}</th>
     </tr></thead>
     <tbody>`;

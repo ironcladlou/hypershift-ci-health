@@ -2,7 +2,21 @@
 
 A single-page dashboard that surfaces the health of hypershift's merge-blocking presubmit jobs by consuming [Sippy's](https://sippy.dptools.openshift.org) API.
 
-## Running
+## Deployment
+
+Deployed on the `hypershift-ci-2` cluster in the `ci-health` namespace using nginx + a ConfigMap.
+
+Live at: https://hypershift-ci-health.apps.rosa.hypershift-ci-2.1xls.p3.openshiftapps.com/
+
+To deploy or update after editing `index.html`:
+
+```bash
+./deploy.sh
+```
+
+Requires `KUBECONFIG` set in the environment and `oc` logged in.
+
+## Local development
 
 ```bash
 python3 -m http.server 8080
