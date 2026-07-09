@@ -211,7 +211,9 @@ tr:has(+ .periodic-row) td { border-bottom: none; }
 
 .sparkline-cell { padding: 4px 4px; }
 .rate-chart-cell { padding: 4px 8px; vertical-align: middle; }
-.rate-chart-cell canvas { display: block; }
+.rate-chart-inner { display: flex; align-items: center; gap: 6px; white-space: nowrap; }
+.rate-chart-inner canvas { display: block; flex-shrink: 0; }
+.rate-delta { font-size: 12px; }
 .sparkline-legend {
   font-size: 11px;
   color: var(--text-muted);
@@ -432,6 +434,14 @@ function trendHtml(improvement) {
   if (improvement > 1) return `<span class="trend-up">▲ +${val}</span>`;
   if (improvement < -1) return `<span class="trend-down">▼ ${val}</span>`;
   return `<span class="trend-flat">— ${val}</span>`;
+}
+
+function rateDeltaHtml(rate, prev, prevRuns, trend, runs, fails) {
+  if (runs === 0) return '';
+  const lines = [];
+  lines.push(`${rate.toFixed(1)}% pass (${runs} runs, ${fails} fails)`);
+  lines.push(prevRuns > 0 ? `prev ${prev.toFixed(1)}%` : "no prev data");
+  return `<span class="rate-delta has-tip"><span class="tip">${lines.join("<br>")}</span>${trendHtml(trend)}</span>`;
 }
 
 function formatAge(ms) {
@@ -841,7 +851,7 @@ function buildRow(j) {
 
   let html = `<tr>
     <td class="job-name"><span class="status-dot ${statusClass(j.rate, j.runs)}"></span><a href="${sippyJobLink(j.prow, "Presubmits")}" target="_blank">${esc(j.name)}</a><span class="job-type">presubmit</span></td>
-    <td class="rate-chart-cell"><canvas id="${preChartId}" width="140" height="28"></canvas></td>
+    <td class="rate-chart-cell"><div class="rate-chart-inner"><canvas id="${preChartId}" width="140" height="28"></canvas>${rateDeltaHtml(j.rate, j.prev, j.prevRuns, j.trend, j.runs, j.fails)}</div></td>
     <td class="sparkline-cell">${buildSparkline(j.sparkline, !j.periodic, j.correlation ? j.correlation.indices : null)}</td>
   </tr>`;
 
@@ -859,7 +869,7 @@ function buildRow(j) {
     });
     html += `<tr class="periodic-row">
       <td class="job-name periodic-name"><span class="status-dot ${statusClass(pRate, pRuns)}"></span><a class="periodic-link" href="${sippyJobLink(p.prow, p.release)}" target="_blank">${esc(p.name)}</a><span class="job-type">periodic ${p.release}</span>${p.flakyRuns > 0 ? `<a class="flake-badge has-tip" href="${sippyJobRunsLink(p.prow, p.release)}" target="_blank"><span class="tip">${p.flakyRuns} of ${p.totalRuns} runs had flakes</span>⚡${p.flakyRuns} flaky</a>` : ""}</td>
-      <td class="rate-chart-cell"><canvas id="${perChartId}" width="140" height="28"></canvas></td>
+      <td class="rate-chart-cell"><div class="rate-chart-inner"><canvas id="${perChartId}" width="140" height="28"></canvas>${rateDeltaHtml(pRate, p.prev != null ? p.prev : 0, p.prevRuns ?? 0, p.trend, pRuns, p.fails ?? 0)}</div></td>
       <td class="sparkline-cell">${buildSparkline(p.sparkline)}</td>
     </tr>`;
   }
