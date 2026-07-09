@@ -20,6 +20,7 @@
   --delta-good: #006300;
   --delta-bad: #d03b3b;
   --series-1: #2a78d6;
+  --series-2: #eb6834;
 }
 @media (prefers-color-scheme: dark) {
   :root {
@@ -37,6 +38,7 @@
     --delta-good: #0ca30c;
     --delta-bad: #e66767;
     --series-1: #3987e5;
+    --series-2: #d95926;
   }
 }
 * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -207,6 +209,8 @@ tr:has(+ .periodic-row) td { border-bottom: none; }
 }
 
 .sparkline-cell { padding: 4px 4px; }
+.rate-chart-cell { padding: 4px 8px; vertical-align: middle; }
+.rate-chart-cell canvas { display: block; }
 .sparkline-legend {
   font-size: 11px;
   color: var(--text-muted);
@@ -288,6 +292,8 @@ tr:has(+ .periodic-row) td { border-bottom: none; }
 <div id="dashboard">
   <div class="loading" id="loading">Loading data from Sippy…</div>
 </div>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
+<div id="rate-tip" style="position:fixed;display:none;pointer-events:none;z-index:100;background:var(--text-primary);color:var(--surface);font-size:11px;font-weight:400;padding:2px 6px;border-radius:3px;white-space:nowrap"></div>
 <div id="spark-tip" style="position:fixed;display:none;pointer-events:none;z-index:100;background:var(--text-primary);color:var(--surface);font-size:11px;font-weight:400;padding:2px 6px;border-radius:3px;white-space:nowrap"></div>
 
 <script>
@@ -542,6 +548,101 @@ function bucketJobRuns(jobRuns, slotHours, totalSlots) {
   return hourlyData;
 }
 
+function extractErrorRates(sparklineData) {
+  if (!sparklineData) return null;
+  const win = WINDOWS[activeWindow];
+  const now = new Date();
+  const rates = [];
+  const labels = [];
+  for (let i = win.sparkSlots - 1; i >= 0; i--) {
+    const t = new Date(now);
+    t.setMinutes(0, 0, 0);
+    const slotBase = Math.floor(t.getHours() / win.sparkSlotHours) * win.sparkSlotHours;
+    t.setHours(slotBase - i * win.sparkSlotHours);
+    const key = t.getFullYear() + "-" +
+      String(t.getMonth() + 1).padStart(2, "0") + "-" +
+      String(t.getDate()).padStart(2, "0") + " " +
+      String(t.getHours()).padStart(2, "0") + ":00";
+    labels.push(`${t.getMonth()+1}/${t.getDate()} ${String(t.getHours()).padStart(2,'0')}:00`);
+    const slot = sparklineData[key];
+    if (!slot || slot.total_runs === 0) {
+      rates.push(null);
+    } else {
+      const passRate = ((slot.result_count && slot.result_count.S) || 0) / slot.total_runs * 100;
+      rates.push(+(100 - passRate).toFixed(1));
+    }
+  }
+  return { rates, labels };
+}
+
+let pendingCharts = [];
+
+function externalRateTooltip(context) {
+  const tip = document.getElementById('rate-tip');
+  if (!tip) return;
+  const { tooltip } = context;
+  if (tooltip.opacity === 0) { tip.style.display = 'none'; return; }
+  const lines = [];
+  if (tooltip.title && tooltip.title[0]) lines.push(tooltip.title[0]);
+  for (const dp of (tooltip.dataPoints || [])) {
+    if (dp.parsed.y != null) lines.push(`${dp.parsed.y.toFixed(1)}% fail`);
+  }
+  tip.innerHTML = lines.join('<br>');
+  const canvasRect = context.chart.canvas.getBoundingClientRect();
+  tip.style.display = 'block';
+  tip.style.left = (canvasRect.left + tooltip.caretX) + 'px';
+  tip.style.top = (canvasRect.top - 28) + 'px';
+}
+
+function initRateCharts() {
+  if (typeof Chart === 'undefined') return;
+  const style = getComputedStyle(document.documentElement);
+  const preColor = style.getPropertyValue('--series-1').trim() || '#2a78d6';
+  const perColor = style.getPropertyValue('--series-2').trim() || '#eb6834';
+  for (const { id, rates, labels, color } of pendingCharts) {
+    const canvas = document.getElementById(id);
+    if (!canvas) continue;
+    const lineColor = color === 'per' ? perColor : preColor;
+    new Chart(canvas, {
+      type: 'line',
+      data: {
+        labels,
+        datasets: [{
+          data: rates,
+          borderColor: lineColor,
+          borderWidth: 1.5,
+          pointRadius: 0,
+          pointHitRadius: 8,
+          tension: 0.3,
+          fill: true,
+          backgroundColor: lineColor + '14',
+          spanGaps: true,
+        }],
+      },
+      options: {
+        responsive: false,
+        animation: false,
+        plugins: {
+          legend: { display: false },
+          tooltip: {
+            enabled: false,
+            mode: 'index',
+            intersect: false,
+            external: externalRateTooltip,
+          },
+        },
+        layout: { padding: { top: 2 } },
+        scales: {
+          x: { display: false },
+          y: { display: false, min: 0, max: 100 },
+        },
+        interaction: { mode: 'index', intersect: false },
+      },
+    });
+  }
+  pendingCharts = [];
+}
+
 // --- Transform layer ---
 
 const BLOCKING_PROW_NAMES = new Set(BLOCKING_JOBS.map(j => j.prow));
@@ -702,7 +803,7 @@ function buildTable(jobs) {
   let html = `<table>
     <thead><tr>
       <th>Job</th>
-      <th>Rate (${activeWindow})</th>
+      <th>Fail Rate</th>
       <th>${win.sparkLabel}</th>
     </tr></thead>
     <tbody>`;
@@ -728,9 +829,18 @@ function rateTrendHtml(rate, prev, prevRuns, trend, runs, fails) {
 }
 
 function buildRow(j) {
+  const preChartId = `rate-${j.prow.replace(/[^a-z0-9]/gi, '-')}`;
+  const pre = extractErrorRates(j.sparkline);
+  pendingCharts.push({
+    id: preChartId,
+    rates: pre ? pre.rates : [],
+    labels: pre ? pre.labels : [],
+    color: 'pre',
+  });
+
   let html = `<tr>
     <td class="job-name"><span class="status-dot ${statusClass(j.rate, j.runs)}"></span><a href="${sippyJobLink(j.prow, "Presubmits")}" target="_blank">${esc(j.name)}</a><span class="job-type">presubmit</span></td>
-    <td>${rateTrendHtml(j.rate, j.prev, j.prevRuns, j.trend, j.runs, j.fails)}</td>
+    <td class="rate-chart-cell"><canvas id="${preChartId}" width="140" height="28"></canvas></td>
     <td class="sparkline-cell">${buildSparkline(j.sparkline, !j.periodic, j.correlation ? j.correlation.indices : null)}</td>
   </tr>`;
 
@@ -738,12 +848,17 @@ function buildRow(j) {
     const p = j.periodic;
     const pRate = p.rate != null ? p.rate : 0;
     const pRuns = p.runs ?? 0;
-    const pPrev = p.prev != null ? p.prev : 0;
-    const pPrevRuns = p.prevRuns ?? 0;
-    const pFails = p.fails ?? 0;
+    const perChartId = `rate-${p.prow.replace(/[^a-z0-9]/gi, '-')}`;
+    const per = extractErrorRates(p.sparkline);
+    pendingCharts.push({
+      id: perChartId,
+      rates: per ? per.rates : [],
+      labels: per ? per.labels : [],
+      color: 'per',
+    });
     html += `<tr class="periodic-row">
       <td class="job-name periodic-name"><span class="status-dot ${statusClass(pRate, pRuns)}"></span><a class="periodic-link" href="${sippyJobLink(p.prow, p.release)}" target="_blank">${esc(p.name)}</a><span class="job-type">periodic ${p.release}</span>${p.flakyRuns > 0 ? `<a class="flake-badge has-tip" href="${sippyJobRunsLink(p.prow, p.release)}" target="_blank"><span class="tip">${p.flakyRuns} of ${p.totalRuns} runs had flakes</span>⚡${p.flakyRuns} flaky</a>` : ""}</td>
-      <td>${rateTrendHtml(pRate, pPrev, pPrevRuns, p.trend, pRuns, pFails)}</td>
+      <td class="rate-chart-cell"><canvas id="${perChartId}" width="140" height="28"></canvas></td>
       <td class="sparkline-cell">${buildSparkline(p.sparkline)}</td>
     </tr>`;
   }
@@ -754,9 +869,17 @@ function buildRow(j) {
 // --- Render orchestration ---
 
 function renderDashboard(state) {
+  pendingCharts = [];
   const dashboard = document.getElementById("dashboard");
+  if (typeof Chart !== 'undefined') {
+    dashboard.querySelectorAll('canvas').forEach(c => {
+      const chart = Chart.getChart(c);
+      if (chart) chart.destroy();
+    });
+  }
   dashboard.innerHTML = buildTable(state.jobs);
   buildAlertBanner(state.alerts);
+  initRateCharts();
 }
 
 function setStatus(text, cls) {
