@@ -1,8 +1,15 @@
-package main
+package collector
 
 import (
+	"context"
+	"fmt"
+	"net/http"
+	"os"
 	"sort"
 	"time"
+
+	awsconfig "github.com/aws/aws-sdk-go-v2/config"
+	"github.com/aws/aws-sdk-go-v2/service/resourcegroupstaggingapi"
 )
 
 type JobState string
@@ -47,6 +54,30 @@ type GraphSummary struct {
 	UnknownResources  int `json:"unknownResources"`
 	TotalJobs         int `json:"totalJobs"`
 	TotalResources    int `json:"totalResources"`
+}
+
+type APIResponse struct {
+	GeneratedAt string       `json:"generatedAt"`
+	Summary     GraphSummary `json:"summary"`
+	Jobs        []*JobNode   `json:"jobs"`
+}
+
+type Config struct {
+	Regions []string
+	JobID   string
+}
+
+var defaultRegions = []string{
+	"us-east-1",
+	"us-east-2",
+	"us-west-1",
+	"us-west-2",
+}
+
+func DefaultConfig() Config {
+	return Config{
+		Regions: defaultRegions,
+	}
 }
 
 func (g *ResourceGraph) Orphans() []*JobNode {
@@ -119,26 +150,36 @@ func (g *ResourceGraph) Sort() {
 	})
 }
 
-type APIResponse struct {
-	GeneratedAt string       `json:"generatedAt"`
-	Summary     GraphSummary `json:"summary"`
-	Jobs        []*JobNode   `json:"jobs"`
-}
+func Collect(ctx context.Context, cfg Config) (*APIResponse, error) {
+	httpClient := &http.Client{Timeout: 10 * time.Second}
 
-type Config struct {
-	Regions []string
-	JobID   string
-}
+	graph := &ResourceGraph{}
+	for _, region := range cfg.Regions {
+		awsCfg, err := awsconfig.LoadDefaultConfig(ctx, awsconfig.WithRegion(region))
+		if err != nil {
+			return nil, fmt.Errorf("loading AWS config for %s: %w", region, err)
+		}
 
-var defaultRegions = []string{
-	"us-east-1",
-	"us-east-2",
-	"us-west-1",
-	"us-west-2",
-}
+		taggingClient := resourcegroupstaggingapi.NewFromConfig(awsCfg)
 
-func DefaultConfig() Config {
-	return Config{
-		Regions: defaultRegions,
+		fmt.Fprintf(os.Stderr, "Discovering tagged resources in %s...\n", region)
+		regionGraph, err := Discover(ctx, taggingClient, cfg.JobID)
+		if err != nil {
+			return nil, fmt.Errorf("discovery failed in %s: %w", region, err)
+		}
+
+		graph.Merge(regionGraph)
 	}
+
+	if len(graph.Jobs) > 0 {
+		fmt.Fprintf(os.Stderr, "Checking %d prow job(s) for terminal state...\n", len(graph.Jobs))
+		CheckProwJobs(ctx, httpClient, graph)
+		graph.Sort()
+	}
+
+	return &APIResponse{
+		GeneratedAt: time.Now().UTC().Format(time.RFC3339),
+		Summary:     graph.Summary(),
+		Jobs:        graph.Jobs,
+	}, nil
 }

@@ -1,4 +1,4 @@
-package main
+package setup
 
 import (
 	"bytes"
@@ -17,7 +17,6 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/iam"
 	iamtypes "github.com/aws/aws-sdk-go-v2/service/iam/types"
 	"github.com/aws/aws-sdk-go-v2/service/sts"
-	"github.com/spf13/cobra"
 )
 
 const (
@@ -44,64 +43,7 @@ var managedTags = []iamtypes.Tag{
 	{Key: aws.String(tagPurpose), Value: aws.String(tagValuePurpose)},
 }
 
-func setupCmd() *cobra.Command {
-	var (
-		oidcProviderARN string
-		namespace       string
-		serviceAccount  string
-		dryRun          bool
-	)
-
-	cmd := &cobra.Command{
-		Use:   "setup",
-		Short: "Provision IAM role and cluster-specific Kustomize patches",
-		Long: `Idempotently provisions everything needed for in-cluster deployment:
-
-IAM: Creates (or updates) the IAM role and inline policy for IRSA-based
-AWS access. The OIDC provider is auto-discovered from the current
-kubeconfig's cluster unless --oidc-provider-arn is set. The AWS account
-ID is auto-detected via sts:GetCallerIdentity. Resources use deterministic
-names and are tagged for positive identification:
-  Role:   hypershift-ci-aws-resources  (path /hypershift-ci/)
-  Policy: orphan-resource-discovery    (inline on the role)
-
-Route: Discovers the cluster's ingress domain and writes a Kustomize
-patch with the route hostname.
-
-Both patches are gitignored. This command is safe to re-run.`,
-		RunE: func(cmd *cobra.Command, args []string) error {
-			return runSetup(cmd.Context(), oidcProviderARN, namespace, serviceAccount, dryRun)
-		},
-	}
-
-	cmd.Flags().StringVar(&oidcProviderARN, "oidc-provider-arn", "", "OIDC provider ARN (auto-discovered from cluster if omitted)")
-	cmd.Flags().StringVar(&namespace, "namespace", "ci-health-aws-resources", "Kubernetes namespace for the trust policy")
-	cmd.Flags().StringVar(&serviceAccount, "service-account", "aws-resources", "Kubernetes ServiceAccount name for the trust policy")
-	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "Print what would be done without making changes")
-
-	return cmd
-}
-
-func teardownCmd() *cobra.Command {
-	var dryRun bool
-
-	cmd := &cobra.Command{
-		Use:   "teardown",
-		Short: "Remove IAM role and generated patch files",
-		Long: `Removes the IAM role, inline policy, and generated Kustomize patch
-files created by the setup command. Refuses to delete the IAM role if its
-tags don't match (prevents accidental deletion of unrelated roles).`,
-		RunE: func(cmd *cobra.Command, args []string) error {
-			return runTeardown(cmd.Context(), dryRun)
-		},
-	}
-
-	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "Print what would be done without making changes")
-
-	return cmd
-}
-
-func runSetup(ctx context.Context, oidcProviderARN, namespace, serviceAccount string, dryRun bool) error {
+func RunSetup(ctx context.Context, oidcProviderARN, namespace, serviceAccount string, dryRun bool) error {
 	awsCfg, err := awsconfig.LoadDefaultConfig(ctx)
 	if err != nil {
 		return fmt.Errorf("loading AWS config: %w", err)
@@ -189,7 +131,7 @@ func runSetup(ctx context.Context, oidcProviderARN, namespace, serviceAccount st
 	return nil
 }
 
-func runTeardown(ctx context.Context, dryRun bool) error {
+func RunTeardown(ctx context.Context, dryRun bool) error {
 	awsCfg, err := awsconfig.LoadDefaultConfig(ctx)
 	if err != nil {
 		return fmt.Errorf("loading AWS config: %w", err)
@@ -276,7 +218,6 @@ func discoverOIDCProvider(ctx context.Context, iamClient *iam.Client, accountID 
 
 	providerARN := fmt.Sprintf("arn:aws:iam::%s:oidc-provider/%s", accountID, provider)
 
-	// Verify the provider exists in IAM
 	if _, err := iamClient.GetOpenIDConnectProvider(ctx, &iam.GetOpenIDConnectProviderInput{
 		OpenIDConnectProviderArn: aws.String(providerARN),
 	}); err != nil {

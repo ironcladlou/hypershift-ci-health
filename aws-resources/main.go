@@ -4,18 +4,17 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"net/http"
 	"os"
 	"os/exec"
 	"os/signal"
 	"runtime"
 	"strings"
-	"sync"
 	"syscall"
 	"time"
 
-	awsconfig "github.com/aws/aws-sdk-go-v2/config"
-	"github.com/aws/aws-sdk-go-v2/service/resourcegroupstaggingapi"
+	"github.com/dmace/hypershift-ci-health/aws-resources/collector"
+	"github.com/dmace/hypershift-ci-health/aws-resources/server"
+	"github.com/dmace/hypershift-ci-health/aws-resources/setup"
 	"github.com/spf13/cobra"
 )
 
@@ -29,24 +28,21 @@ and identifies orphaned resources (those whose Prow job has terminated).
 
 Subcommands:
   collect    Discover resources and check Prow status, write JSON data file
-  render     Read a JSON data file and output table, json, or html
-  serve      Serve the dashboard (static or with live collection)
+  serve      Serve the dashboard with periodic collection or from a data file
   setup      Provision IAM role and cluster-specific Kustomize patches
   teardown   Remove IAM role and generated patch files
 
 Examples:
   aws-resources collect
   aws-resources collect --regions us-east-1 --output snapshot.json
-  aws-resources render --format html > index.html
-  aws-resources serve                          # static file server
-  aws-resources serve --collect                # live collection mode
-  aws-resources serve --collect --interval 15m
+  aws-resources serve
+  aws-resources serve --interval 15m
+  aws-resources serve --data-file data.json
   aws-resources setup --dry-run
   aws-resources teardown`,
 	}
 
 	rootCmd.AddCommand(collectCmd())
-	rootCmd.AddCommand(renderCmd())
 	rootCmd.AddCommand(serveCmd())
 	rootCmd.AddCommand(setupCmd())
 	rootCmd.AddCommand(teardownCmd())
@@ -65,7 +61,7 @@ Examples:
 }
 
 func collectCmd() *cobra.Command {
-	cfg := DefaultConfig()
+	cfg := collector.DefaultConfig()
 	var regionsFlag, outputFile string
 
 	cmd := &cobra.Command{
@@ -75,7 +71,30 @@ func collectCmd() *cobra.Command {
 			if regionsFlag != "" {
 				cfg.Regions = strings.Split(regionsFlag, ",")
 			}
-			return runCollect(cmd.Context(), cfg, outputFile)
+
+			resp, err := collector.Collect(cmd.Context(), cfg)
+			if err != nil {
+				return err
+			}
+
+			if len(resp.Jobs) == 0 {
+				fmt.Fprintln(os.Stderr, "No resources found with prow-job-id tags.")
+			}
+
+			f, err := os.Create(outputFile)
+			if err != nil {
+				return fmt.Errorf("creating output file: %w", err)
+			}
+			defer f.Close()
+
+			enc := json.NewEncoder(f)
+			enc.SetIndent("", "  ")
+			if err := enc.Encode(resp); err != nil {
+				return fmt.Errorf("writing JSON: %w", err)
+			}
+
+			fmt.Fprintf(os.Stderr, "Wrote %s\n", outputFile)
+			return nil
 		},
 	}
 
@@ -86,235 +105,101 @@ func collectCmd() *cobra.Command {
 	return cmd
 }
 
-func renderCmd() *cobra.Command {
-	var inputFile, format string
-
-	cmd := &cobra.Command{
-		Use:   "render",
-		Short: "Render a report from a previously collected JSON data file",
-		RunE: func(cmd *cobra.Command, args []string) error {
-			return runRender(inputFile, format)
-		},
-	}
-
-	cmd.Flags().StringVar(&inputFile, "input", "data.json", "Input JSON data file")
-	cmd.Flags().StringVar(&format, "format", "table", "Output format: table, json, or html")
-
-	return cmd
-}
-
 func serveCmd() *cobra.Command {
-	cfg := DefaultConfig()
-	var regionsFlag, addr string
+	cfg := collector.DefaultConfig()
+	var regionsFlag, addr, dataFile string
 	var interval time.Duration
-	var collect bool
 
 	cmd := &cobra.Command{
 		Use:   "serve",
-		Short: "Serve the dashboard, optionally with periodic collection",
-		Long: `Serves the HTML dashboard and data API. With --collect, periodically
+		Short: "Serve the dashboard with periodic collection or from a data file",
+		Long: `Serves the HTML dashboard and data API. By default, periodically
 discovers AWS resources and refreshes the in-memory data store.
 
-Without --collect, serves static files from the current directory
-(for local development).`,
+With --data-file, serves data from a pre-collected JSON file instead.`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if regionsFlag != "" {
 				cfg.Regions = strings.Split(regionsFlag, ",")
 			}
-			if collect {
-				return runLiveServe(cmd.Context(), cfg, addr, interval)
+
+			var provider server.DataProvider
+			if dataFile != "" {
+				provider = server.NewFileProvider(dataFile)
+				fmt.Fprintf(os.Stderr, "Serving data from %s\n", dataFile)
+				openBrowser("http://localhost" + addr)
+			} else {
+				provider = server.NewLiveProvider(cmd.Context(), cfg, interval)
+				fmt.Fprintf(os.Stderr, "Collecting every %s\n", interval)
 			}
-			return runStaticServe(cmd.Context(), ".", addr)
+
+			return server.Run(cmd.Context(), addr, provider)
 		},
 	}
 
 	cmd.Flags().StringVar(&addr, "addr", ":8080", "Listen address")
-	cmd.Flags().BoolVar(&collect, "collect", false, "Enable periodic AWS resource collection")
-	cmd.Flags().DurationVar(&interval, "interval", 30*time.Minute, "Collection interval (with --collect)")
+	cmd.Flags().DurationVar(&interval, "interval", 30*time.Minute, "Collection interval")
 	cmd.Flags().StringVar(&regionsFlag, "regions", "", "Comma-separated AWS regions (default: all US regions)")
 	cmd.Flags().StringVar(&cfg.JobID, "job-id", "", "Filter to a specific prow job ID")
+	cmd.Flags().StringVar(&dataFile, "data-file", "", "Serve data from a JSON file instead of collecting")
 
 	return cmd
 }
 
-func collectData(ctx context.Context, cfg Config) (*APIResponse, error) {
-	httpClient := &http.Client{Timeout: 10 * time.Second}
-
-	graph := &ResourceGraph{}
-	for _, region := range cfg.Regions {
-		awsCfg, err := awsconfig.LoadDefaultConfig(ctx, awsconfig.WithRegion(region))
-		if err != nil {
-			return nil, fmt.Errorf("loading AWS config for %s: %w", region, err)
-		}
-
-		taggingClient := resourcegroupstaggingapi.NewFromConfig(awsCfg)
-
-		fmt.Fprintf(os.Stderr, "Discovering tagged resources in %s...\n", region)
-		regionGraph, err := Discover(ctx, taggingClient, cfg.JobID)
-		if err != nil {
-			return nil, fmt.Errorf("discovery failed in %s: %w", region, err)
-		}
-
-		graph.Merge(regionGraph)
-	}
-
-	if len(graph.Jobs) > 0 {
-		fmt.Fprintf(os.Stderr, "Checking %d prow job(s) for terminal state...\n", len(graph.Jobs))
-		CheckProwJobs(ctx, httpClient, graph)
-		graph.Sort()
-	}
-
-	return &APIResponse{
-		GeneratedAt: time.Now().UTC().Format(time.RFC3339),
-		Summary:     graph.Summary(),
-		Jobs:        graph.Jobs,
-	}, nil
-}
-
-func runCollect(ctx context.Context, cfg Config, outputFile string) error {
-	resp, err := collectData(ctx, cfg)
-	if err != nil {
-		return err
-	}
-
-	if len(resp.Jobs) == 0 {
-		fmt.Fprintln(os.Stderr, "No resources found with prow-job-id tags.")
-	}
-
-	f, err := os.Create(outputFile)
-	if err != nil {
-		return fmt.Errorf("creating output file: %w", err)
-	}
-	defer f.Close()
-
-	enc := json.NewEncoder(f)
-	enc.SetIndent("", "  ")
-	if err := enc.Encode(resp); err != nil {
-		return fmt.Errorf("writing JSON: %w", err)
-	}
-
-	fmt.Fprintf(os.Stderr, "Wrote %s\n", outputFile)
-	return nil
-}
-
-func runRender(inputFile, format string) error {
-	f, err := os.Open(inputFile)
-	if err != nil {
-		return fmt.Errorf("opening input file: %w", err)
-	}
-	defer f.Close()
-
-	var resp APIResponse
-	if err := json.NewDecoder(f).Decode(&resp); err != nil {
-		return fmt.Errorf("decoding JSON: %w", err)
-	}
-
-	graph := &ResourceGraph{Jobs: resp.Jobs}
-
-	switch format {
-	case "json":
-		return PrintJSON(os.Stdout, graph)
-	case "html":
-		return PrintHTML(os.Stdout)
-	default:
-		PrintTable(os.Stdout, graph)
-		PrintSummary(os.Stdout, graph)
-	}
-
-	return nil
-}
-
-func runLiveServe(ctx context.Context, cfg Config, addr string, interval time.Duration) error {
+func setupCmd() *cobra.Command {
 	var (
-		mu       sync.RWMutex
-		dataJSON []byte
+		oidcProviderARN string
+		namespace       string
+		serviceAccount  string
+		dryRun          bool
 	)
 
-	refresh := func() {
-		fmt.Fprintf(os.Stderr, "Collecting data...\n")
-		resp, err := collectData(ctx, cfg)
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "Collection error: %v\n", err)
-			return
-		}
-		b, err := json.Marshal(resp)
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "Marshal error: %v\n", err)
-			return
-		}
-		mu.Lock()
-		dataJSON = b
-		mu.Unlock()
-		fmt.Fprintf(os.Stderr, "Collection complete: %d jobs, %d resources\n", resp.Summary.TotalJobs, resp.Summary.TotalResources)
+	cmd := &cobra.Command{
+		Use:   "setup",
+		Short: "Provision IAM role and cluster-specific Kustomize patches",
+		Long: `Idempotently provisions everything needed for in-cluster deployment:
+
+IAM: Creates (or updates) the IAM role and inline policy for IRSA-based
+AWS access. The OIDC provider is auto-discovered from the current
+kubeconfig's cluster unless --oidc-provider-arn is set. The AWS account
+ID is auto-detected via sts:GetCallerIdentity. Resources use deterministic
+names and are tagged for positive identification:
+  Role:   hypershift-ci-aws-resources  (path /hypershift-ci/)
+  Policy: orphan-resource-discovery    (inline on the role)
+
+Route: Discovers the cluster's ingress domain and writes a Kustomize
+patch with the route hostname.
+
+Both patches are gitignored. This command is safe to re-run.`,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return setup.RunSetup(cmd.Context(), oidcProviderARN, namespace, serviceAccount, dryRun)
+		},
 	}
 
-	refresh()
+	cmd.Flags().StringVar(&oidcProviderARN, "oidc-provider-arn", "", "OIDC provider ARN (auto-discovered from cluster if omitted)")
+	cmd.Flags().StringVar(&namespace, "namespace", "ci-health-aws-resources", "Kubernetes namespace for the trust policy")
+	cmd.Flags().StringVar(&serviceAccount, "service-account", "aws-resources", "Kubernetes ServiceAccount name for the trust policy")
+	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "Print what would be done without making changes")
 
-	go func() {
-		ticker := time.NewTicker(interval)
-		defer ticker.Stop()
-		for {
-			select {
-			case <-ctx.Done():
-				return
-			case <-ticker.C:
-				refresh()
-			}
-		}
-	}()
-
-	mux := http.NewServeMux()
-	mux.HandleFunc("/healthz", func(w http.ResponseWriter, r *http.Request) {
-		w.WriteHeader(http.StatusOK)
-		w.Write([]byte("ok"))
-	})
-	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Path != "/" {
-			http.NotFound(w, r)
-			return
-		}
-		w.Header().Set("Content-Type", "text/html; charset=utf-8")
-		PrintHTML(w)
-	})
-	mux.HandleFunc("/api/data", func(w http.ResponseWriter, r *http.Request) {
-		mu.RLock()
-		d := dataJSON
-		mu.RUnlock()
-		w.Header().Set("Content-Type", "application/json")
-		w.Header().Set("Cache-Control", fmt.Sprintf("public, max-age=%d", int(interval.Seconds())))
-		w.Write(d)
-	})
-
-	server := &http.Server{Addr: addr, Handler: mux}
-	go func() {
-		<-ctx.Done()
-		server.Close()
-	}()
-
-	fmt.Fprintf(os.Stderr, "Serving dashboard on %s (collecting every %s)\n", addr, interval)
-	if err := server.ListenAndServe(); err != http.ErrServerClosed {
-		return err
-	}
-	return nil
+	return cmd
 }
 
-func runStaticServe(ctx context.Context, dir, addr string) error {
-	fs := http.FileServer(http.Dir(dir))
-	server := &http.Server{Addr: addr, Handler: fs}
+func teardownCmd() *cobra.Command {
+	var dryRun bool
 
-	go func() {
-		<-ctx.Done()
-		server.Close()
-	}()
-
-	url := "http://localhost" + addr
-	fmt.Fprintf(os.Stderr, "Serving %s at %s\n", dir, url)
-	openBrowser(url)
-
-	if err := server.ListenAndServe(); err != http.ErrServerClosed {
-		return err
+	cmd := &cobra.Command{
+		Use:   "teardown",
+		Short: "Remove IAM role and generated patch files",
+		Long: `Removes the IAM role, inline policy, and generated Kustomize patch
+files created by the setup command. Refuses to delete the IAM role if its
+tags don't match (prevents accidental deletion of unrelated roles).`,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return setup.RunTeardown(cmd.Context(), dryRun)
+		},
 	}
-	return nil
+
+	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "Print what would be done without making changes")
+
+	return cmd
 }
 
 func openBrowser(url string) {

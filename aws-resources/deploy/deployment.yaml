@@ -18,7 +18,7 @@ spec:
       containers:
         - name: aws-resources
           image: image-registry.openshift-image-registry.svc:5000/ci-health-aws-resources/aws-resources:latest
-          args: ["serve", "--collect"]
+          args: ["serve"]
           ports:
             - containerPort: 8080
           livenessProbe:

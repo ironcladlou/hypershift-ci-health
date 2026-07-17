@@ -10,17 +10,14 @@ GC'd jobs.
    resources tagged with `hypershift.openshift.io/prow-job-id`, checks each
    job's status via the Prow Deck API, and writes the results to a JSON file.
 
-2. **Render** reads that JSON file and produces output in table, JSON, or HTML
-   format.
+2. **Serve** runs the dashboard:
+   - By default, periodically collects data and serves the dashboard and
+     `/api/data` endpoint from an in-memory store. This is how the app runs
+     in-cluster.
+   - `serve --data-file data.json` — serves data from a pre-collected JSON
+     file for local development.
 
-3. **Serve** runs the dashboard with two modes:
-   - `serve --collect` — live mode: periodically collects data in a background
-     goroutine and serves the dashboard and `/api/data` endpoint from an
-     in-memory store. This is how the app runs in-cluster.
-   - `serve` — static mode: serves files from the current directory for local
-     development.
-
-4. **Setup / Teardown** — provisions (or removes) the IAM role and cluster-specific
+3. **Setup / Teardown** — provisions (or removes) the IAM role and cluster-specific
    Kustomize patches needed for deployment. See [Setup](#setup) below.
 
 ## Usage
@@ -38,18 +35,12 @@ aws-resources collect --job-id 03b1260e-2656-401c-b95d-43dfede165c8
 # Write to a specific file
 aws-resources collect --output snapshot.json
 
-# Render HTML dashboard
-aws-resources render --format html > index.html
-
-# Render table to stdout
-aws-resources render --format table
-
-# Serve with live collection (in-cluster mode)
-aws-resources serve --collect
-aws-resources serve --collect --interval 15m
-
-# Serve static files locally for development
+# Serve with live collection (default, used in-cluster)
 aws-resources serve
+aws-resources serve --interval 15m
+
+# Serve from a pre-collected data file (local development)
+aws-resources serve --data-file data.json
 ```
 
 ## Building
@@ -115,4 +106,3 @@ build, and restarts the deployment.
 - **Resources tab**: flat searchable table of all resources with type, region,
   and state filters
 - Filtering by job state and resource type
-
