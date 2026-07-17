@@ -1,6 +1,6 @@
 #!/bin/bash
-# Captures a screenshot and HTML dump from headless Chrome.
-# Usage: ./screenshot.sh [width] [height] [url]
+# Captures a screenshot and rendered DOM dump via headless Chrome.
+# Usage: ./snapshot.sh [width] [height] [url]
 WIDTH="${1:-1400}"
 HEIGHT="${2:-900}"
 URL="${3:-http://localhost:8080}"

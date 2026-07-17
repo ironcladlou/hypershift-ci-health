@@ -21,7 +21,7 @@
   --delta-good: #006300;
   --delta-bad: #d03b3b;
   --series-1: #2a78d6;
-  --series-2: #eb6834;
+  --series-2: #0e9aa7;
 }
 @media (prefers-color-scheme: dark) {
   :root {
@@ -39,7 +39,7 @@
     --delta-good: #0ca30c;
     --delta-bad: #e66767;
     --series-1: #3987e5;
-    --series-2: #d95926;
+    --series-2: #1ab5c4;
   }
 }
 * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -198,6 +198,12 @@ tr:has(+ .periodic-row) td { border-bottom: none; }
   text-decoration: none;
 }
 .flake-badge:hover { text-decoration: underline; }
+.infra-badge {
+  font-size: 10px;
+  font-weight: 500;
+  color: var(--serious);
+  margin-left: 6px;
+}
 .periodic-link {
   color: var(--text-secondary);
   text-decoration: none;
@@ -228,6 +234,44 @@ tr:has(+ .periodic-row) td { border-bottom: none; }
   gap: 4px;
 }
 
+.merge-summary {
+  border: 1px solid var(--gridline);
+  border-radius: 6px;
+  padding: 12px 16px;
+  margin-bottom: 20px;
+  display: flex;
+  align-items: baseline;
+  gap: 24px;
+  flex-wrap: wrap;
+}
+.merge-stat {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+}
+.merge-stat-value {
+  font-size: 20px;
+  font-weight: 600;
+}
+.merge-stat-label {
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+.merge-help {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  border: 1px solid var(--text-muted);
+  font-size: 10px;
+  color: var(--text-muted);
+  cursor: default;
+  margin-left: 2px;
+  position: relative;
+  vertical-align: middle;
+}
 .loading {
   text-align: center;
   padding: 48px;
@@ -292,6 +336,8 @@ tr:has(+ .periodic-row) td { border-bottom: none; }
 
 <div id="alert-banner" class="alert-banner"></div>
 
+<div id="merge-summary" class="merge-summary" style="display:none"></div>
+
 <div id="dashboard">
   <div class="loading" id="loading">Loading data from Sippy…</div>
 </div>
@@ -305,27 +351,26 @@ const CACHE_PREFIX = "sippy_";
 
 const BLOCKING_JOBS = [
   { name: "e2e-aws", prow: "pull-ci-openshift-hypershift-main-e2e-aws", category: "e2e",
-    periodic: { name: "e2e-aws-ovn", prow: "periodic-ci-openshift-hypershift-release-5.0-periodics-e2e-aws-ovn", release: "5.0" }},
+    periodics: [{ name: "e2e-aws-ovn", prow: "periodic-ci-openshift-hypershift-release-5.0-periodics-e2e-aws-ovn", release: "5.0" }]},
   { name: "e2e-aks", prow: "pull-ci-openshift-hypershift-main-e2e-aks", category: "e2e",
-    periodic: { name: "e2e-aks", prow: "periodic-ci-openshift-hypershift-release-5.0-periodics-e2e-aks", release: "5.0" }},
+    periodics: [{ name: "e2e-aks", prow: "periodic-ci-openshift-hypershift-release-5.0-periodics-e2e-aks", release: "5.0" }]},
   { name: "e2e-azure-v2-self-managed", prow: "pull-ci-openshift-hypershift-main-e2e-azure-v2-self-managed", category: "e2e",
-    periodic: { name: "e2e-azure-v2-self-managed", prow: "periodic-ci-openshift-hypershift-release-5.0-periodics-e2e-azure-v2-self-managed", release: "5.0" }},
+    periodics: [{ name: "e2e-azure-v2-self-managed", prow: "periodic-ci-openshift-hypershift-release-5.0-periodics-e2e-azure-v2-self-managed", release: "5.0" }]},
   { name: "e2e-aws-upgrade-hypershift-operator", prow: "pull-ci-openshift-hypershift-main-e2e-aws-upgrade-hypershift-operator", category: "e2e",
-    periodic: { name: "e2e-aws-upgrade", prow: "periodic-ci-openshift-hypershift-release-5.0-periodics-e2e-aws-upgrade", release: "5.0" }},
+    periodics: [{ name: "e2e-aws-upgrade", prow: "periodic-ci-openshift-hypershift-release-5.0-periodics-e2e-aws-upgrade", release: "5.0" }]},
   { name: "e2e-v2-gke", prow: "pull-ci-openshift-hypershift-main-e2e-v2-gke", category: "e2e",
-    periodic: { name: "e2e-v2-gke", prow: "periodic-ci-openshift-hypershift-release-5.0-periodics-e2e-v2-gke", release: "5.0" }},
+    periodics: [{ name: "e2e-v2-gke", prow: "periodic-ci-openshift-hypershift-release-5.0-periodics-e2e-v2-gke", release: "5.0" }]},
   { name: "e2e-aws-4-22", prow: "pull-ci-openshift-hypershift-main-e2e-aws-4-22", category: "e2e",
-    periodic: { name: "e2e-aws-ovn", prow: "periodic-ci-openshift-hypershift-release-4.22-periodics-e2e-aws-ovn", release: "4.22" }},
+    periodics: [{ name: "e2e-aws-ovn", prow: "periodic-ci-openshift-hypershift-release-4.22-periodics-e2e-aws-ovn", release: "4.22" }]},
   { name: "e2e-aks-4-22", prow: "pull-ci-openshift-hypershift-main-e2e-aks-4-22", category: "e2e",
-    periodic: { name: "e2e-aks", prow: "periodic-ci-openshift-hypershift-release-4.22-periodics-e2e-aks", release: "4.22" }},
+    periodics: [{ name: "e2e-aks", prow: "periodic-ci-openshift-hypershift-release-4.22-periodics-e2e-aks", release: "4.22" }]},
   { name: "e2e-kubevirt-aws-ovn-reduced", prow: "pull-ci-openshift-hypershift-main-e2e-kubevirt-aws-ovn-reduced", category: "e2e",
-    periodic: { name: "e2e-kubevirt-aws-ovn-csi", prow: "periodic-ci-openshift-hypershift-release-4.22-periodics-e2e-kubevirt-aws-ovn-csi", release: "4.22" }},
+    periodics: [{ name: "e2e-kubevirt-aws-ovn-csi", prow: "periodic-ci-openshift-hypershift-release-4.22-periodics-e2e-kubevirt-aws-ovn-csi", release: "4.22" }]},
   { name: "e2e-v2-aws", prow: "pull-ci-openshift-hypershift-main-e2e-v2-aws", category: "e2e",
-    periodic: null },
-  { name: "e2e-aws-override", prow: "pull-ci-openshift-hypershift-main-e2e-aws-override", category: "e2e",
-    periodic: null },
-  { name: "e2e-aks-override", prow: "pull-ci-openshift-hypershift-main-e2e-aks-override", category: "e2e",
-    periodic: null },
+    periodics: [
+      { name: "e2e-v2-aws", prow: "periodic-ci-openshift-hypershift-release-5.0-periodics-e2e-v2-aws", release: "5.0" },
+      { name: "e2e-v2-aws", prow: "periodic-ci-openshift-hypershift-release-4.22-periodics-e2e-v2-aws", release: "4.22" },
+    ]},
 ];
 
 const WINDOWS = {
@@ -436,12 +481,16 @@ function trendHtml(improvement) {
   return `<span class="trend-flat">— ${val}</span>`;
 }
 
-function rateDeltaHtml(rate, prev, prevRuns, trend, runs, fails) {
+function rateDeltaHtml(rate, prev, prevRuns, trend, runs, fails, testFails, infraFails) {
   if (runs === 0) return '';
   const lines = [];
-  lines.push(`${rate.toFixed(1)}% pass (${runs} runs, ${fails} fails)`);
+  if (infraFails > 0) {
+    lines.push(`${rate.toFixed(1)}% pass (${runs} runs) · ${testFails} test fail · ${infraFails} infra`);
+  } else {
+    lines.push(`${rate.toFixed(1)}% pass (${runs} runs, ${fails} fails)`);
+  }
   lines.push(prevRuns > 0 ? `prev ${prev.toFixed(1)}%` : "no prev data");
-  return `<span class="rate-delta has-tip"><span class="tip">${lines.join("<br>")}</span>${trendHtml(trend)}</span>`;
+  return `<span class="rate-delta has-tip"><span class="tip">${lines.join("<br>")}</span><span class="pass-rate ${rateClass(rate, runs)}">${rate.toFixed(0)}%</span> ${trendHtml(trend)}</span>`;
 }
 
 function formatAge(ms) {
@@ -510,9 +559,16 @@ function buildSparkline(hourlyData, showDates, correlatedIndices) {
       else if (ratio >= 0.5) fill = "var(--warning)";
       else fill = "var(--critical)";
     }
-    const tip = slot
-      ? `${slot.total_runs} runs, ${(slot.result_count && slot.result_count.S) || 0} pass`
-      : "no runs";
+    let tip;
+    if (!slot) {
+      tip = "no runs";
+    } else {
+      const rc = slot.result_count || {};
+      const inf = (rc.n || 0) + (rc.N || 0);
+      tip = inf > 0
+        ? `${slot.total_runs} runs · ${rc.S || 0} pass · ${rc.F || 0} fail · ${inf} infra`
+        : `${slot.total_runs} runs, ${rc.S || 0} pass`;
+    }
     svg += `<rect x="${x}" y="${barY}" width="${slotW}" height="${barH}" rx="2" fill="${fill}" data-tip="${tip}"/>`;
     x += slotW;
   }
@@ -718,34 +774,51 @@ function transformRawData(raw, windowKey) {
     return { correlated, preFails, indices: correlatedIndices };
   }
 
+  function countResultTypes(sparklineData) {
+    let testFails = 0, infraFails = 0, passes = 0, sparkRuns = 0;
+    for (const slot of Object.values(sparklineData || {})) {
+      const rc = slot.result_count || {};
+      passes += rc.S || 0;
+      testFails += rc.F || 0;
+      infraFails += (rc.n || 0) + (rc.N || 0);
+      sparkRuns += slot.total_runs || 0;
+    }
+    return { testFails, infraFails, passes, sparkRuns };
+  }
+
   const jobs = BLOCKING_JOBS.map(cfg => {
     const d = presubmitMap[cfg.prow] || {};
     const runs = d.current_runs ?? 0;
 
-    let periodic = null;
-    if (cfg.periodic) {
-      const pd = periodicMap[cfg.periodic.prow];
-      periodic = {
-        name: cfg.periodic.name,
-        prow: cfg.periodic.prow,
-        release: cfg.periodic.release,
+    const periodics = (cfg.periodics || []).map(cfgPer => {
+      const pd = periodicMap[cfgPer.prow];
+      const perCounts = countResultTypes(periodicSparklines[cfgPer.prow]);
+      return {
+        name: cfgPer.name,
+        prow: cfgPer.prow,
+        release: cfgPer.release,
+        label: cfgPer.label || cfgPer.release,
         rate: pd ? pd.current_pass_percentage ?? null : null,
         prev: pd ? pd.previous_pass_percentage ?? null : null,
         prevRuns: pd ? pd.previous_runs ?? 0 : 0,
         trend: pd ? pd.net_improvement ?? null : null,
         runs: pd ? pd.current_runs ?? 0 : 0,
         fails: pd ? pd.current_fails ?? 0 : 0,
-        sparkline: periodicSparklines[cfg.periodic.prow] || null,
-        flakyRuns: periodicFlakes[cfg.periodic.prow]?.flakes || 0,
-        totalRuns: periodicFlakes[cfg.periodic.prow]?.runs || 0,
+        testFails: perCounts.testFails,
+        infraFails: perCounts.infraFails,
+        sparkRuns: perCounts.sparkRuns,
+        sparkline: periodicSparklines[cfgPer.prow] || null,
+        flakyRuns: periodicFlakes[cfgPer.prow]?.flakes || 0,
+        totalRuns: periodicFlakes[cfgPer.prow]?.runs || 0,
       };
-    }
+    });
 
-
-    const correlation = cfg.periodic
-      ? computeCorrelation(sparklines[cfg.prow], periodicSparklines[cfg.periodic.prow])
+    const firstPeriodic = cfg.periodics && cfg.periodics[0];
+    const correlation = firstPeriodic
+      ? computeCorrelation(sparklines[cfg.prow], periodicSparklines[firstPeriodic.prow])
       : null;
 
+    const preCounts = countResultTypes(sparklines[cfg.prow]);
     return {
       name: cfg.name,
       prow: cfg.prow,
@@ -756,7 +829,10 @@ function transformRawData(raw, windowKey) {
       trend: d.net_improvement ?? null,
       runs,
       fails: d.current_fails ?? 0,
-      periodic,
+      testFails: preCounts.testFails,
+      infraFails: preCounts.infraFails,
+      sparkRuns: preCounts.sparkRuns,
+      periodics,
       sparkline: sparklines[cfg.prow] || null,
       correlation,
     };
@@ -827,6 +903,9 @@ function buildTable(jobs) {
     <span><svg width="8" height="8"><rect width="8" height="8" rx="1" fill="var(--warning)"/></svg> 50–80%</span>
     <span><svg width="8" height="8"><rect width="8" height="8" rx="1" fill="var(--critical)"/></svg> &lt;50%</span>
     <span><svg width="8" height="8"><rect width="8" height="8" rx="1" fill="var(--gridline)"/></svg> no runs</span>
+  </div>
+  <div class="sparkline-legend">
+    <span>fail = tests ran, some failed · infra = job errored before tests completed</span>
   </div>`;
   return html;
 }
@@ -849,14 +928,18 @@ function buildRow(j) {
     color: 'pre',
   });
 
+  const preInfraBadge = (j.infraFails > 0 && j.sparkRuns > 0 && j.infraFails / j.sparkRuns >= 0.15)
+    ? `<span class="infra-badge has-tip"><span class="tip">${j.infraFails} of ${j.sparkRuns} runs were infrastructure failures — the job errored or timed out before tests could run. Not caused by PR code.</span>${j.infraFails} infra</span>`
+    : '';
+
+  const hasPeriodics = j.periodics && j.periodics.length > 0;
   let html = `<tr>
-    <td class="job-name"><span class="status-dot ${statusClass(j.rate, j.runs)}"></span><a href="${sippyJobLink(j.prow, "Presubmits")}" target="_blank">${esc(j.name)}</a><span class="job-type">presubmit</span></td>
-    <td class="rate-chart-cell"><div class="rate-chart-inner"><canvas id="${preChartId}" width="140" height="28"></canvas>${rateDeltaHtml(j.rate, j.prev, j.prevRuns, j.trend, j.runs, j.fails)}</div></td>
-    <td class="sparkline-cell">${buildSparkline(j.sparkline, !j.periodic, j.correlation ? j.correlation.indices : null)}</td>
+    <td class="job-name"><span class="status-dot ${statusClass(j.rate, j.runs)}"></span><a href="${sippyJobLink(j.prow, "Presubmits")}" target="_blank">${esc(j.name)}</a><span class="job-type">presubmit</span>${preInfraBadge}</td>
+    <td class="rate-chart-cell"><div class="rate-chart-inner"><canvas id="${preChartId}" width="140" height="28"></canvas>${rateDeltaHtml(j.rate, j.prev, j.prevRuns, j.trend, j.runs, j.fails, j.testFails, j.infraFails)}</div></td>
+    <td class="sparkline-cell">${buildSparkline(j.sparkline, !hasPeriodics, j.correlation ? j.correlation.indices : null)}</td>
   </tr>`;
 
-  if (j.periodic) {
-    const p = j.periodic;
+  for (const p of (j.periodics || [])) {
     const pRate = p.rate != null ? p.rate : 0;
     const pRuns = p.runs ?? 0;
     const perChartId = `rate-${p.prow.replace(/[^a-z0-9]/gi, '-')}`;
@@ -867,9 +950,13 @@ function buildRow(j) {
       labels: per ? per.labels : [],
       color: 'per',
     });
+    const perSparkRuns = p.sparkRuns ?? 0;
+    const perInfraBadge = (p.infraFails > 0 && perSparkRuns > 0 && p.infraFails / perSparkRuns >= 0.15)
+      ? `<span class="infra-badge has-tip"><span class="tip">${p.infraFails} of ${perSparkRuns} runs were infrastructure failures — the job errored or timed out before tests could run.</span>${p.infraFails} infra</span>`
+      : '';
     html += `<tr class="periodic-row">
-      <td class="job-name periodic-name"><span class="status-dot ${statusClass(pRate, pRuns)}"></span><a class="periodic-link" href="${sippyJobLink(p.prow, p.release)}" target="_blank">${esc(p.name)}</a><span class="job-type">periodic ${p.release}</span>${p.flakyRuns > 0 ? `<a class="flake-badge has-tip" href="${sippyJobRunsLink(p.prow, p.release)}" target="_blank"><span class="tip">${p.flakyRuns} of ${p.totalRuns} runs had flakes</span>⚡${p.flakyRuns} flaky</a>` : ""}</td>
-      <td class="rate-chart-cell"><div class="rate-chart-inner"><canvas id="${perChartId}" width="140" height="28"></canvas>${rateDeltaHtml(pRate, p.prev != null ? p.prev : 0, p.prevRuns ?? 0, p.trend, pRuns, p.fails ?? 0)}</div></td>
+      <td class="job-name periodic-name"><span class="status-dot ${statusClass(pRate, pRuns)}"></span><a class="periodic-link" href="${sippyJobLink(p.prow, p.release)}" target="_blank">${esc(p.name)}</a><span class="job-type">periodic ${p.label}</span>${p.flakyRuns > 0 ? `<a class="flake-badge has-tip" href="${sippyJobRunsLink(p.prow, p.release)}" target="_blank"><span class="tip">${p.flakyRuns} of ${p.totalRuns} runs had flakes</span>⚡${p.flakyRuns} flaky</a>` : ""}${perInfraBadge}</td>
+      <td class="rate-chart-cell"><div class="rate-chart-inner"><canvas id="${perChartId}" width="140" height="28"></canvas>${rateDeltaHtml(pRate, p.prev != null ? p.prev : 0, p.prevRuns ?? 0, p.trend, pRuns, p.fails ?? 0, p.testFails ?? 0, p.infraFails ?? 0)}</div></td>
       <td class="sparkline-cell">${buildSparkline(p.sparkline)}</td>
     </tr>`;
   }
@@ -877,9 +964,85 @@ function buildRow(j) {
   return html;
 }
 
+// --- Merge summary ---
+
+function recentRate(sparklineData, hours) {
+  if (!sparklineData) return null;
+  const slotHours = WINDOWS["2d"].sparkSlotHours;
+  const now = new Date();
+  let passes = 0, total = 0;
+  const slotsNeeded = Math.ceil(hours / slotHours);
+  for (let i = 0; i < slotsNeeded; i++) {
+    const t = new Date(now);
+    t.setMinutes(0, 0, 0);
+    const slotBase = Math.floor(t.getHours() / slotHours) * slotHours;
+    t.setHours(slotBase - i * slotHours);
+    const key = t.getFullYear() + "-" +
+      String(t.getMonth() + 1).padStart(2, "0") + "-" +
+      String(t.getDate()).padStart(2, "0") + " " +
+      String(t.getHours()).padStart(2, "0") + ":00";
+    const slot = sparklineData[key];
+    if (slot) {
+      passes += (slot.result_count?.S || 0);
+      total += slot.total_runs;
+    }
+  }
+  return total > 0 ? { rate: passes / total, total } : null;
+}
+
+function buildMergeSummary(jobs) {
+  const el = document.getElementById("merge-summary");
+  const withRuns = jobs.filter(j => j.runs > 0);
+  if (withRuns.length === 0) { el.style.display = "none"; return; }
+
+  const HOURS = 24;
+  const recentRates = withRuns.map(j => {
+    const r = recentRate(j.sparkline, HOURS);
+    return { name: j.name, rate: r ? r.rate : null, total: r ? r.total : 0 };
+  });
+  const withData = recentRates.filter(r => r.rate !== null);
+  const permafailing = withData.filter(r => r.rate === 0);
+  const below50 = withData.filter(r => r.rate < 0.5);
+
+  let mergeProb, retests;
+  if (withData.length === 0) {
+    mergeProb = 0;
+    retests = Infinity;
+  } else if (permafailing.length > 0) {
+    mergeProb = 0;
+    retests = Infinity;
+  } else {
+    mergeProb = withData.reduce((p, r) => p * r.rate, 1);
+    retests = 1 / mergeProb;
+  }
+
+  const probPct = (mergeProb * 100);
+  const probClass = permafailing.length > 0 ? 'status-bad'
+    : probPct < 10 ? 'status-bad'
+    : probPct < 50 ? 'status-warn'
+    : 'status-good';
+
+  let html = '';
+
+  if (permafailing.length > 0) {
+    html += `<div class="merge-stat"><span class="merge-stat-value" style="color:var(--critical)">${permafailing.length}</span><span class="merge-stat-label">job${permafailing.length > 1 ? 's' : ''} at 0% — queue blocked</span></div>`;
+  }
+
+  html += `<div class="merge-stat"><span class="status-dot ${probClass}"></span><span class="merge-stat-value">${probPct < 0.1 && probPct > 0 ? '<0.1' : probPct.toFixed(1)}%</span><span class="merge-stat-label">merge probability (${HOURS}h) <span class="merge-help has-tip"><span class="tip">Product of all pass rates over the last ${HOURS}h — every presubmit must pass to merge, so even jobs that "usually pass" compound into long queues.</span>?</span></span></div>`;
+
+  if (retests !== Infinity) {
+    html += `<div class="merge-stat"><span class="merge-stat-value">~${Math.ceil(retests)}x</span><span class="merge-stat-label">expected retests</span></div>`;
+  }
+
+  html += `<div class="merge-stat"><span class="merge-stat-value">${below50.length}<span style="font-weight:400;color:var(--text-muted)">/${withData.length}</span></span><span class="merge-stat-label">jobs below 50%</span></div>`;
+
+  el.innerHTML = html;
+  el.style.display = "flex";
+}
+
 // --- Render orchestration ---
 
-function renderDashboard(state) {
+function renderDashboard(state, allStates) {
   pendingCharts = [];
   const dashboard = document.getElementById("dashboard");
   if (typeof Chart !== 'undefined') {
@@ -890,6 +1053,8 @@ function renderDashboard(state) {
   }
   dashboard.innerHTML = buildTable(state.jobs);
   buildAlertBanner(state.alerts);
+  const mergeJobs = (allStates && allStates["2d"]) ? allStates["2d"].jobs : state.jobs;
+  buildMergeSummary(mergeJobs);
   initRateCharts();
 }
 
@@ -965,7 +1130,7 @@ async function loadDashboard(forceRefresh = false) {
   if (!forceRefresh) {
     const cached = loadFromCache();
     if (cached && cached.states[activeWindow]) {
-      renderDashboard(cached.states[activeWindow]);
+      renderDashboard(cached.states[activeWindow], cached.states);
       setStatus(`Cached ${formatAge(Date.now() - cached.ts)} · refreshing…`, "cache-stale");
     }
   }
@@ -977,7 +1142,7 @@ async function loadDashboard(forceRefresh = false) {
     if (gen !== loadGeneration) return;
     const states = computeAllStates(raw);
     saveToCache(states);
-    renderDashboard(states[activeWindow]);
+    renderDashboard(states[activeWindow], states);
     setStatus(`Updated ${new Date().toLocaleTimeString()}`, "cache-fresh");
   } catch (err) {
     if (gen !== loadGeneration) return;
@@ -1002,7 +1167,7 @@ function setActiveWindow(w) {
   });
   const cached = loadFromCache();
   if (cached && cached.states[w]) {
-    renderDashboard(cached.states[w]);
+    renderDashboard(cached.states[w], cached.states);
     setStatus(`Cached ${formatAge(Date.now() - cached.ts)}`, "cache-stale");
   } else {
     loadDashboard();

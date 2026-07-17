@@ -1,0 +1,528 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🔍</text></svg>">
+<title>HyperShift E2E Resource Monitor</title>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: #0d1117; color: #c9d1d9; padding: 20px; }
+a { color: #58a6ff; text-decoration: none; }
+a:hover { text-decoration: underline; }
+
+.summary { display: flex; gap: 16px; margin-bottom: 24px; flex-wrap: wrap; }
+.summary-card { background: #161b22; border: 1px solid #30363d; border-radius: 8px; padding: 16px 24px; min-width: 180px; }
+.summary-card .label { font-size: 12px; text-transform: uppercase; color: #8b949e; margin-bottom: 4px; }
+.summary-card .value { font-size: 28px; font-weight: 600; }
+.summary-card.terminal .value { color: #f85149; }
+.summary-card.running .value { color: #3fb950; }
+.summary-card.unknown .value { color: #8b949e; }
+.summary-card.total .value { color: #c9d1d9; }
+
+.charts-section { margin-bottom: 32px; }
+.charts-section h2 { font-size: 16px; margin-bottom: 16px; color: #c9d1d9; }
+.charts-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(340px, 1fr)); gap: 16px; margin-bottom: 24px; }
+.chart-card { background: #161b22; border: 1px solid #30363d; border-radius: 8px; padding: 20px; }
+.chart-card h3 { font-size: 13px; text-transform: uppercase; color: #8b949e; margin-bottom: 12px; }
+
+.donut-legend { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+.donut-legend-item { display: flex; align-items: center; gap: 4px; font-size: 12px; color: #8b949e; }
+.donut-legend-swatch { width: 10px; height: 10px; border-radius: 2px; }
+
+.bar-chart { display: grid; grid-template-columns: auto 1fr auto; gap: 4px 8px; align-items: center; }
+.bar-label { font-size: 11px; color: #8b949e; text-align: right; font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace; white-space: nowrap; }
+.bar-track { height: 18px; background: #21262d; border-radius: 3px; overflow: hidden; }
+.bar-fill { height: 100%; border-radius: 3px; }
+.bar-value { font-size: 11px; color: #8b949e; text-align: right; }
+.bar-wrap { position: relative; }
+.bar-wrap .tooltip { display: none; position: absolute; bottom: calc(100% + 6px); left: 50%; transform: translateX(-50%); background: #30363d; color: #c9d1d9; font-size: 11px; padding: 4px 8px; border-radius: 4px; white-space: nowrap; z-index: 10; pointer-events: none; }
+.bar-wrap:hover .tooltip { display: block; }
+
+.tabs { display: flex; gap: 0; margin-bottom: 0; border-bottom: 1px solid #30363d; }
+.tab { font-size: 14px; padding: 8px 20px; cursor: pointer; color: #8b949e; border-bottom: 2px solid transparent; user-select: none; }
+.tab:hover { color: #c9d1d9; }
+.tab.active { color: #c9d1d9; border-bottom-color: #58a6ff; font-weight: 600; }
+.tab-panel { display: none; padding-top: 16px; }
+.tab-panel.active { display: block; }
+
+.filters { margin-bottom: 16px; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.filters label { font-size: 13px; cursor: pointer; padding: 4px 12px; border-radius: 16px; border: 1px solid #30363d; user-select: none; }
+.filters label:hover { border-color: #58a6ff; }
+.filters input:checked + span { font-weight: 600; }
+.filters input { display: none; }
+.filter-terminal:has(input:checked) { background: rgba(248,81,73,0.15); border-color: #f85149; }
+.filter-running:has(input:checked) { background: rgba(63,185,80,0.15); border-color: #3fb950; }
+.filter-unknown:has(input:checked) { background: rgba(139,148,158,0.15); border-color: #8b949e; }
+.filter-select { background: #161b22; color: #c9d1d9; border: 1px solid #30363d; border-radius: 6px; padding: 4px 8px; font-size: 13px; }
+
+.res-table { width: 100%; border-collapse: collapse; }
+.res-table th { text-align: left; font-size: 11px; text-transform: uppercase; color: #8b949e; padding: 6px 10px; border-bottom: 1px solid #30363d; position: sticky; top: 0; background: #0d1117; }
+.res-table td { font-size: 12px; padding: 5px 10px; border-bottom: 1px solid #21262d; font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace; }
+.res-table tr:hover td { background: #161b22; }
+.res-table .col-id a { color: #d2a8ff; }
+.res-table .col-id a:hover { color: #bc8cff; }
+.res-table .col-name { color: #7ee787; }
+.res-table .col-type { color: #8b949e; }
+.res-table .col-region { color: #8b949e; }
+.res-table .col-job { color: #c9d1d9; max-width: 240px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.res-table .col-state { }
+
+.job-list { display: flex; flex-direction: column; gap: 4px; }
+.job { background: #161b22; border: 1px solid #30363d; border-radius: 6px; overflow: hidden; }
+.job-header { display: flex; align-items: center; gap: 10px; padding: 10px 16px; cursor: pointer; user-select: none; }
+.job-header:hover { background: #1c2128; }
+.job-header .chevron { transition: transform 0.15s; font-size: 12px; color: #8b949e; width: 16px; }
+.job.open .chevron { transform: rotate(90deg); }
+.badge { font-size: 11px; font-weight: 600; padding: 2px 8px; border-radius: 10px; text-transform: uppercase; }
+.badge-terminal { background: rgba(248,81,73,0.15); color: #f85149; }
+.badge-running { background: rgba(63,185,80,0.15); color: #3fb950; }
+.badge-unknown { background: rgba(139,148,158,0.15); color: #8b949e; }
+.job-id { font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace; font-size: 13px; flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.job-result { font-size: 12px; color: #8b949e; }
+.job-count { font-size: 12px; color: #8b949e; white-space: nowrap; }
+.job-link { font-size: 12px; white-space: nowrap; }
+.job-body { display: none; border-top: 1px solid #30363d; padding: 12px 16px 12px 42px; }
+.job.open .job-body { display: block; }
+
+.resource-group { margin-bottom: 8px; }
+.resource-group:last-child { margin-bottom: 0; }
+.resource-type { font-size: 12px; font-weight: 600; color: #8b949e; margin-bottom: 4px; }
+.resource-type .count { font-weight: 400; }
+.resource { font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace; font-size: 12px; color: #c9d1d9; padding: 2px 0; display: flex; gap: 12px; }
+.resource .id { color: #d2a8ff; }
+a.id:hover { color: #bc8cff; }
+.resource .region { color: #8b949e; }
+.resource .name { color: #7ee787; font-size: 11px; }
+.resource .arn { color: #484f58; font-size: 11px; overflow: hidden; text-overflow: ellipsis; }
+
+.loading { text-align: center; padding: 60px 20px; color: #8b949e; font-size: 14px; }
+.error { text-align: center; padding: 60px 20px; color: #f85149; font-size: 14px; }
+</style>
+</head>
+<body>
+
+<div style="display:flex;align-items:baseline;gap:16px;margin-bottom:20px;">
+<h1 style="font-size:20px;">HyperShift E2E Resource Monitor</h1>
+<span id="generated-at" style="font-size:12px;color:#484f58;"></span>
+</div>
+
+<div id="loading" class="loading">Loading data&#8230;</div>
+<div id="content" style="display:none;">
+
+<div class="summary" id="summary"></div>
+
+<div class="charts-section">
+<h2>Charts</h2>
+<div class="charts-grid">
+  <div class="chart-card"><h3>Resources by State</h3><div id="chart-state-resources"></div></div>
+  <div class="chart-card"><h3>Orphan Result Breakdown</h3><div id="chart-results"></div></div>
+  <div class="chart-card"><h3>Orphan Age</h3><div id="chart-age"></div></div>
+  <div class="chart-card"><h3>Resources per Orphan Job</h3><div id="chart-per-job"></div></div>
+  <div class="chart-card" style="grid-column: 1 / -1"><h3>Resource Types (all jobs)</h3><div id="chart-types"></div></div>
+</div>
+</div>
+
+<div class="tabs">
+  <div class="tab active" data-tab="jobs">Jobs</div>
+  <div class="tab" data-tab="resources">Resources</div>
+</div>
+
+<div id="tab-jobs" class="tab-panel active">
+  <div class="filters" id="jobs-filters">
+    <span style="font-size:13px;color:#8b949e;">State:</span>
+    <label class="filter-terminal"><input type="checkbox" data-state="TERMINAL" checked><span>Terminal</span></label>
+    <label class="filter-running"><input type="checkbox" data-state="RUNNING" checked><span>Running</span></label>
+    <label class="filter-unknown"><input type="checkbox" data-state="UNKNOWN" checked><span>Unknown</span></label>
+    <span style="font-size:13px;color:#8b949e;margin-left:12px;">Resource type:</span>
+    <select id="filter-type" class="filter-select">
+      <option value="">All</option>
+    </select>
+  </div>
+  <div class="job-list" id="jobs"></div>
+</div>
+
+<div id="tab-resources" class="tab-panel">
+  <div class="filters" id="resources-filters">
+    <span style="font-size:13px;color:#8b949e;">Type:</span>
+    <select id="res-filter-type" class="filter-select"><option value="">All</option></select>
+    <span style="font-size:13px;color:#8b949e;margin-left:12px;">Region:</span>
+    <select id="res-filter-region" class="filter-select"><option value="">All</option></select>
+    <span style="font-size:13px;color:#8b949e;margin-left:12px;">State:</span>
+    <select id="res-filter-state" class="filter-select">
+      <option value="">All</option>
+      <option value="TERMINAL">Terminal</option>
+      <option value="RUNNING">Running</option>
+      <option value="UNKNOWN">Unknown</option>
+    </select>
+  </div>
+  <div style="font-size:12px;color:#8b949e;margin-bottom:8px;" id="res-count"></div>
+  <table class="res-table">
+    <thead><tr>
+      <th>Resource</th>
+      <th>Name</th>
+      <th>Type</th>
+      <th>Region</th>
+      <th>Job</th>
+      <th>State</th>
+    </tr></thead>
+    <tbody id="res-tbody"></tbody>
+  </table>
+</div>
+
+</div>
+
+<script>
+var COLORS = {
+  terminal: '#f85149', running: '#3fb950', unknown: '#8b949e',
+  success: '#3fb950', failure: '#f85149', aborted: '#d29922', "gc'd": '#8b949e', error: '#f47067'
+};
+
+fetch('./api/data')
+  .then(function(r) {
+    if (!r.ok) throw new Error('Failed to load data: HTTP ' + r.status);
+    return r.json();
+  })
+  .then(function(data) {
+    document.getElementById('loading').style.display = 'none';
+    document.getElementById('content').style.display = 'block';
+    render(data);
+  })
+  .catch(function(err) {
+    var el = document.getElementById('loading');
+    el.className = 'error';
+    el.textContent = err.message;
+  });
+
+function render(data) {
+  var graph = { jobs: data.jobs };
+  var summary = data.summary;
+
+  document.getElementById('generated-at').textContent = 'Generated ' + data.generatedAt;
+
+  // Summary cards
+  var summaryEl = document.getElementById('summary');
+  summaryEl.innerHTML =
+    card('terminal', 'Orphaned Jobs', summary.terminalJobs, summary.terminalResources) +
+    card('running', 'Running Jobs', summary.runningJobs, summary.runningResources) +
+    (summary.unknownJobs > 0 ? card('unknown', 'Unknown Jobs', summary.unknownJobs, summary.unknownResources) : '') +
+    card('total', 'Total', summary.totalJobs, summary.totalResources);
+
+  function card(cls, label, jobs, resources) {
+    return '<div class="summary-card ' + cls + '"><div class="label">' + label + '</div><div class="value">' + jobs + ' <span style="font-size:14px;font-weight:400;color:#8b949e">(' + resources + ' resources)</span></div></div>';
+  }
+
+  // Chart A: Resources by state donut
+  renderDonut('chart-state-resources', [
+    { label: 'Terminal', value: summary.terminalResources, color: COLORS.terminal },
+    { label: 'Running', value: summary.runningResources, color: COLORS.running },
+    { label: 'Unknown', value: summary.unknownResources, color: COLORS.unknown }
+  ].filter(function(d) { return d.value > 0; }));
+
+  // Chart B: Orphan result breakdown
+  var resultCounts = {};
+  graph.jobs.forEach(function(j) {
+    if (j.state !== 'TERMINAL') return;
+    var r = (j.result || 'unknown').toLowerCase();
+    resultCounts[r] = (resultCounts[r] || 0) + 1;
+  });
+  var resultData = Object.keys(resultCounts).map(function(r) {
+    return { label: r.toUpperCase(), value: resultCounts[r], color: COLORS[r] || '#8b949e' };
+  }).sort(function(a, b) { return b.value - a.value; });
+  renderDonut('chart-results', resultData);
+
+  // Chart C: Resource type bars
+  var typeCounts = {};
+  graph.jobs.forEach(function(j) {
+    j.resources.forEach(function(r) {
+      if (!typeCounts[r.type]) typeCounts[r.type] = { terminal: 0, running: 0, unknown: 0 };
+      typeCounts[r.type][j.state.toLowerCase()] = (typeCounts[r.type][j.state.toLowerCase()] || 0) + 1;
+    });
+  });
+  var typeEntries = Object.keys(typeCounts).map(function(t) {
+    var c = typeCounts[t];
+    return { label: t, terminal: c.terminal, running: c.running, unknown: c.unknown, total: c.terminal + c.running + c.unknown };
+  }).sort(function(a, b) { return b.total - a.total; });
+  renderStackedBars('chart-types', typeEntries);
+
+  // Chart D: Orphan age histogram
+  var now = Date.now();
+  var ageBuckets = [
+    { label: '<1h', max: 3600000, count: 0 },
+    { label: '1-6h', max: 21600000, count: 0 },
+    { label: '6-24h', max: 86400000, count: 0 },
+    { label: '1-3d', max: 259200000, count: 0 },
+    { label: '3-7d', max: 604800000, count: 0 },
+    { label: '7d+', max: Infinity, count: 0 },
+    { label: 'Unknown', max: -1, count: 0 }
+  ];
+  graph.jobs.forEach(function(j) {
+    if (j.state !== 'TERMINAL') return;
+    if (!j.completionTime) { ageBuckets[6].count++; return; }
+    var age = now - new Date(j.completionTime).getTime();
+    for (var i = 0; i < 6; i++) {
+      if (age < ageBuckets[i].max) { ageBuckets[i].count++; return; }
+    }
+    ageBuckets[5].count++;
+  });
+  renderHistogram('chart-age', ageBuckets.filter(function(b) { return b.count > 0; }), '#d29922');
+
+  // Chart E: Resources per orphan job
+  var perJobBuckets = [
+    { label: '1', min: 1, max: 1, count: 0 },
+    { label: '2-5', min: 2, max: 5, count: 0 },
+    { label: '6-10', min: 6, max: 10, count: 0 },
+    { label: '11-15', min: 11, max: 15, count: 0 },
+    { label: '16-20', min: 16, max: 20, count: 0 },
+    { label: '20+', min: 21, max: Infinity, count: 0 }
+  ];
+  graph.jobs.forEach(function(j) {
+    if (j.state !== 'TERMINAL') return;
+    var n = j.resources.length;
+    for (var i = 0; i < perJobBuckets.length; i++) {
+      if (n >= perJobBuckets[i].min && n <= perJobBuckets[i].max) { perJobBuckets[i].count++; break; }
+    }
+  });
+  renderHistogram('chart-per-job', perJobBuckets.filter(function(b) { return b.count > 0; }), '#58a6ff');
+
+  // Populate filter dropdowns
+  var allTypes = {};
+  var allRegions = {};
+  graph.jobs.forEach(function(j) {
+    j.resources.forEach(function(r) {
+      allTypes[r.type] = true;
+      allRegions[r.region] = true;
+    });
+  });
+  var typeSelect = document.getElementById('filter-type');
+  var resTypeSelect = document.getElementById('res-filter-type');
+  Object.keys(allTypes).sort().forEach(function(t) {
+    var opt = document.createElement('option');
+    opt.value = t; opt.textContent = t;
+    typeSelect.appendChild(opt);
+    resTypeSelect.appendChild(opt.cloneNode(true));
+  });
+  var resRegionSelect = document.getElementById('res-filter-region');
+  Object.keys(allRegions).sort().forEach(function(r) {
+    var opt = document.createElement('option');
+    opt.value = r; opt.textContent = r;
+    resRegionSelect.appendChild(opt);
+  });
+
+  // Tabs
+  document.querySelectorAll('.tab').forEach(function(tab) {
+    tab.addEventListener('click', function() {
+      document.querySelectorAll('.tab').forEach(function(t) { t.classList.remove('active'); });
+      document.querySelectorAll('.tab-panel').forEach(function(p) { p.classList.remove('active'); });
+      tab.classList.add('active');
+      document.getElementById('tab-' + tab.dataset.tab).classList.add('active');
+    });
+  });
+
+  // Resources tab
+  renderResources();
+  resTypeSelect.addEventListener('change', renderResources);
+  resRegionSelect.addEventListener('change', renderResources);
+  document.getElementById('res-filter-state').addEventListener('change', renderResources);
+
+  // Job list
+  renderJobs();
+  document.querySelectorAll('#jobs-filters input').forEach(function(cb) {
+    cb.addEventListener('change', renderJobs);
+  });
+  typeSelect.addEventListener('change', renderJobs);
+
+  // --- Resources table ---
+
+  function renderResources() {
+    var typeF = document.getElementById('res-filter-type').value;
+    var regionF = document.getElementById('res-filter-region').value;
+    var stateF = document.getElementById('res-filter-state').value;
+    var tbody = document.getElementById('res-tbody');
+    tbody.innerHTML = '';
+    var count = 0;
+    graph.jobs.forEach(function(job) {
+      if (stateF && job.state !== stateF) return;
+      job.resources.forEach(function(r) {
+        if (typeF && r.type !== typeF) return;
+        if (regionF && r.region !== regionF) return;
+        count++;
+        var tr = document.createElement('tr');
+        var idHtml = r.consoleURL
+          ? '<a href="' + esc(r.consoleURL) + '" target="_blank">' + esc(r.id) + '</a>'
+          : esc(r.id);
+        var badgeClass = 'badge-' + job.state.toLowerCase();
+        tr.innerHTML =
+          '<td class="col-id">' + idHtml + '</td>' +
+          '<td class="col-name">' + esc(r.name) + '</td>' +
+          '<td class="col-type">' + esc(r.type) + '</td>' +
+          '<td class="col-region">' + esc(r.region) + '</td>' +
+          '<td class="col-job" title="' + esc(job.id) + '">' + esc(job.id) + '</td>' +
+          '<td class="col-state"><span class="badge ' + badgeClass + '">' + esc(job.state) + '</span></td>';
+        tbody.appendChild(tr);
+      });
+    });
+    document.getElementById('res-count').textContent = count + ' resources';
+  }
+
+  // --- Job list ---
+
+  function renderJobs() {
+    var states = {};
+    document.querySelectorAll('#jobs-filters input').forEach(function(cb) {
+      states[cb.dataset.state] = cb.checked;
+    });
+    var typeFilter = document.getElementById('filter-type').value;
+    var jobsEl = document.getElementById('jobs');
+    jobsEl.innerHTML = '';
+    graph.jobs.forEach(function(job) {
+      if (!states[job.state]) return;
+      if (typeFilter && !job.resources.some(function(r) { return r.type === typeFilter; })) return;
+      var el = document.createElement('div');
+      el.className = 'job';
+      el.innerHTML = jobHeaderHTML(job) + jobBodyHTML(job);
+      el.querySelector('.job-header').addEventListener('click', function() {
+        el.classList.toggle('open');
+      });
+      jobsEl.appendChild(el);
+    });
+  }
+
+  function jobHeaderHTML(job) {
+    var badgeClass = 'badge-' + job.state.toLowerCase();
+    var result = job.result ? ' (' + job.result + ')' : '';
+    var link = job.prowLink ? '<a class="job-link" href="' + esc(job.prowLink) + '" target="_blank" onclick="event.stopPropagation()">prow</a>' : '';
+    var age = '';
+    if (job.completionTime) {
+      var ms = Date.now() - new Date(job.completionTime).getTime();
+      age = '<span style="font-size:11px;color:#8b949e;margin-left:4px">' + formatDuration(ms) + ' ago</span>';
+    }
+    return '<div class="job-header">' +
+      '<span class="chevron">&#9654;</span>' +
+      '<span class="badge ' + badgeClass + '">' + esc(job.state) + '</span>' +
+      '<span class="job-id" title="' + esc(job.id) + '">' + esc(job.id) + '</span>' +
+      '<span class="job-result">' + esc(result) + age + '</span>' +
+      '<span class="job-count">' + job.resources.length + ' resources</span>' +
+      link +
+      '</div>';
+  }
+
+  function jobBodyHTML(job) {
+    var groups = {};
+    job.resources.forEach(function(r) {
+      if (!groups[r.type]) groups[r.type] = [];
+      groups[r.type].push(r);
+    });
+    var types = Object.keys(groups).sort();
+    var html = '<div class="job-body">';
+    types.forEach(function(t) {
+      var resources = groups[t];
+      html += '<div class="resource-group">';
+      html += '<div class="resource-type">' + esc(t) + ' <span class="count">(' + resources.length + ')</span></div>';
+      resources.forEach(function(r) {
+        var idHtml = r.consoleURL
+          ? '<a class="id" href="' + esc(r.consoleURL) + '" target="_blank" onclick="event.stopPropagation()">' + esc(r.id) + '</a>'
+          : '<span class="id">' + esc(r.id) + '</span>';
+        var nameHtml = r.name ? '<span class="name">' + esc(r.name) + '</span>' : '';
+        html += '<div class="resource">' +
+          idHtml +
+          nameHtml +
+          '<span class="region">' + esc(r.region) + '</span>' +
+          '<span class="arn">' + esc(r.arn) + '</span>' +
+          '</div>';
+      });
+      html += '</div>';
+    });
+    html += '</div>';
+    return html;
+  }
+}
+
+// --- Chart rendering functions ---
+
+function renderDonut(id, data) {
+  var el = document.getElementById(id);
+  var total = data.reduce(function(s, d) { return s + d.value; }, 0);
+  if (total === 0) { el.innerHTML = '<div style="color:#484f58;font-size:13px">No data</div>'; return; }
+  var size = 140, cx = size/2, cy = size/2, r = 52, strokeWidth = 20;
+  var circumference = 2 * Math.PI * r;
+  var svg = '<svg width="' + size + '" height="' + size + '" viewBox="0 0 ' + size + ' ' + size + '">';
+  svg += '<circle cx="' + cx + '" cy="' + cy + '" r="' + r + '" fill="none" stroke="#21262d" stroke-width="' + strokeWidth + '"/>';
+  var offset = 0;
+  data.forEach(function(d) {
+    var pct = d.value / total;
+    var dashLen = pct * circumference;
+    var gap = circumference - dashLen;
+    svg += '<circle cx="' + cx + '" cy="' + cy + '" r="' + r + '" fill="none" stroke="' + d.color + '" stroke-width="' + strokeWidth + '" stroke-dasharray="' + dashLen + ' ' + gap + '" stroke-dashoffset="' + (-offset) + '" transform="rotate(-90 ' + cx + ' ' + cy + ')"/>';
+    offset += dashLen;
+  });
+  svg += '<text x="' + cx + '" y="' + cy + '" text-anchor="middle" dominant-baseline="central" fill="#c9d1d9" font-size="20" font-weight="600">' + total + '</text>';
+  svg += '</svg>';
+  var legend = '<div class="donut-legend">';
+  data.forEach(function(d) {
+    var pct = Math.round(d.value / total * 100);
+    legend += '<div class="donut-legend-item"><div class="donut-legend-swatch" style="background:' + d.color + '"></div>' + d.label + ': ' + d.value + ' (' + pct + '%)</div>';
+  });
+  legend += '</div>';
+  el.innerHTML = svg + legend;
+}
+
+function renderStackedBars(id, entries) {
+  var el = document.getElementById(id);
+  if (entries.length === 0) { el.innerHTML = '<div style="color:#484f58;font-size:13px">No data</div>'; return; }
+  var max = entries[0].total;
+  var html = '<div class="bar-chart">';
+  entries.forEach(function(e) {
+    var tPct = max > 0 ? (e.terminal / max * 100) : 0;
+    var rPct = max > 0 ? (e.running / max * 100) : 0;
+    var uPct = max > 0 ? (e.unknown / max * 100) : 0;
+    var tipParts = [];
+    if (e.terminal > 0) tipParts.push('Terminal: ' + e.terminal);
+    if (e.running > 0) tipParts.push('Running: ' + e.running);
+    if (e.unknown > 0) tipParts.push('Unknown: ' + e.unknown);
+    var tip = '<div class="tooltip">' + esc(e.label) + ' &#8212; ' + tipParts.join(', ') + ' (total: ' + e.total + ')</div>';
+    html += '<div class="bar-label" title="' + esc(e.label) + '">' + esc(e.label) + '</div>' +
+      '<div class="bar-wrap">' + tip + '<div class="bar-track"><div style="display:flex;height:100%">' +
+      (e.terminal > 0 ? '<div class="bar-fill" style="width:' + tPct + '%;background:' + COLORS.terminal + '"></div>' : '') +
+      (e.running > 0 ? '<div class="bar-fill" style="width:' + rPct + '%;background:' + COLORS.running + '"></div>' : '') +
+      (e.unknown > 0 ? '<div class="bar-fill" style="width:' + uPct + '%;background:' + COLORS.unknown + '"></div>' : '') +
+      '</div></div></div>' +
+      '<div class="bar-value">' + e.total + '</div>';
+  });
+  html += '</div>';
+  el.innerHTML = html;
+}
+
+function renderHistogram(id, buckets, color) {
+  var el = document.getElementById(id);
+  if (buckets.length === 0) { el.innerHTML = '<div style="color:#484f58;font-size:13px">No data</div>'; return; }
+  var max = Math.max.apply(null, buckets.map(function(b) { return b.count; }));
+  var html = '<div class="bar-chart">';
+  buckets.forEach(function(b) {
+    var pct = max > 0 ? (b.count / max * 100) : 0;
+    var tip = '<div class="tooltip">' + esc(b.label) + ': ' + b.count + '</div>';
+    html += '<div class="bar-label">' + esc(b.label) + '</div>' +
+      '<div class="bar-wrap">' + tip + '<div class="bar-track"><div class="bar-fill" style="width:' + pct + '%;background:' + color + '"></div></div></div>' +
+      '<div class="bar-value">' + b.count + '</div>';
+  });
+  html += '</div>';
+  el.innerHTML = html;
+}
+
+function formatDuration(ms) {
+  var s = Math.floor(ms / 1000);
+  if (s < 60) return s + 's';
+  var m = Math.floor(s / 60);
+  if (m < 60) return m + 'm';
+  var h = Math.floor(m / 60);
+  if (h < 24) return h + 'h ' + (m % 60) + 'm';
+  var d = Math.floor(h / 24);
+  return d + 'd ' + (h % 24) + 'h';
+}
+
+function esc(s) {
+  if (!s) return '';
+  return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+</script>
+</body>
+</html>

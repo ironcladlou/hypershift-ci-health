@@ -1,0 +1,33 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: aws-resources
+  labels:
+    app: aws-resources
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: aws-resources
+  template:
+    metadata:
+      labels:
+        app: aws-resources
+    spec:
+      serviceAccountName: aws-resources
+      containers:
+        - name: aws-resources
+          image: image-registry.openshift-image-registry.svc:5000/ci-health-aws-resources/aws-resources:latest
+          args: ["serve", "--collect"]
+          ports:
+            - containerPort: 8080
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: 8080
+            periodSeconds: 30
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: 8080
+            periodSeconds: 10

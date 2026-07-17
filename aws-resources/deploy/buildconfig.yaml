@@ -1,0 +1,17 @@
+apiVersion: build.openshift.io/v1
+kind: BuildConfig
+metadata:
+  name: aws-resources
+  labels:
+    app: aws-resources
+spec:
+  output:
+    to:
+      kind: ImageStreamTag
+      name: aws-resources:latest
+  source:
+    type: Binary
+  strategy:
+    type: Docker
+    dockerStrategy:
+      dockerfilePath: Dockerfile

@@ -1,0 +1,6 @@
+apiVersion: image.openshift.io/v1
+kind: ImageStream
+metadata:
+  name: aws-resources
+  labels:
+    app: aws-resources

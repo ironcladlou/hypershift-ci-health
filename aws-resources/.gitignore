@@ -1,0 +1,5 @@
+aws-resources
+data.json
+index.html
+deploy/sa-role-patch.yaml
+deploy/route-patch.yaml
