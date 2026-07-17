@@ -6,9 +6,12 @@ GC'd jobs.
 
 ## How it works
 
-1. **Collect** scans AWS regions using the Resource Groups Tagging API for
-   resources tagged with `hypershift.openshift.io/prow-job-id`, checks each
-   job's status via the Prow Deck API, and writes the results to a JSON file.
+1. **Collect** scans AWS regions for resources tagged with
+   `hypershift.openshift.io/prow-job-id` using per-service EC2 Describe APIs
+   (VPCs, subnets, route tables, gateways, endpoints, security groups,
+   instances, EIPs, key pairs, etc.) and the Resource Groups Tagging API for
+   IAM and Route53 resources. Checks each job's status via the Prow Deck API
+   and writes the results to a JSON file.
 
 2. **Serve** runs the dashboard:
    - By default, periodically collects data and serves the dashboard and

@@ -325,11 +325,31 @@ func buildTrustPolicy(oidcProviderARN, oidcIssuer, namespace, serviceAccount str
 func buildPermissionsPolicy() (string, error) {
 	doc := policyDocument{
 		Version: "2012-10-17",
-		Statement: []policyStatement{{
-			Effect:   "Allow",
-			Action:   "tag:GetResources",
-			Resource: "*",
-		}},
+		Statement: []policyStatement{
+			{
+				Effect:   "Allow",
+				Action:   "tag:GetResources",
+				Resource: "*",
+			},
+			{
+				Effect: "Allow",
+				Action: []string{
+					"ec2:DescribeVpcs",
+					"ec2:DescribeSubnets",
+					"ec2:DescribeRouteTables",
+					"ec2:DescribeInternetGateways",
+					"ec2:DescribeNatGateways",
+					"ec2:DescribeDhcpOptions",
+					"ec2:DescribeVpcEndpoints",
+					"ec2:DescribeSecurityGroups",
+					"ec2:DescribeInstances",
+					"ec2:DescribeCapacityReservations",
+					"ec2:DescribeAddresses",
+					"ec2:DescribeKeyPairs",
+				},
+				Resource: "*",
+			},
+		},
 	}
 	return marshalPolicy(doc)
 }

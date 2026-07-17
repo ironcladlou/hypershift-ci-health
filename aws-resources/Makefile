@@ -1,16 +1,17 @@
 BIN := aws-resources
 NAMESPACE := ci-health-aws-resources
 
-.PHONY: build build-linux image setup teardown deploy
+.PHONY: build image setup teardown deploy
 
 build:
 	go build -o $(BIN) .
 
-build-linux:
-	CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o $(BIN) .
-
-image: build-linux
-	oc -n $(NAMESPACE) start-build $(BIN) --from-dir=. --follow
+image:
+	CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o $(BIN).linux .
+	mv $(BIN) $(BIN).native 2>/dev/null || true
+	mv $(BIN).linux $(BIN)
+	oc -n $(NAMESPACE) start-build $(BIN) --from-dir=. --follow; \
+		s=$$?; mv $(BIN).native $(BIN) 2>/dev/null || rm -f $(BIN); exit $$s
 
 setup: build
 	./$(BIN) setup

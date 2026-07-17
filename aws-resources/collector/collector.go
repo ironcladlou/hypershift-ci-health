@@ -9,6 +9,7 @@ import (
 	"time"
 
 	awsconfig "github.com/aws/aws-sdk-go-v2/config"
+	"github.com/aws/aws-sdk-go-v2/service/ec2"
 	"github.com/aws/aws-sdk-go-v2/service/resourcegroupstaggingapi"
 )
 
@@ -154,22 +155,36 @@ func Collect(ctx context.Context, cfg Config) (*APIResponse, error) {
 	httpClient := &http.Client{Timeout: 10 * time.Second}
 
 	graph := &ResourceGraph{}
+
 	for _, region := range cfg.Regions {
 		awsCfg, err := awsconfig.LoadDefaultConfig(ctx, awsconfig.WithRegion(region))
 		if err != nil {
 			return nil, fmt.Errorf("loading AWS config for %s: %w", region, err)
 		}
 
-		taggingClient := resourcegroupstaggingapi.NewFromConfig(awsCfg)
-
-		fmt.Fprintf(os.Stderr, "Discovering tagged resources in %s...\n", region)
-		regionGraph, err := Discover(ctx, taggingClient, cfg.JobID)
+		fmt.Fprintf(os.Stderr, "Discovering EC2 resources in %s...\n", region)
+		ec2Client := ec2.NewFromConfig(awsCfg)
+		ec2Graph, err := DiscoverEC2(ctx, ec2Client, region, cfg.JobID)
 		if err != nil {
-			return nil, fmt.Errorf("discovery failed in %s: %w", region, err)
+			return nil, fmt.Errorf("EC2 discovery failed in %s: %w", region, err)
 		}
-
-		graph.Merge(regionGraph)
+		graph.Merge(ec2Graph)
 	}
+
+	// IAM and Route53 are global; use the tagging API scoped to these types
+	// (their native APIs don't support tag-based filtering).
+	awsCfg, err := awsconfig.LoadDefaultConfig(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("loading AWS config: %w", err)
+	}
+	taggingClient := resourcegroupstaggingapi.NewFromConfig(awsCfg)
+
+	fmt.Fprintf(os.Stderr, "Discovering IAM and Route53 resources...\n")
+	globalGraph, err := DiscoverTagged(ctx, taggingClient, cfg.JobID, []string{"iam", "route53"})
+	if err != nil {
+		return nil, fmt.Errorf("IAM/Route53 discovery failed: %w", err)
+	}
+	graph.Merge(globalGraph)
 
 	if len(graph.Jobs) > 0 {
 		fmt.Fprintf(os.Stderr, "Checking %d prow job(s) for terminal state...\n", len(graph.Jobs))
