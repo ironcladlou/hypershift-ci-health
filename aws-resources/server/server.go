@@ -114,6 +114,26 @@ func Run(ctx context.Context, addr string, provider DataProvider) error {
 		json.NewEncoder(w).Encode(resp)
 	})
 
+	mux.HandleFunc("/api/deletion-plan", func(w http.ResponseWriter, r *http.Request) {
+		var minAge time.Duration
+		if s := r.URL.Query().Get("minAge"); s != "" {
+			var err error
+			minAge, err = time.ParseDuration(s)
+			if err != nil {
+				http.Error(w, "invalid minAge: "+err.Error(), http.StatusBadRequest)
+				return
+			}
+		}
+		data, err := provider.Data()
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		plan := collector.BuildDeletionPlan(data, minAge)
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(plan)
+	})
+
 	server := &http.Server{Addr: addr, Handler: mux}
 	go func() {
 		<-ctx.Done()
