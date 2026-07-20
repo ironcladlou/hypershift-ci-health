@@ -1,1 +1,3 @@
 deploy/route-patch.yaml
+deploy/.github-token
+ci-health

@@ -1,0 +1,17 @@
+apiVersion: build.openshift.io/v1
+kind: BuildConfig
+metadata:
+  name: ci-health
+  labels:
+    app: ci-health
+spec:
+  output:
+    to:
+      kind: ImageStreamTag
+      name: ci-health:latest
+  source:
+    type: Binary
+  strategy:
+    type: Docker
+    dockerStrategy:
+      dockerfilePath: Dockerfile

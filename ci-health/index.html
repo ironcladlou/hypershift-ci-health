@@ -964,77 +964,50 @@ function buildRow(j) {
   return html;
 }
 
-// --- Merge summary ---
+// --- Merge summary (from /api/retests) ---
 
-function recentRate(sparklineData, hours) {
-  if (!sparklineData) return null;
-  const slotHours = WINDOWS["2d"].sparkSlotHours;
-  const now = new Date();
-  let passes = 0, total = 0;
-  const slotsNeeded = Math.ceil(hours / slotHours);
-  for (let i = 0; i < slotsNeeded; i++) {
-    const t = new Date(now);
-    t.setMinutes(0, 0, 0);
-    const slotBase = Math.floor(t.getHours() / slotHours) * slotHours;
-    t.setHours(slotBase - i * slotHours);
-    const key = t.getFullYear() + "-" +
-      String(t.getMonth() + 1).padStart(2, "0") + "-" +
-      String(t.getDate()).padStart(2, "0") + " " +
-      String(t.getHours()).padStart(2, "0") + ":00";
-    const slot = sparklineData[key];
-    if (slot) {
-      passes += (slot.result_count?.S || 0);
-      total += slot.total_runs;
-    }
+let retestsData = null;
+
+async function fetchRetests() {
+  try {
+    const resp = await fetch("/api/retests");
+    if (resp.status === 503) return;
+    if (!resp.ok) return;
+    retestsData = await resp.json();
+    buildMergeSummary();
+  } catch (e) {
+    console.error("Failed to fetch retests:", e);
   }
-  return total > 0 ? { rate: passes / total, total } : null;
 }
 
-function buildMergeSummary(jobs) {
+function buildMergeSummary() {
   const el = document.getElementById("merge-summary");
-  const withRuns = jobs.filter(j => j.runs > 0);
-  if (withRuns.length === 0) { el.style.display = "none"; return; }
+  if (!retestsData || !retestsData.summary) { el.style.display = "none"; return; }
 
-  const HOURS = 24;
-  const recentRates = withRuns.map(j => {
-    const r = recentRate(j.sparkline, HOURS);
-    return { name: j.name, rate: r ? r.rate : null, total: r ? r.total : 0 };
-  });
-  const withData = recentRates.filter(r => r.rate !== null);
-  const permafailing = withData.filter(r => r.rate === 0);
-  const below50 = withData.filter(r => r.rate < 0.5);
-
-  let mergeProb, retests;
-  if (withData.length === 0) {
-    mergeProb = 0;
-    retests = Infinity;
-  } else if (permafailing.length > 0) {
-    mergeProb = 0;
-    retests = Infinity;
-  } else {
-    mergeProb = withData.reduce((p, r) => p * r.rate, 1);
-    retests = 1 / mergeProb;
-  }
-
-  const probPct = (mergeProb * 100);
-  const probClass = permafailing.length > 0 ? 'status-bad'
+  const s = retestsData.summary;
+  const blockers = s.queue_blockers || [];
+  const below50 = (s.per_job || []).filter(j => j.pass_rate < 0.5);
+  const probPct = (s.first_try_merge_probability || 0) * 100;
+  const probClass = blockers.length > 0 ? 'status-bad'
     : probPct < 10 ? 'status-bad'
     : probPct < 50 ? 'status-warn'
     : 'status-good';
 
   let html = '';
 
-  if (permafailing.length > 0) {
-    html += `<div class="merge-stat"><span class="merge-stat-value" style="color:var(--critical)">${permafailing.length}</span><span class="merge-stat-label">job${permafailing.length > 1 ? 's' : ''} at 0% — queue blocked</span></div>`;
+  if (blockers.length > 0) {
+    html += `<div class="merge-stat"><span class="merge-stat-value" style="color:var(--critical)">${blockers.length}</span><span class="merge-stat-label">job${blockers.length > 1 ? 's' : ''} at 0% — queue blocked</span></div>`;
   }
 
-  html += `<div class="merge-stat"><span class="status-dot ${probClass}"></span><span class="merge-stat-value">${probPct < 0.1 && probPct > 0 ? '<0.1' : probPct.toFixed(1)}%</span><span class="merge-stat-label">merge probability (${HOURS}h) <span class="merge-help has-tip"><span class="tip">Product of all pass rates over the last ${HOURS}h — every presubmit must pass to merge, so even jobs that "usually pass" compound into long queues.</span>?</span></span></div>`;
+  html += `<div class="merge-stat"><span class="status-dot ${probClass}"></span><span class="merge-stat-value">${probPct < 0.1 && probPct > 0 ? '<0.1' : probPct.toFixed(1)}%</span><span class="merge-stat-label">first-try merge probability <span class="merge-help has-tip"><span class="tip">Empirical probability that all ${(s.per_job || []).length} blocking presubmits pass on a single /retest, based on ${retestsData.prs_analyzed} merged PRs over the last ${retestsData.window_days}d.</span>?</span></span></div>`;
 
-  if (retests !== Infinity) {
-    html += `<div class="merge-stat"><span class="merge-stat-value">~${Math.ceil(retests)}x</span><span class="merge-stat-label">expected retests</span></div>`;
-  }
+  html += `<div class="merge-stat"><span class="merge-stat-value">${s.median_retests_per_pr}</span><span class="merge-stat-label">median retests <span class="merge-help has-tip"><span class="tip">Median number of /retest rounds needed before all blocking jobs pass. P90: ${s.p90_retests_per_pr}, P95: ${s.p95_retests_per_pr}. Based on ${retestsData.prs_analyzed} merged PRs.</span>?</span></span></div>`;
 
-  html += `<div class="merge-stat"><span class="merge-stat-value">${below50.length}<span style="font-weight:400;color:var(--text-muted)">/${withData.length}</span></span><span class="merge-stat-label">jobs below 50%</span></div>`;
+  html += `<div class="merge-stat"><span class="merge-stat-value">${s.p90_retests_per_pr}</span><span class="merge-stat-label">P90 retests</span></div>`;
+
+  html += `<div class="merge-stat"><span class="merge-stat-value">${below50.length}<span style="font-weight:400;color:var(--text-muted)">/${(s.per_job || []).length}</span></span><span class="merge-stat-label">jobs below 50%</span></div>`;
+
+  html += `<div class="merge-stat"><span class="merge-stat-value" style="font-size:13px;font-weight:400;color:var(--text-muted)">${retestsData.prs_analyzed} PRs · ${retestsData.window_days}d</span></div>`;
 
   el.innerHTML = html;
   el.style.display = "flex";
@@ -1053,8 +1026,7 @@ function renderDashboard(state, allStates) {
   }
   dashboard.innerHTML = buildTable(state.jobs);
   buildAlertBanner(state.alerts);
-  const mergeJobs = (allStates && allStates["2d"]) ? allStates["2d"].jobs : state.jobs;
-  buildMergeSummary(mergeJobs);
+  buildMergeSummary();
   initRateCharts();
 }
 
@@ -1178,7 +1150,9 @@ document.querySelectorAll("#window-toggle button").forEach(b => {
   b.classList.toggle("active", b.dataset.window === activeWindow);
 });
 loadDashboard();
+fetchRetests();
 setInterval(() => loadDashboard(), 5 * 60 * 1000);
+setInterval(() => fetchRetests(), 5 * 60 * 1000);
 
 const sparkTip = document.getElementById("spark-tip");
 document.addEventListener("mouseover", e => {

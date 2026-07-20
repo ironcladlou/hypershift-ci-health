@@ -15,16 +15,28 @@ spec:
         app: ci-health
     spec:
       containers:
-        - name: nginx
-          image: registry.redhat.io/ubi9/nginx-126:latest
-          command: ["/usr/libexec/s2i/run"]
+        - name: ci-health
+          image: image-registry.openshift-image-registry.svc:5000/ci-health/ci-health:latest
+          args:
+            - serve
+            - --github-token-file=/etc/ci-health/github-token/token
           ports:
             - containerPort: 8080
+          livenessProbe:
+            httpGet:
+              path: /
+              port: 8080
+            periodSeconds: 30
+          readinessProbe:
+            httpGet:
+              path: /
+              port: 8080
+            periodSeconds: 10
           volumeMounts:
-            - name: html
-              mountPath: /opt/app-root/src
+            - name: github-token
+              mountPath: /etc/ci-health/github-token
               readOnly: true
       volumes:
-        - name: html
-          configMap:
-            name: ci-health-html
+        - name: github-token
+          secret:
+            secretName: github-token
