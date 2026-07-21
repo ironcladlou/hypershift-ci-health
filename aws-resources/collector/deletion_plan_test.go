@@ -1,6 +1,7 @@
 package collector
 
 import (
+	"strings"
 	"testing"
 	"time"
 )
@@ -179,6 +180,107 @@ func TestBuildDeletionPlan_CLICommands(t *testing.T) {
 		if step.CLICommand != want {
 			t.Errorf("type %s: got %q, want %q", step.Type, step.CLICommand, want)
 		}
+	}
+}
+
+func TestBuildDeletionPlan_ConsoleURL(t *testing.T) {
+	now := time.Now().UTC()
+	past := now.Add(-6 * time.Hour)
+	data := &APIResponse{
+		Jobs: []*JobNode{
+			{ID: "job-1", State: JobTerminal, CompletionTime: &past, Resources: []*ResourceNode{
+				{Type: "ec2:vpc", Region: "us-east-1", ID: "vpc-1", ConsoleURL: "https://console.aws.amazon.com/vpc/home?region=us-east-1#VpcDetails:VpcId=vpc-1"},
+			}},
+		},
+	}
+
+	plan := BuildDeletionPlan(data, 0)
+
+	if len(plan.Jobs) != 1 || len(plan.Jobs[0].Steps) != 1 {
+		t.Fatal("expected 1 job with 1 step")
+	}
+	step := plan.Jobs[0].Steps[0]
+	if step.ConsoleURL == "" {
+		t.Fatal("expected ConsoleURL to be populated")
+	}
+	if step.ConsoleURL != "https://console.aws.amazon.com/vpc/home?region=us-east-1#VpcDetails:VpcId=vpc-1" {
+		t.Fatalf("unexpected ConsoleURL: %s", step.ConsoleURL)
+	}
+}
+
+func TestRenderScript_Structure(t *testing.T) {
+	now := time.Now().UTC()
+	past := now.Add(-6 * time.Hour)
+	data := &APIResponse{
+		Jobs: []*JobNode{
+			{ID: "job-abc", State: JobTerminal, Result: "FAILURE", CompletionTime: &past, ProwLink: "https://prow.ci.openshift.org/view/gs/test/job-abc", Resources: []*ResourceNode{
+				{Type: "ec2:instance", Region: "us-east-1", ID: "i-111"},
+				{Type: "ec2:vpc", Region: "us-east-1", ID: "vpc-222"},
+			}},
+			{ID: "job-def", State: JobTerminal, Result: "SUCCESS", CompletionTime: &past, Resources: []*ResourceNode{
+				{Type: "ec2:subnet", Region: "us-west-2", ID: "subnet-333", Name: "my-subnet"},
+			}},
+		},
+	}
+
+	plan := BuildDeletionPlan(data, 0)
+	script := RenderScript(plan)
+
+	checks := []struct {
+		desc    string
+		content string
+	}{
+		{"shebang", "#!/usr/bin/env bash"},
+		{"plan ID", plan.PlanID[:16]},
+		{"confirmation prompt", `read -r -p "Proceed with cleanup? [y/N] " confirm`},
+		{"job-abc header", "# Job: job-abc"},
+		{"job-def header", "# Job: job-def"},
+		{"instance CLI", "aws ec2 terminate-instances --instance-ids i-111 --region us-east-1"},
+		{"vpc CLI", "aws ec2 delete-vpc --vpc-id vpc-222 --region us-east-1"},
+		{"subnet CLI", "aws ec2 delete-subnet --subnet-id subnet-333 --region us-west-2"},
+		{"step numbering", "[1/3]"},
+		{"last step numbering", "[3/3]"},
+		{"summary section", "Cleanup complete"},
+		{"failure counter", "$FAILED"},
+	}
+	for _, c := range checks {
+		if !strings.Contains(script, c.content) {
+			t.Errorf("script missing %s: expected to contain %q", c.desc, c.content)
+		}
+	}
+}
+
+func TestRenderScript_Empty(t *testing.T) {
+	plan := BuildDeletionPlan(&APIResponse{}, 0)
+	script := RenderScript(plan)
+
+	if !strings.HasPrefix(script, "#!/usr/bin/env bash") {
+		t.Fatal("expected script to start with shebang")
+	}
+	if !strings.Contains(script, "Cleanup complete") {
+		t.Fatal("expected summary section in empty script")
+	}
+	if strings.Contains(script, "# Job:") {
+		t.Fatal("expected no job sections in empty script")
+	}
+}
+
+func TestRenderScript_Notes(t *testing.T) {
+	now := time.Now().UTC()
+	past := now.Add(-6 * time.Hour)
+	data := &APIResponse{
+		Jobs: []*JobNode{
+			{ID: "job-1", State: JobTerminal, CompletionTime: &past, Resources: []*ResourceNode{
+				{Type: "ec2:internet-gateway", Region: "us-east-1", ID: "igw-1"},
+			}},
+		},
+	}
+
+	plan := BuildDeletionPlan(data, 0)
+	script := RenderScript(plan)
+
+	if !strings.Contains(script, "# Note: Must be detached from VPC first") {
+		t.Fatal("expected note for internet gateway in script")
 	}
 }
 

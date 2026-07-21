@@ -134,6 +134,32 @@ func Run(ctx context.Context, addr string, provider DataProvider) error {
 		json.NewEncoder(w).Encode(plan)
 	})
 
+	mux.HandleFunc("/api/deletion-plan/script", func(w http.ResponseWriter, r *http.Request) {
+		var minAge time.Duration
+		if s := r.URL.Query().Get("minAge"); s != "" {
+			var err error
+			minAge, err = time.ParseDuration(s)
+			if err != nil {
+				http.Error(w, "invalid minAge: "+err.Error(), http.StatusBadRequest)
+				return
+			}
+		}
+		data, err := provider.Data()
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		plan := collector.BuildDeletionPlan(data, minAge)
+		script := collector.RenderScript(plan)
+		shortID := plan.PlanID
+		if len(shortID) > 16 {
+			shortID = shortID[:16]
+		}
+		w.Header().Set("Content-Type", "text/x-shellscript; charset=utf-8")
+		w.Header().Set("Content-Disposition", fmt.Sprintf(`attachment; filename="cleanup-%s.sh"`, shortID))
+		w.Write([]byte(script))
+	})
+
 	server := &http.Server{Addr: addr, Handler: mux}
 	go func() {
 		<-ctx.Done()
