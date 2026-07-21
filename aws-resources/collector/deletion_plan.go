@@ -45,19 +45,19 @@ type DeletionStep struct {
 type deleteAction struct {
 	order  int
 	action string
-	cliCmd func(id, region string) string
+	cliCmd func(res *ResourceNode) string
 	note   string
 }
 
-func ec2Cmd(verb, flag string) func(string, string) string {
-	return func(id, region string) string {
-		return fmt.Sprintf("aws ec2 %s --%s %s --region %s", verb, flag, id, region)
+func ec2Cmd(verb, flag string) func(*ResourceNode) string {
+	return func(res *ResourceNode) string {
+		return fmt.Sprintf("aws ec2 %s --%s %s --region %s", verb, flag, res.ID, res.Region)
 	}
 }
 
-func iamCmd(verb, flag string) func(string, string) string {
-	return func(id, _ string) string {
-		return fmt.Sprintf("aws iam %s --%s %s", verb, flag, id)
+func iamCmd(verb, flag string) func(*ResourceNode) string {
+	return func(res *ResourceNode) string {
+		return fmt.Sprintf("aws iam %s --%s %s", verb, flag, res.ID)
 	}
 }
 
@@ -76,7 +76,12 @@ var deleteActions = map[string]deleteAction{
 	"ec2:dhcp-options":         {6, "Delete DHCP Options", ec2Cmd("delete-dhcp-options", "dhcp-options-id"), "Only deletable after the VPC using it is deleted"},
 	"iam:instance-profile":     {7, "Delete Instance Profile", iamCmd("delete-instance-profile", "instance-profile-name"), "Remove attached roles first"},
 	"iam:role":                 {8, "Delete IAM Role", iamCmd("delete-role", "role-name"), "Detach all policies and remove from instance profiles first"},
-	"route53:hostedzone":       {9, "Delete Hosted Zone", func(id, _ string) string { return fmt.Sprintf("aws route53 delete-hosted-zone --id %s", id) }, "Delete all non-NS/non-SOA record sets first"},
+	"iam:oidc-provider": {9, "Delete OIDC Provider", func(res *ResourceNode) string {
+		return fmt.Sprintf("aws iam delete-open-id-connect-provider --open-id-connect-provider-arn %s", res.ARN)
+	}, ""},
+	"route53:hostedzone": {10, "Delete Hosted Zone", func(res *ResourceNode) string {
+		return fmt.Sprintf("aws route53 delete-hosted-zone --id %s", res.ID)
+	}, "Delete all non-NS/non-SOA record sets first"},
 }
 
 func BuildDeletionPlan(data *APIResponse, minAge time.Duration) *DeletionPlan {
@@ -119,7 +124,7 @@ func BuildDeletionPlan(data *APIResponse, minAge time.Duration) *DeletionPlan {
 				Region:      res.Region,
 				Name:        res.Name,
 				Action:      act.action,
-				CLICommand:  act.cliCmd(res.ID, res.Region),
+				CLICommand:  act.cliCmd(res),
 				Note:        act.note,
 			})
 		}
