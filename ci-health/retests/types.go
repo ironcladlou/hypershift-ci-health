@@ -72,7 +72,7 @@ type BlockingJob struct {
 var BlockingJobs = []BlockingJob{
 	{Name: "e2e-aws", ProwJobName: "pull-ci-openshift-hypershift-main-e2e-aws"},
 	{Name: "e2e-aks", ProwJobName: "pull-ci-openshift-hypershift-main-e2e-aks"},
-	{Name: "e2e-azure-v2-self-managed", ProwJobName: "pull-ci-openshift-hypershift-main-e2e-azure-v2-self-managed"},
+	{Name: "e2e-v2-azure-self-managed", ProwJobName: "pull-ci-openshift-hypershift-main-e2e-v2-azure-self-managed"},
 	{Name: "e2e-aws-upgrade-hypershift-operator", ProwJobName: "pull-ci-openshift-hypershift-main-e2e-aws-upgrade-hypershift-operator"},
 	{Name: "e2e-v2-gke", ProwJobName: "pull-ci-openshift-hypershift-main-e2e-v2-gke"},
 	{Name: "e2e-aws-4-22", ProwJobName: "pull-ci-openshift-hypershift-main-e2e-aws-4-22"},
