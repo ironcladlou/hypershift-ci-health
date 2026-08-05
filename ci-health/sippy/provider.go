@@ -60,6 +60,8 @@ func (p *Provider) Data() *HealthSnapshot {
 
 func collect(ctx context.Context, client *Client) (*HealthSnapshot, error) {
 	releases := jobs.Releases()
+	presubmitNames := jobs.PresubmitProwJobNames()
+	periodicsByRelease := jobs.PeriodicProwJobNamesByRelease()
 
 	type jobsResult struct {
 		windowKey string
@@ -97,7 +99,7 @@ func collect(ctx context.Context, client *Client) (*HealthSnapshot, error) {
 			if wk == "2d" {
 				period = "twoDay"
 			}
-			result, err := client.FetchJobs(ctx, "Presubmits", "hypershift-main", period)
+			result, err := client.FetchJobs(ctx, "Presubmits", presubmitNames, period)
 			if err != nil {
 				setErr(fmt.Errorf("presubmit jobs %s: %w", wk, err))
 				return
@@ -110,15 +112,16 @@ func collect(ctx context.Context, client *Client) (*HealthSnapshot, error) {
 
 	// Fetch periodic jobs for each release and window
 	for _, rel := range releases {
+		periodicNames := periodicsByRelease[rel]
 		for _, windowKey := range []string{"7d", "2d"} {
 			wg.Add(1)
-			go func(r, wk string) {
+			go func(r, wk string, names []string) {
 				defer wg.Done()
 				period := ""
 				if wk == "2d" {
 					period = "twoDay"
 				}
-				result, err := client.FetchJobs(ctx, r, "hypershift", period)
+				result, err := client.FetchJobs(ctx, r, names, period)
 				if err != nil {
 					setErr(fmt.Errorf("periodic jobs %s/%s: %w", r, wk, err))
 					return
@@ -126,7 +129,7 @@ func collect(ctx context.Context, client *Client) (*HealthSnapshot, error) {
 				mu.Lock()
 				jobsResults = append(jobsResults, jobsResult{windowKey: wk, release: r, jobs: result})
 				mu.Unlock()
-			}(rel, windowKey)
+			}(rel, windowKey, periodicNames)
 		}
 	}
 
@@ -148,7 +151,7 @@ func collect(ctx context.Context, client *Client) (*HealthSnapshot, error) {
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		result, err := client.FetchJobRuns(ctx, "Presubmits", "hypershift-main", 1500)
+		result, err := client.FetchJobRuns(ctx, "Presubmits", presubmitNames, 1500)
 		if err != nil {
 			setErr(fmt.Errorf("presubmit runs: %w", err))
 			return
@@ -160,10 +163,11 @@ func collect(ctx context.Context, client *Client) (*HealthSnapshot, error) {
 
 	// Fetch periodic job runs per release
 	for _, rel := range releases {
+		periodicNames := periodicsByRelease[rel]
 		wg.Add(1)
-		go func(r string) {
+		go func(r string, names []string) {
 			defer wg.Done()
-			result, err := client.FetchJobRuns(ctx, r, "hypershift", 1500)
+			result, err := client.FetchJobRuns(ctx, r, names, 1500)
 			if err != nil {
 				setErr(fmt.Errorf("periodic runs %s: %w", r, err))
 				return
@@ -171,7 +175,7 @@ func collect(ctx context.Context, client *Client) (*HealthSnapshot, error) {
 			mu.Lock()
 			periodicRunResults = append(periodicRunResults, runsResult{release: r, runs: result})
 			mu.Unlock()
-		}(rel)
+		}(rel, periodicNames)
 	}
 
 	wg.Wait()

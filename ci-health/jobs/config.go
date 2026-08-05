@@ -125,3 +125,23 @@ func Platforms() []string {
 	}
 	return platforms
 }
+
+// PresubmitProwJobNames returns the prow job names for all blocking presubmits.
+func PresubmitProwJobNames() []string {
+	names := make([]string, len(BlockingJobs))
+	for i, job := range BlockingJobs {
+		names[i] = job.ProwJobName
+	}
+	return names
+}
+
+// PeriodicProwJobNamesByRelease returns periodic prow job names grouped by release.
+func PeriodicProwJobNamesByRelease() map[string][]string {
+	result := make(map[string][]string)
+	for _, job := range BlockingJobs {
+		for _, p := range job.Periodics {
+			result[p.Release] = append(result[p.Release], p.ProwJobName)
+		}
+	}
+	return result
+}

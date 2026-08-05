@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"net/url"
 	"strconv"
+	"time"
 )
 
 const DefaultBaseURL = "https://sippy.dptools.openshift.org"
@@ -18,13 +19,31 @@ type Client struct {
 
 func NewClient() *Client {
 	return &Client{
-		BaseURL:    DefaultBaseURL,
-		HTTPClient: http.DefaultClient,
+		BaseURL: DefaultBaseURL,
+		HTTPClient: &http.Client{
+			Timeout: 2 * time.Minute,
+		},
 	}
 }
 
-func jobFilter(value string) string {
-	return fmt.Sprintf(`{"items":[{"columnField":"name","operatorValue":"contains","value":%q}],"linkOperator":"and"}`, value)
+type filterItem struct {
+	ColumnField   string `json:"columnField"`
+	OperatorValue string `json:"operatorValue"`
+	Value         string `json:"value"`
+}
+
+type filter struct {
+	Items        []filterItem `json:"items"`
+	LinkOperator string       `json:"linkOperator"`
+}
+
+func exactMatchFilter(field string, values []string) string {
+	items := make([]filterItem, len(values))
+	for i, v := range values {
+		items[i] = filterItem{ColumnField: field, OperatorValue: "equals", Value: v}
+	}
+	b, _ := json.Marshal(filter{Items: items, LinkOperator: "or"})
+	return string(b)
 }
 
 func (c *Client) get(ctx context.Context, path string, params url.Values) (*http.Response, error) {
@@ -50,10 +69,11 @@ func (c *Client) get(ctx context.Context, path string, params url.Values) (*http
 	return resp, nil
 }
 
-func (c *Client) FetchJobs(ctx context.Context, release, filterValue, period string) ([]SippyJob, error) {
+// FetchJobs fetches job stats filtered to the exact job names provided.
+func (c *Client) FetchJobs(ctx context.Context, release string, jobNames []string, period string) ([]SippyJob, error) {
 	params := url.Values{
 		"release": {release},
-		"filter":  {jobFilter(filterValue)},
+		"filter":  {exactMatchFilter("name", jobNames)},
 	}
 	if period != "" {
 		params.Set("period", period)
@@ -71,10 +91,11 @@ func (c *Client) FetchJobs(ctx context.Context, release, filterValue, period str
 	return jobs, nil
 }
 
-func (c *Client) FetchJobRuns(ctx context.Context, release, filterValue string, perPage int) ([]SippyJobRun, error) {
+// FetchJobRuns fetches job run data filtered to the exact job names provided.
+func (c *Client) FetchJobRuns(ctx context.Context, release string, jobNames []string, perPage int) ([]SippyJobRun, error) {
 	params := url.Values{
 		"release":   {release},
-		"filter":    {jobFilter(filterValue)},
+		"filter":    {exactMatchFilter("job", jobNames)},
 		"perPage":   {strconv.Itoa(perPage)},
 		"sortField": {"timestamp"},
 		"sort":      {"desc"},
