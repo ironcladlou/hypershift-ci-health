@@ -10,6 +10,8 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/ironcladlou/hypershift-ci-health/ci-health/jobs"
 )
 
 var logWriter io.Writer = os.Stderr
@@ -42,7 +44,7 @@ func Run(ctx context.Context, cfg Config) (*AnalysisResult, error) {
 	}
 
 	blockingSet := make(map[string]string)
-	for _, bj := range BlockingJobs {
+	for _, bj := range jobs.BlockingJobs {
 		blockingSet[bj.ProwJobName] = bj.Name
 	}
 
@@ -173,7 +175,7 @@ func computeSummary(prs []PRResult, blockingSet map[string]string) Summary {
 			js, ok := jobStats[job.Name]
 			if !ok {
 				prowName := ""
-				for _, bj := range BlockingJobs {
+				for _, bj := range jobs.BlockingJobs {
 					if bj.Name == job.Name {
 						prowName = bj.ProwJobName
 						break
@@ -197,7 +199,7 @@ func computeSummary(prs []PRResult, blockingSet map[string]string) Summary {
 
 	var perJob []JobSummary
 	mergeProbability := 1.0
-	for _, bj := range BlockingJobs {
+	for _, bj := range jobs.BlockingJobs {
 		js, ok := jobStats[bj.Name]
 		if !ok {
 			continue

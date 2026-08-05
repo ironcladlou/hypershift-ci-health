@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/ironcladlou/hypershift-ci-health/ci-health/retests"
+	"github.com/ironcladlou/hypershift-ci-health/ci-health/sippy"
 	"github.com/spf13/cobra"
 )
 
@@ -52,6 +53,7 @@ func serveCmd() *cobra.Command {
 		window          int
 		concurrency     int
 		interval        time.Duration
+		sippyInterval   time.Duration
 	)
 
 	cmd := &cobra.Command{
@@ -77,6 +79,9 @@ A GitHub token is required for the retest analyzer.`,
 
 			provider := retests.NewProvider(cmd.Context(), cfg, interval)
 
+			sippyClient := sippy.NewClient()
+			sippyProvider := sippy.NewProvider(cmd.Context(), sippyClient, sippyInterval)
+
 			mux := http.NewServeMux()
 			if dev {
 				fmt.Fprintf(os.Stderr, "Dev mode: serving index.html from filesystem\n")
@@ -101,6 +106,16 @@ A GitHub token is required for the retest analyzer.`,
 				w.Header().Set("Access-Control-Allow-Origin", "*")
 				json.NewEncoder(w).Encode(data)
 			})
+			mux.HandleFunc("/api/health", func(w http.ResponseWriter, r *http.Request) {
+				data := sippyProvider.Data()
+				if data == nil {
+					http.Error(w, "data not yet available", http.StatusServiceUnavailable)
+					return
+				}
+				w.Header().Set("Content-Type", "application/json")
+				w.Header().Set("Access-Control-Allow-Origin", "*")
+				json.NewEncoder(w).Encode(data)
+			})
 
 			server := &http.Server{Addr: addr, Handler: mux}
 			go func() {
@@ -109,6 +124,7 @@ A GitHub token is required for the retest analyzer.`,
 			}()
 
 			fmt.Fprintf(os.Stderr, "http://localhost%s\n", addr)
+			fmt.Fprintf(os.Stderr, "Sippy data refresh every %s\n", sippyInterval)
 			fmt.Fprintf(os.Stderr, "Retest analysis every %s (window: %dd)\n", interval, window)
 			if err := server.ListenAndServe(); err != http.ErrServerClosed {
 				return err
@@ -126,6 +142,7 @@ A GitHub token is required for the retest analyzer.`,
 	cmd.Flags().IntVar(&window, "window", 7, "Lookback window in days")
 	cmd.Flags().IntVar(&concurrency, "concurrency", 5, "Parallel Prow fetches")
 	cmd.Flags().DurationVar(&interval, "interval", 30*time.Minute, "Retest analysis refresh interval")
+	cmd.Flags().DurationVar(&sippyInterval, "sippy-interval", 15*time.Minute, "Sippy data refresh interval")
 
 	return cmd
 }

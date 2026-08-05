@@ -118,7 +118,7 @@ tbody tr:last-child td { border-bottom: none; }
 .job-name a {
   color: var(--text-primary);
   text-decoration: none;
-  font-weight: 500;
+  font-weight: 400;
 }
 .job-name a:hover { text-decoration: underline; }
 .category-row td {
@@ -127,7 +127,16 @@ tbody tr:last-child td { border-bottom: none; }
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.05em;
-  color: var(--text-muted);
+  color: var(--text-primary);
+  background: color-mix(in srgb, var(--series-1) 10%, var(--surface-page));
+  border-bottom: 1px solid color-mix(in srgb, var(--series-1) 20%, var(--gridline));
+}
+.subcategory-row td {
+  padding: 4px 12px 4px 24px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  color: var(--text-secondary);
   background: var(--surface-page);
 }
 
@@ -325,6 +334,12 @@ tr:has(+ .periodic-row) td { border-bottom: none; }
 <div class="header">
   <h1>HyperShift Merge Queue Health</h1>
   <div class="header-meta">
+    <div class="window-toggle" id="group-toggle">
+      <button data-group="" onclick="setGroupBy('')">None</button>
+      <button data-group="platform" onclick="setGroupBy('platform')">Platform</button>
+      <button data-group="version" onclick="setGroupBy('version')">Version</button>
+      <button data-group="platform-version" onclick="setGroupBy('platform-version')">Platform / Version</button>
+    </div>
     <div class="window-toggle" id="window-toggle">
       <button data-window="2d" onclick="setActiveWindow('2d')">2d</button>
       <button data-window="7d" onclick="setActiveWindow('7d')">7d</button>
@@ -339,7 +354,7 @@ tr:has(+ .periodic-row) td { border-bottom: none; }
 <div id="merge-summary" class="merge-summary" style="display:none"></div>
 
 <div id="dashboard">
-  <div class="loading" id="loading">Loading data from Sippy…</div>
+  <div class="loading" id="loading">Loading…</div>
 </div>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
 <div id="rate-tip" style="position:fixed;display:none;pointer-events:none;z-index:100;background:var(--text-primary);color:var(--surface);font-size:11px;font-weight:400;padding:2px 6px;border-radius:3px;white-space:nowrap"></div>
@@ -347,90 +362,16 @@ tr:has(+ .periodic-row) td { border-bottom: none; }
 
 <script>
 const SIPPY = "https://sippy.dptools.openshift.org";
-const CACHE_PREFIX = "sippy_";
-
-const BLOCKING_JOBS = [
-  { name: "e2e-aws", prow: "pull-ci-openshift-hypershift-main-e2e-aws", category: "e2e",
-    periodics: [{ name: "e2e-aws-ovn", prow: "periodic-ci-openshift-hypershift-release-5.0-periodics-e2e-aws-ovn", release: "5.0" }]},
-  { name: "e2e-aks", prow: "pull-ci-openshift-hypershift-main-e2e-aks", category: "e2e",
-    periodics: [{ name: "e2e-aks", prow: "periodic-ci-openshift-hypershift-release-5.0-periodics-e2e-aks", release: "5.0" }]},
-  { name: "e2e-v2-azure-self-managed", prow: "pull-ci-openshift-hypershift-main-e2e-v2-azure-self-managed", category: "e2e",
-    periodics: [{ name: "e2e-v2-azure-self-managed", prow: "periodic-ci-openshift-hypershift-release-5.0-periodics-e2e-v2-azure-self-managed", release: "5.0" }]},
-  { name: "e2e-aws-upgrade-hypershift-operator", prow: "pull-ci-openshift-hypershift-main-e2e-aws-upgrade-hypershift-operator", category: "e2e",
-    periodics: [{ name: "e2e-aws-upgrade", prow: "periodic-ci-openshift-hypershift-release-5.0-periodics-e2e-aws-upgrade", release: "5.0" }]},
-  { name: "e2e-v2-gke", prow: "pull-ci-openshift-hypershift-main-e2e-v2-gke", category: "e2e",
-    periodics: [{ name: "e2e-v2-gke", prow: "periodic-ci-openshift-hypershift-release-5.0-periodics-e2e-v2-gke", release: "5.0" }]},
-  { name: "e2e-aws-4-22", prow: "pull-ci-openshift-hypershift-main-e2e-aws-4-22", category: "e2e",
-    periodics: [{ name: "e2e-aws-ovn", prow: "periodic-ci-openshift-hypershift-release-4.22-periodics-e2e-aws-ovn", release: "4.22" }]},
-  { name: "e2e-aks-4-22", prow: "pull-ci-openshift-hypershift-main-e2e-aks-4-22", category: "e2e",
-    periodics: [{ name: "e2e-aks", prow: "periodic-ci-openshift-hypershift-release-4.22-periodics-e2e-aks", release: "4.22" }]},
-  { name: "e2e-kubevirt-aws-ovn-reduced", prow: "pull-ci-openshift-hypershift-main-e2e-kubevirt-aws-ovn-reduced", category: "e2e",
-    periodics: [{ name: "e2e-kubevirt-aws-ovn-csi", prow: "periodic-ci-openshift-hypershift-release-4.22-periodics-e2e-kubevirt-aws-ovn-csi", release: "4.22" }]},
-  { name: "e2e-v2-aws", prow: "pull-ci-openshift-hypershift-main-e2e-v2-aws", category: "e2e",
-    periodics: [
-      { name: "e2e-v2-aws", prow: "periodic-ci-openshift-hypershift-release-5.0-periodics-e2e-v2-aws", release: "5.0" },
-      { name: "e2e-v2-aws", prow: "periodic-ci-openshift-hypershift-release-4.22-periodics-e2e-v2-aws", release: "4.22" },
-    ]},
-];
 
 const WINDOWS = {
   "2d": { sparkSlotHours: 2, sparkSlots: 24, sparkLabel: "Last 2d", prevLabel: "Prev 7d" },
   "7d": { sparkSlotHours: 6, sparkSlots: 28, sparkLabel: "Last 7d", prevLabel: "Prev 7d" },
 };
 let activeWindow = localStorage.getItem("sippy_window") || "7d";
-let loadGeneration = 0;
-
-// --- Cache layer ---
-
-function cacheGet(key) {
-  try {
-    const raw = localStorage.getItem(CACHE_PREFIX + key);
-    if (!raw) return null;
-    return JSON.parse(raw);
-  } catch { return null; }
-}
-
-function cacheSet(key, data) {
-  const entry = JSON.stringify({ d: data, ts: Date.now() });
-  try {
-    localStorage.setItem(CACHE_PREFIX + key, entry);
-  } catch {
-    clearCache();
-    try { localStorage.setItem(CACHE_PREFIX + key, entry); } catch {}
-  }
-}
-
-function clearCache() {
-  for (let i = localStorage.length - 1; i >= 0; i--) {
-    const k = localStorage.key(i);
-    if (k && k.startsWith(CACHE_PREFIX)) localStorage.removeItem(k);
-  }
-}
-
-function loadFromCache() {
-  const entry = cacheGet("data");
-  if (!entry) return null;
-  return { states: entry.d.states, ts: entry.ts };
-}
-
-function saveToCache(states) {
-  cacheSet("data", { states });
-}
+let activeGroupBy = localStorage.getItem("sippy_groupby") ?? "platform-version";
+let healthSnapshot = null;
 
 // --- Helpers ---
-
-function sippyUrl(path, params) {
-  const u = new URL(path, SIPPY);
-  for (const [k, v] of Object.entries(params)) u.searchParams.set(k, v);
-  return u.toString();
-}
-
-function jobFilter(value) {
-  return JSON.stringify({
-    items: [{ columnField: "name", operatorValue: "contains", value }],
-    linkOperator: "and"
-  });
-}
 
 function sippyJobRunsLink(jobName, release) {
   const filters = JSON.stringify({
@@ -444,13 +385,6 @@ function sippyJobLink(jobName, release) {
     items: [{ columnField: "name", operatorValue: "equals", value: jobName }]
   });
   return `${SIPPY}/sippy-ng/jobs/${encodeURIComponent(release)}/analysis?filters=${encodeURIComponent(filters)}`;
-}
-
-async function fetchJson(path, params) {
-  const url = sippyUrl(path, params);
-  const resp = await fetch(url);
-  if (!resp.ok) throw new Error(`${resp.status} ${resp.statusText}: ${url}`);
-  return resp.json();
 }
 
 function esc(s) {
@@ -502,7 +436,7 @@ function formatAge(ms) {
   return `${hrs}h ${min % 60}m ago`;
 }
 
-// --- Sparklines ---
+// --- Sparklines (use UTC for slot key alignment with server) ---
 
 function buildSparkline(hourlyData, showDates, correlatedIndices) {
   if (showDates === undefined) showDates = true;
@@ -511,15 +445,14 @@ function buildSparkline(hourlyData, showDates, correlatedIndices) {
   const now = new Date();
   const slotData = [];
   for (let i = win.sparkSlots - 1; i >= 0; i--) {
-    const t = new Date(now);
-    t.setMinutes(0, 0, 0);
-    const slotBase = Math.floor(t.getHours() / win.sparkSlotHours) * win.sparkSlotHours;
-    t.setHours(slotBase - i * win.sparkSlotHours);
-    const key = t.getFullYear() + "-" +
-      String(t.getMonth() + 1).padStart(2, "0") + "-" +
-      String(t.getDate()).padStart(2, "0") + " " +
-      String(t.getHours()).padStart(2, "0") + ":00";
-    slotData.push({ val: hourlyData[key] || null, day: t.getDate(), month: t.getMonth() + 1, key });
+    const t = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), now.getUTCHours()));
+    const slotBase = Math.floor(t.getUTCHours() / win.sparkSlotHours) * win.sparkSlotHours;
+    t.setUTCHours(slotBase - i * win.sparkSlotHours);
+    const key = t.getUTCFullYear() + "-" +
+      String(t.getUTCMonth() + 1).padStart(2, "0") + "-" +
+      String(t.getUTCDate()).padStart(2, "0") + " " +
+      String(t.getUTCHours()).padStart(2, "0") + ":00";
+    slotData.push({ val: hourlyData[key] || null, day: t.getUTCDate(), month: t.getUTCMonth() + 1, key });
   }
 
   const gap = 1, dayGap = 4;
@@ -591,30 +524,6 @@ function buildSparkline(hourlyData, showDates, correlatedIndices) {
   return svg;
 }
 
-function bucketJobRuns(jobRuns, slotHours, totalSlots) {
-  const hourlyData = {};
-  const cutoff = Date.now() - totalSlots * slotHours * 60 * 60 * 1000;
-  for (const run of (jobRuns.rows || [])) {
-    if (run.timestamp < cutoff) continue;
-    const job = run.job;
-    if (!hourlyData[job]) hourlyData[job] = {};
-    const t = new Date(run.timestamp);
-    const slotHour = Math.floor(t.getHours() / slotHours) * slotHours;
-    const key = t.getFullYear() + "-" +
-      String(t.getMonth() + 1).padStart(2, "0") + "-" +
-      String(t.getDate()).padStart(2, "0") + " " +
-      String(slotHour).padStart(2, "0") + ":00";
-    if (!hourlyData[job][key]) {
-      hourlyData[job][key] = { total_runs: 0, result_count: {} };
-    }
-    const slot = hourlyData[job][key];
-    slot.total_runs++;
-    const rc = run.overall_result || (run.succeeded ? "S" : "F");
-    slot.result_count[rc] = (slot.result_count[rc] || 0) + 1;
-  }
-  return hourlyData;
-}
-
 function extractErrorRates(sparklineData) {
   if (!sparklineData) return null;
   const win = WINDOWS[activeWindow];
@@ -622,15 +531,14 @@ function extractErrorRates(sparklineData) {
   const rates = [];
   const labels = [];
   for (let i = win.sparkSlots - 1; i >= 0; i--) {
-    const t = new Date(now);
-    t.setMinutes(0, 0, 0);
-    const slotBase = Math.floor(t.getHours() / win.sparkSlotHours) * win.sparkSlotHours;
-    t.setHours(slotBase - i * win.sparkSlotHours);
-    const key = t.getFullYear() + "-" +
-      String(t.getMonth() + 1).padStart(2, "0") + "-" +
-      String(t.getDate()).padStart(2, "0") + " " +
-      String(t.getHours()).padStart(2, "0") + ":00";
-    labels.push(`${t.getMonth()+1}/${t.getDate()} ${String(t.getHours()).padStart(2,'0')}:00`);
+    const t = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), now.getUTCHours()));
+    const slotBase = Math.floor(t.getUTCHours() / win.sparkSlotHours) * win.sparkSlotHours;
+    t.setUTCHours(slotBase - i * win.sparkSlotHours);
+    const key = t.getUTCFullYear() + "-" +
+      String(t.getUTCMonth() + 1).padStart(2, "0") + "-" +
+      String(t.getUTCDate()).padStart(2, "0") + " " +
+      String(t.getUTCHours()).padStart(2, "0") + ":00";
+    labels.push(`${t.getUTCMonth()+1}/${t.getUTCDate()} ${String(t.getUTCHours()).padStart(2,'0')}:00`);
     const slot = sparklineData[key];
     if (!slot || slot.total_runs === 0) {
       rates.push(null);
@@ -643,6 +551,7 @@ function extractErrorRates(sparklineData) {
 }
 
 let pendingCharts = [];
+let chartIdSeq = 0;
 
 function externalRateTooltip(context) {
   const tip = document.getElementById('rate-tip');
@@ -710,154 +619,11 @@ function initRateCharts() {
   pendingCharts = [];
 }
 
-// --- Transform layer ---
-
-const BLOCKING_PROW_NAMES = new Set(BLOCKING_JOBS.map(j => j.prow));
-
-function transformRawData(raw, windowKey) {
-  const win = WINDOWS[windowKey];
-  const windowData = raw.windows[windowKey];
-  const presubmitMap = {};
-  for (const j of (windowData.presubmits || [])) presubmitMap[j.name] = j;
-  const periodicMap = {};
-  for (const j of (windowData.periodic50 || [])) periodicMap[j.name] = j;
-  for (const j of (windowData.periodic422 || [])) periodicMap[j.name] = j;
-
-  const sparklines = bucketJobRuns(raw.jobRuns || {}, win.sparkSlotHours, win.sparkSlots);
-  const periodicSparklines = bucketJobRuns(raw.periodicJobRuns || {}, win.sparkSlotHours, win.sparkSlots);
-
-  const periodicFlakes = {};
-  const flakeCutoff = Date.now() - win.sparkSlots * win.sparkSlotHours * 60 * 60 * 1000;
-  for (const run of (raw.periodicJobRuns?.rows || [])) {
-    if (run.timestamp < flakeCutoff) continue;
-    if ((run.test_flakes || 0) > 0) {
-      if (!periodicFlakes[run.job]) periodicFlakes[run.job] = { runs: 0, flakes: 0 };
-      periodicFlakes[run.job].flakes++;
-    }
-    if (!periodicFlakes[run.job]) periodicFlakes[run.job] = { runs: 0, flakes: 0 };
-    periodicFlakes[run.job].runs++;
-  }
-
-  function slotKeys() {
-    const keys = [];
-    const now = new Date();
-    for (let i = win.sparkSlots - 1; i >= 0; i--) {
-      const t = new Date(now);
-      t.setMinutes(0, 0, 0);
-      const slotBase = Math.floor(t.getHours() / win.sparkSlotHours) * win.sparkSlotHours;
-      t.setHours(slotBase - i * win.sparkSlotHours);
-      keys.push(t.getFullYear() + "-" +
-        String(t.getMonth() + 1).padStart(2, "0") + "-" +
-        String(t.getDate()).padStart(2, "0") + " " +
-        String(t.getHours()).padStart(2, "0") + ":00");
-    }
-    return keys;
-  }
-
-  function computeCorrelation(preSparkline, perSparkline) {
-    if (!preSparkline || !perSparkline) return null;
-    const keys = slotKeys();
-    let preFails = 0, correlated = 0;
-    const correlatedIndices = [];
-    for (let idx = 0; idx < keys.length; idx++) {
-      const k = keys[idx];
-      const pre = preSparkline[k], per = perSparkline[k];
-      if (!pre || pre.total_runs === 0) continue;
-      const prePass = ((pre.result_count?.S || 0) / pre.total_runs) >= 0.5;
-      if (prePass) continue;
-      preFails++;
-      if (!per || per.total_runs === 0) continue;
-      const perPass = ((per.result_count?.S || 0) / per.total_runs) >= 0.5;
-      if (!perPass) { correlated++; correlatedIndices.push(idx); }
-    }
-    if (preFails === 0) return null;
-    return { correlated, preFails, indices: correlatedIndices };
-  }
-
-  function countResultTypes(sparklineData) {
-    let testFails = 0, infraFails = 0, passes = 0, sparkRuns = 0;
-    for (const slot of Object.values(sparklineData || {})) {
-      const rc = slot.result_count || {};
-      passes += rc.S || 0;
-      testFails += rc.F || 0;
-      infraFails += (rc.n || 0) + (rc.N || 0);
-      sparkRuns += slot.total_runs || 0;
-    }
-    return { testFails, infraFails, passes, sparkRuns };
-  }
-
-  const jobs = BLOCKING_JOBS.map(cfg => {
-    const d = presubmitMap[cfg.prow] || {};
-    const runs = d.current_runs ?? 0;
-
-    const periodics = (cfg.periodics || []).map(cfgPer => {
-      const pd = periodicMap[cfgPer.prow];
-      const perCounts = countResultTypes(periodicSparklines[cfgPer.prow]);
-      return {
-        name: cfgPer.name,
-        prow: cfgPer.prow,
-        release: cfgPer.release,
-        label: cfgPer.label || cfgPer.release,
-        rate: pd ? pd.current_pass_percentage ?? null : null,
-        prev: pd ? pd.previous_pass_percentage ?? null : null,
-        prevRuns: pd ? pd.previous_runs ?? 0 : 0,
-        trend: pd ? pd.net_improvement ?? null : null,
-        runs: pd ? pd.current_runs ?? 0 : 0,
-        fails: pd ? pd.current_fails ?? 0 : 0,
-        testFails: perCounts.testFails,
-        infraFails: perCounts.infraFails,
-        sparkRuns: perCounts.sparkRuns,
-        sparkline: periodicSparklines[cfgPer.prow] || null,
-        flakyRuns: periodicFlakes[cfgPer.prow]?.flakes || 0,
-        totalRuns: periodicFlakes[cfgPer.prow]?.runs || 0,
-      };
-    });
-
-    const firstPeriodic = cfg.periodics && cfg.periodics[0];
-    const correlation = firstPeriodic
-      ? computeCorrelation(sparklines[cfg.prow], periodicSparklines[firstPeriodic.prow])
-      : null;
-
-    const preCounts = countResultTypes(sparklines[cfg.prow]);
-    return {
-      name: cfg.name,
-      prow: cfg.prow,
-      category: cfg.category,
-      rate: d.current_pass_percentage ?? 0,
-      prev: d.previous_pass_percentage ?? 0,
-      prevRuns: d.previous_runs ?? 0,
-      trend: d.net_improvement ?? null,
-      runs,
-      fails: d.current_fails ?? 0,
-      testFails: preCounts.testFails,
-      infraFails: preCounts.infraFails,
-      sparkRuns: preCounts.sparkRuns,
-      periodics,
-      sparkline: sparklines[cfg.prow] || null,
-      correlation,
-    };
-  });
-
-  const failureRows = (raw.recentFailures && raw.recentFailures.rows) || [];
-  const alerts = failureRows.map(f => {
-    const matching = (f.outputs || []).filter(o => BLOCKING_PROW_NAMES.has(o.prow_job_name));
-    if (matching.length === 0) return null;
-    return {
-      testName: f.test_name,
-      failureCount: matching.length,
-      jobs: [...new Set(matching.map(o => o.prow_job_name).filter(Boolean))]
-        .map(j => j.replace("pull-ci-openshift-hypershift-main-", "")),
-    };
-  }).filter(Boolean);
-
-  return { ts: raw.ts || Date.now(), jobs, alerts };
-}
-
 // --- Alert banner ---
 
 function buildAlertBanner(alerts) {
   const banner = document.getElementById("alert-banner");
-  if (alerts.length === 0) {
+  if (!alerts || alerts.length === 0) {
     banner.style.display = "none";
     return;
   }
@@ -865,8 +631,8 @@ function buildAlertBanner(alerts) {
   banner.style.display = "block";
   let html = `<h2>${alerts.length} test${alerts.length > 1 ? "s" : ""} newly failing in the last 4 hours</h2><ul>`;
   for (const a of displayed) {
-    html += `<li><span class="test-name">${esc(a.testName)}</span>`;
-    html += ` <span class="job-names">(${a.failureCount} failure${a.failureCount > 1 ? "s" : ""}`;
+    html += `<li><span class="test-name">${esc(a.test_name)}</span>`;
+    html += ` <span class="job-names">(${a.failure_count} failure${a.failure_count > 1 ? "s" : ""}`;
     if (a.jobs.length) html += ` in ${a.jobs.join(", ")}`;
     html += `)</span></li>`;
   }
@@ -879,13 +645,15 @@ function buildAlertBanner(alerts) {
 
 // --- Table rendering ---
 
-function buildTable(jobs) {
-  const sorted = [...jobs].sort((a, b) => {
+function sortJobs(jobs) {
+  return [...jobs].sort((a, b) => {
     const aSort = a.runs > 0 ? a.rate : 999;
     const bSort = b.runs > 0 ? b.rate : 999;
     return aSort - bSort;
   });
+}
 
+function buildTable(jobs) {
   const win = WINDOWS[activeWindow];
   let html = `<table>
     <thead><tr>
@@ -895,7 +663,48 @@ function buildTable(jobs) {
     </tr></thead>
     <tbody>`;
 
-  for (const j of sorted) html += buildRow(j);
+  if (activeGroupBy === "platform-version") {
+    const platforms = {};
+    const platformOrder = [];
+    for (const j of jobs) {
+      if (!platforms[j.platform]) {
+        platforms[j.platform] = {};
+        platformOrder.push(j.platform);
+      }
+      const versions = j.version ? [j.version] : [...new Set((j.periodics || []).map(p => p.release))];
+      for (const v of versions) {
+        if (!platforms[j.platform][v]) platforms[j.platform][v] = [];
+        const filtered = { ...j, periodics: (j.periodics || []).filter(p => p.release === v) };
+        platforms[j.platform][v].push(filtered);
+      }
+    }
+    for (const plat of platformOrder) {
+      html += `<tr class="category-row"><td colspan="3">${esc(plat)}</td></tr>`;
+      const versionGroups = platforms[plat];
+      const versionKeys = Object.keys(versionGroups).sort().reverse();
+      for (const ver of versionKeys) {
+        html += `<tr class="subcategory-row"><td colspan="3">${esc(ver)}</td></tr>`;
+        for (const j of sortJobs(versionGroups[ver])) html += buildRow(j);
+      }
+    }
+  } else if (activeGroupBy === "platform" || activeGroupBy === "version") {
+    const groups = {};
+    const groupOrder = [];
+    for (const j of jobs) {
+      const key = activeGroupBy === "platform" ? j.platform : (j.version || "multi");
+      if (!groups[key]) {
+        groups[key] = [];
+        groupOrder.push(key);
+      }
+      groups[key].push(j);
+    }
+    for (const key of groupOrder) {
+      html += `<tr class="category-row"><td colspan="3">${esc(key)}</td></tr>`;
+      for (const j of sortJobs(groups[key])) html += buildRow(j);
+    }
+  } else {
+    for (const j of sortJobs(jobs)) html += buildRow(j);
+  }
 
   html += "</tbody></table>";
   html += `<div class="sparkline-legend">
@@ -919,7 +728,7 @@ function rateTrendHtml(rate, prev, prevRuns, trend, runs, fails) {
 }
 
 function buildRow(j) {
-  const preChartId = `rate-${j.prow.replace(/[^a-z0-9]/gi, '-')}`;
+  const preChartId = `rate-${++chartIdSeq}`;
   const pre = extractErrorRates(j.sparkline);
   pendingCharts.push({
     id: preChartId,
@@ -928,21 +737,21 @@ function buildRow(j) {
     color: 'pre',
   });
 
-  const preInfraBadge = (j.infraFails > 0 && j.sparkRuns > 0 && j.infraFails / j.sparkRuns >= 0.15)
-    ? `<span class="infra-badge has-tip"><span class="tip">${j.infraFails} of ${j.sparkRuns} runs were infrastructure failures — the job errored or timed out before tests could run. Not caused by PR code.</span>${j.infraFails} infra</span>`
+  const preInfraBadge = (j.infra_fails > 0 && j.spark_runs > 0 && j.infra_fails / j.spark_runs >= 0.15)
+    ? `<span class="infra-badge has-tip"><span class="tip">${j.infra_fails} of ${j.spark_runs} runs were infrastructure failures — the job errored or timed out before tests could run. Not caused by PR code.</span>${j.infra_fails} infra</span>`
     : '';
 
   const hasPeriodics = j.periodics && j.periodics.length > 0;
   let html = `<tr>
     <td class="job-name"><span class="status-dot ${statusClass(j.rate, j.runs)}"></span><a href="${sippyJobLink(j.prow, "Presubmits")}" target="_blank">${esc(j.name)}</a><span class="job-type">presubmit</span>${preInfraBadge}</td>
-    <td class="rate-chart-cell"><div class="rate-chart-inner"><canvas id="${preChartId}" width="140" height="28"></canvas>${rateDeltaHtml(j.rate, j.prev, j.prevRuns, j.trend, j.runs, j.fails, j.testFails, j.infraFails)}</div></td>
+    <td class="rate-chart-cell"><div class="rate-chart-inner"><canvas id="${preChartId}" width="140" height="28"></canvas>${rateDeltaHtml(j.rate, j.prev, j.prev_runs, j.trend, j.runs, j.fails, j.test_fails, j.infra_fails)}</div></td>
     <td class="sparkline-cell">${buildSparkline(j.sparkline, !hasPeriodics, j.correlation ? j.correlation.indices : null)}</td>
   </tr>`;
 
   for (const p of (j.periodics || [])) {
     const pRate = p.rate != null ? p.rate : 0;
     const pRuns = p.runs ?? 0;
-    const perChartId = `rate-${p.prow.replace(/[^a-z0-9]/gi, '-')}`;
+    const perChartId = `rate-${++chartIdSeq}`;
     const per = extractErrorRates(p.sparkline);
     pendingCharts.push({
       id: perChartId,
@@ -950,13 +759,13 @@ function buildRow(j) {
       labels: per ? per.labels : [],
       color: 'per',
     });
-    const perSparkRuns = p.sparkRuns ?? 0;
-    const perInfraBadge = (p.infraFails > 0 && perSparkRuns > 0 && p.infraFails / perSparkRuns >= 0.15)
-      ? `<span class="infra-badge has-tip"><span class="tip">${p.infraFails} of ${perSparkRuns} runs were infrastructure failures — the job errored or timed out before tests could run.</span>${p.infraFails} infra</span>`
+    const perSparkRuns = p.spark_runs ?? 0;
+    const perInfraBadge = (p.infra_fails > 0 && perSparkRuns > 0 && p.infra_fails / perSparkRuns >= 0.15)
+      ? `<span class="infra-badge has-tip"><span class="tip">${p.infra_fails} of ${perSparkRuns} runs were infrastructure failures — the job errored or timed out before tests could run.</span>${p.infra_fails} infra</span>`
       : '';
     html += `<tr class="periodic-row">
-      <td class="job-name periodic-name"><span class="status-dot ${statusClass(pRate, pRuns)}"></span><a class="periodic-link" href="${sippyJobLink(p.prow, p.release)}" target="_blank">${esc(p.name)}</a><span class="job-type">periodic ${p.label}</span>${p.flakyRuns > 0 ? `<a class="flake-badge has-tip" href="${sippyJobRunsLink(p.prow, p.release)}" target="_blank"><span class="tip">${p.flakyRuns} of ${p.totalRuns} runs had flakes</span>⚡${p.flakyRuns} flaky</a>` : ""}${perInfraBadge}</td>
-      <td class="rate-chart-cell"><div class="rate-chart-inner"><canvas id="${perChartId}" width="140" height="28"></canvas>${rateDeltaHtml(pRate, p.prev != null ? p.prev : 0, p.prevRuns ?? 0, p.trend, pRuns, p.fails ?? 0, p.testFails ?? 0, p.infraFails ?? 0)}</div></td>
+      <td class="job-name periodic-name"><span class="status-dot ${statusClass(pRate, pRuns)}"></span><a class="periodic-link" href="${sippyJobLink(p.prow, p.release)}" target="_blank">${esc(p.name)}</a><span class="job-type">periodic ${p.label}</span>${p.flaky_runs > 0 ? `<a class="flake-badge has-tip" href="${sippyJobRunsLink(p.prow, p.release)}" target="_blank"><span class="tip">${p.flaky_runs} of ${p.total_runs} runs had flakes</span>⚡${p.flaky_runs} flaky</a>` : ""}${perInfraBadge}</td>
+      <td class="rate-chart-cell"><div class="rate-chart-inner"><canvas id="${perChartId}" width="140" height="28"></canvas>${rateDeltaHtml(pRate, p.prev != null ? p.prev : 0, p.prev_runs ?? 0, p.trend, pRuns, p.fails ?? 0, p.test_fails ?? 0, p.infra_fails ?? 0)}</div></td>
       <td class="sparkline-cell">${buildSparkline(p.sparkline)}</td>
     </tr>`;
   }
@@ -1015,8 +824,13 @@ function buildMergeSummary() {
 
 // --- Render orchestration ---
 
-function renderDashboard(state, allStates) {
+function renderDashboard() {
+  if (!healthSnapshot) return;
+  const windowData = healthSnapshot.windows[activeWindow];
+  if (!windowData) return;
+
   pendingCharts = [];
+  chartIdSeq = 0;
   const dashboard = document.getElementById("dashboard");
   if (typeof Chart !== 'undefined') {
     dashboard.querySelectorAll('canvas').forEach(c => {
@@ -1024,8 +838,8 @@ function renderDashboard(state, allStates) {
       if (chart) chart.destroy();
     });
   }
-  dashboard.innerHTML = buildTable(state.jobs);
-  buildAlertBanner(state.alerts);
+  dashboard.innerHTML = buildTable(windowData.jobs || []);
+  buildAlertBanner(windowData.alerts);
   buildMergeSummary();
   initRateCharts();
 }
@@ -1036,98 +850,32 @@ function setStatus(text, cls) {
   el.className = cls || "";
 }
 
-async function fetchAllFreshData() {
-  const [
-    presub7d, per50_7d, per422_7d,
-    presub2d, per50_2d, per422_2d,
-    recentFailures
-  ] = await Promise.all([
-    fetchJson("/api/jobs", { release: "Presubmits", filter: jobFilter("hypershift-main") }),
-    fetchJson("/api/jobs", { release: "5.0", filter: jobFilter("hypershift") }),
-    fetchJson("/api/jobs", { release: "4.22", filter: jobFilter("hypershift") }),
-    fetchJson("/api/jobs", { release: "Presubmits", filter: jobFilter("hypershift-main"), period: "twoDay" }),
-    fetchJson("/api/jobs", { release: "5.0", filter: jobFilter("hypershift"), period: "twoDay" }),
-    fetchJson("/api/jobs", { release: "4.22", filter: jobFilter("hypershift"), period: "twoDay" }),
-    fetchJson("/api/tests/recent_failures", { release: "Presubmits", period: "4h", previousPeriod: "24h", perPage: "50", includeOutputs: "true" }),
-  ]);
-
-  const [jobRuns, jobRuns50, jobRuns422] = await Promise.all([
-    fetchJson("/api/jobs/runs", {
-      release: "Presubmits",
-      filter: jobFilter("hypershift-main"),
-      perPage: "1500",
-      sortField: "timestamp",
-      sort: "desc"
-    }),
-    fetchJson("/api/jobs/runs", {
-      release: "5.0",
-      filter: jobFilter("hypershift"),
-      perPage: "1500",
-      sortField: "timestamp",
-      sort: "desc"
-    }),
-    fetchJson("/api/jobs/runs", {
-      release: "4.22",
-      filter: jobFilter("hypershift"),
-      perPage: "1500",
-      sortField: "timestamp",
-      sort: "desc"
-    }),
-  ]);
-
-  return {
-    windows: {
-      "7d": { presubmits: presub7d, periodic50: per50_7d, periodic422: per422_7d },
-      "2d": { presubmits: presub2d, periodic50: per50_2d, periodic422: per422_2d },
-    },
-    recentFailures,
-    jobRuns,
-    periodicJobRuns: { rows: [...(jobRuns50.rows || []), ...(jobRuns422.rows || [])] },
-  };
-}
-
-function computeAllStates(raw) {
-  const states = {};
-  for (const w of Object.keys(WINDOWS)) {
-    states[w] = transformRawData(raw, w);
-  }
-  return states;
-}
-
 async function loadDashboard(forceRefresh = false) {
-  const gen = ++loadGeneration;
   const btn = document.getElementById("refresh-btn");
-
-  // Phase 1: render from pre-computed cached state
-  if (!forceRefresh) {
-    const cached = loadFromCache();
-    if (cached && cached.states[activeWindow]) {
-      renderDashboard(cached.states[activeWindow], cached.states);
-      setStatus(`Cached ${formatAge(Date.now() - cached.ts)} · refreshing…`, "cache-stale");
-    }
-  }
-
-  // Phase 2: fetch all windows, transform once per window, cache atomically
   btn.classList.add("spinning");
   try {
-    const raw = await fetchAllFreshData();
-    if (gen !== loadGeneration) return;
-    const states = computeAllStates(raw);
-    saveToCache(states);
-    renderDashboard(states[activeWindow], states);
-    setStatus(`Updated ${new Date().toLocaleTimeString()}`, "cache-fresh");
+    const resp = await fetch("/api/health");
+    if (resp.status === 503) {
+      if (!healthSnapshot) {
+        setStatus("Waiting for data…", "cache-stale");
+      }
+      return;
+    }
+    if (!resp.ok) throw new Error(`${resp.status} ${resp.statusText}`);
+    healthSnapshot = await resp.json();
+    renderDashboard();
+    const age = Date.now() - new Date(healthSnapshot.generated_at).getTime();
+    setStatus(`Updated ${formatAge(age)}`, "cache-fresh");
   } catch (err) {
-    if (gen !== loadGeneration) return;
     console.error("Dashboard refresh failed:", err);
-    const cached = loadFromCache();
-    if (cached && cached.states[activeWindow]) {
-      setStatus(`Refresh failed · cached ${formatAge(Date.now() - cached.ts)}`, "cache-error");
-    } else {
+    if (!healthSnapshot) {
       document.getElementById("dashboard").innerHTML =
         `<div class="loading" style="color:var(--critical)">Failed to load: ${esc(err.message)}</div>`;
+    } else {
+      setStatus("Refresh failed", "cache-error");
     }
   } finally {
-    if (gen === loadGeneration) btn.classList.remove("spinning");
+    btn.classList.remove("spinning");
   }
 }
 
@@ -1137,21 +885,29 @@ function setActiveWindow(w) {
   document.querySelectorAll("#window-toggle button").forEach(b => {
     b.classList.toggle("active", b.dataset.window === w);
   });
-  const cached = loadFromCache();
-  if (cached && cached.states[w]) {
-    renderDashboard(cached.states[w], cached.states);
-    setStatus(`Cached ${formatAge(Date.now() - cached.ts)}`, "cache-stale");
-  } else {
-    loadDashboard();
-  }
+  renderDashboard();
 }
+
+function setGroupBy(g) {
+  activeGroupBy = g;
+  localStorage.setItem("sippy_groupby", g);
+  document.querySelectorAll("#group-toggle button").forEach(b => {
+    b.classList.toggle("active", b.dataset.group === g);
+  });
+  renderDashboard();
+}
+
+// --- Init ---
 
 document.querySelectorAll("#window-toggle button").forEach(b => {
   b.classList.toggle("active", b.dataset.window === activeWindow);
 });
+document.querySelectorAll("#group-toggle button").forEach(b => {
+  b.classList.toggle("active", b.dataset.group === activeGroupBy);
+});
 loadDashboard();
 fetchRetests();
-setInterval(() => loadDashboard(), 5 * 60 * 1000);
+setInterval(() => loadDashboard(), 15 * 60 * 1000);
 setInterval(() => fetchRetests(), 5 * 60 * 1000);
 
 const sparkTip = document.getElementById("spark-tip");
