@@ -29,6 +29,7 @@ var BlockingJobs = []BlockingJobConfig{
 		Platform:    PlatformAWS,
 		Periodics: []PeriodicJobConfig{
 			{Name: "e2e-aws-ovn", ProwJobName: "periodic-ci-openshift-hypershift-release-5.0-periodics-e2e-aws-ovn", Release: "5.0"},
+			{Name: "e2e-aws-ovn", ProwJobName: "periodic-ci-openshift-hypershift-release-5.1-periodics-e2e-aws-ovn", Release: "5.1"},
 		},
 	},
 	{
@@ -37,6 +38,7 @@ var BlockingJobs = []BlockingJobConfig{
 		Platform:    PlatformAzure,
 		Periodics: []PeriodicJobConfig{
 			{Name: "e2e-aks", ProwJobName: "periodic-ci-openshift-hypershift-release-5.0-periodics-e2e-aks", Release: "5.0"},
+			{Name: "e2e-aks", ProwJobName: "periodic-ci-openshift-hypershift-release-5.1-periodics-e2e-aks", Release: "5.1"},
 		},
 	},
 	{
@@ -45,6 +47,7 @@ var BlockingJobs = []BlockingJobConfig{
 		Platform:    PlatformAzure,
 		Periodics: []PeriodicJobConfig{
 			{Name: "e2e-v2-azure-self-managed", ProwJobName: "periodic-ci-openshift-hypershift-release-5.0-periodics-e2e-v2-azure-self-managed", Release: "5.0"},
+			{Name: "e2e-v2-azure-self-managed", ProwJobName: "periodic-ci-openshift-hypershift-release-5.1-periodics-e2e-v2-azure-self-managed", Release: "5.1"},
 		},
 	},
 	{
@@ -53,6 +56,7 @@ var BlockingJobs = []BlockingJobConfig{
 		Platform:    PlatformAWS,
 		Periodics: []PeriodicJobConfig{
 			{Name: "e2e-aws-upgrade", ProwJobName: "periodic-ci-openshift-hypershift-release-5.0-periodics-e2e-aws-upgrade", Release: "5.0"},
+			{Name: "e2e-aws-upgrade", ProwJobName: "periodic-ci-openshift-hypershift-release-5.1-periodics-e2e-aws-upgrade", Release: "5.1"},
 		},
 	},
 	{
@@ -61,6 +65,7 @@ var BlockingJobs = []BlockingJobConfig{
 		Platform:    PlatformGKE,
 		Periodics: []PeriodicJobConfig{
 			{Name: "e2e-v2-gke", ProwJobName: "periodic-ci-openshift-hypershift-release-5.0-periodics-e2e-v2-gke", Release: "5.0"},
+			{Name: "e2e-v2-gke", ProwJobName: "periodic-ci-openshift-hypershift-release-5.1-periodics-e2e-v2-gke", Release: "5.1"},
 		},
 	},
 	{
@@ -85,6 +90,8 @@ var BlockingJobs = []BlockingJobConfig{
 		Platform:    PlatformKubeVirt,
 		Periodics: []PeriodicJobConfig{
 			{Name: "e2e-kubevirt-aws-ovn-csi", ProwJobName: "periodic-ci-openshift-hypershift-release-4.22-periodics-e2e-kubevirt-aws-ovn-csi", Release: "4.22"},
+			{Name: "e2e-kubevirt-aws-ovn-csi", ProwJobName: "periodic-ci-openshift-hypershift-release-5.0-periodics-e2e-kubevirt-aws-ovn-csi", Release: "5.0"},
+			{Name: "e2e-kubevirt-aws-ovn-csi", ProwJobName: "periodic-ci-openshift-hypershift-release-5.1-periodics-e2e-kubevirt-aws-ovn-csi", Release: "5.1"},
 		},
 	},
 	{
@@ -94,6 +101,7 @@ var BlockingJobs = []BlockingJobConfig{
 		Periodics: []PeriodicJobConfig{
 			{Name: "e2e-v2-aws", ProwJobName: "periodic-ci-openshift-hypershift-release-5.0-periodics-e2e-v2-aws", Release: "5.0"},
 			{Name: "e2e-v2-aws", ProwJobName: "periodic-ci-openshift-hypershift-release-4.22-periodics-e2e-v2-aws", Release: "4.22"},
+			{Name: "e2e-v2-aws", ProwJobName: "periodic-ci-openshift-hypershift-release-5.1-periodics-e2e-v2-aws", Release: "5.1"},
 		},
 	},
 }
