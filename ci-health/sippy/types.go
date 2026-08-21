@@ -1,6 +1,11 @@
 package sippy
 
-import "time"
+import (
+	"encoding/json"
+	"fmt"
+	"strconv"
+	"time"
+)
 
 // Sippy API response types
 
@@ -20,6 +25,35 @@ type SippyJobRun struct {
 	OverallResult string `json:"overall_result"`
 	Succeeded     bool   `json:"succeeded"`
 	TestFlakes    int    `json:"test_flakes"`
+}
+
+func (r *SippyJobRun) UnmarshalJSON(data []byte) error {
+	type Alias SippyJobRun
+	aux := &struct {
+		Timestamp any `json:"timestamp"`
+		*Alias
+	}{Alias: (*Alias)(r)}
+	if err := json.Unmarshal(data, aux); err != nil {
+		return err
+	}
+	switch v := aux.Timestamp.(type) {
+	case float64:
+		r.Timestamp = int64(v)
+	case string:
+		t, err := time.Parse(time.RFC3339, v)
+		if err != nil {
+			n, err := strconv.ParseInt(v, 10, 64)
+			if err != nil {
+				return fmt.Errorf("cannot parse timestamp %q", v)
+			}
+			r.Timestamp = n
+			return nil
+		}
+		r.Timestamp = t.UnixMilli()
+	default:
+		return fmt.Errorf("unexpected timestamp type %T", v)
+	}
+	return nil
 }
 
 type SippyJobRunsResponse struct {
