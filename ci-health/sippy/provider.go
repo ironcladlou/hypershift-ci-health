@@ -209,7 +209,6 @@ func collect(ctx context.Context, client *Client) (*HealthSnapshot, error) {
 		GeneratedAt: now,
 		Windows:     make(map[string]*WindowData),
 		Platforms:   jobs.Platforms(),
-		Versions:    jobs.Releases(),
 	}
 
 	for windowKey := range WindowConfigs {

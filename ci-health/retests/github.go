@@ -10,10 +10,11 @@ import (
 
 func FetchMergedPRs(ctx context.Context, token, org, repo string, since time.Time) ([]MergedPR, error) {
 	type ghPR struct {
-		Number   int    `json:"number"`
-		Title    string `json:"title"`
-		MergedAt string `json:"merged_at"`
-		Head     struct {
+		Number    int    `json:"number"`
+		Title     string `json:"title"`
+		MergedAt  string `json:"merged_at"`
+		UpdatedAt string `json:"updated_at"`
+		Head      struct {
 			SHA string `json:"sha"`
 		} `json:"head"`
 		User struct {
@@ -55,6 +56,13 @@ func FetchMergedPRs(ctx context.Context, token, org, repo string, since time.Tim
 
 		pastWindow := false
 		for _, pr := range prs {
+			if pr.UpdatedAt != "" {
+				updatedAt, err := time.Parse(time.RFC3339, pr.UpdatedAt)
+				if err == nil && updatedAt.Before(since) {
+					pastWindow = true
+					break
+				}
+			}
 			if pr.MergedAt == "" {
 				continue
 			}
@@ -63,8 +71,7 @@ func FetchMergedPRs(ctx context.Context, token, org, repo string, since time.Tim
 				continue
 			}
 			if mergedAt.Before(since) {
-				pastWindow = true
-				break
+				continue
 			}
 			allPRs = append(allPRs, MergedPR{
 				Number:   pr.Number,

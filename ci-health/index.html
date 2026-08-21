@@ -332,13 +332,16 @@ tr:has(+ .periodic-row) td { border-bottom: none; }
 <body>
 
 <div class="header">
-  <h1>HyperShift Merge Queue Health</h1>
+  <div>
+    <h1>HyperShift Merge Queue Health</h1>
+    <a href="https://github.com/ironcladlou/hypershift-ci-health" target="_blank" rel="noopener" style="font-size:12px;color:var(--text-muted);text-decoration:none;display:inline-flex;align-items:center;gap:4px"><svg width="12" height="12" viewBox="0 0 16 16" fill="currentColor"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.01 8.01 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>Source code</a>
+  </div>
   <div class="header-meta">
     <div class="window-toggle" id="group-toggle">
       <button data-group="" onclick="setGroupBy('')">None</button>
       <button data-group="platform" onclick="setGroupBy('platform')">Platform</button>
-      <button data-group="version" onclick="setGroupBy('version')">Version</button>
-      <button data-group="platform-version" onclick="setGroupBy('platform-version')">Platform / Version</button>
+      <button data-group="role" onclick="setGroupBy('role')">Role</button>
+      <button data-group="platform-role" onclick="setGroupBy('platform-role')">Platform / Role</button>
     </div>
     <div class="window-toggle" id="window-toggle">
       <button data-window="2d" onclick="setActiveWindow('2d')">2d</button>
@@ -368,7 +371,9 @@ const WINDOWS = {
   "7d": { sparkSlotHours: 6, sparkSlots: 28, sparkLabel: "Last 7d", prevLabel: "Prev 7d" },
 };
 let activeWindow = localStorage.getItem("sippy_window") || "7d";
-let activeGroupBy = localStorage.getItem("sippy_groupby") ?? "platform-version";
+let activeGroupBy = localStorage.getItem("sippy_groupby") ?? "platform-role";
+if (activeGroupBy === "platform-version") activeGroupBy = "platform-role";
+if (activeGroupBy === "version") activeGroupBy = "role";
 let healthSnapshot = null;
 
 // --- Helpers ---
@@ -663,7 +668,7 @@ function buildTable(jobs) {
     </tr></thead>
     <tbody>`;
 
-  if (activeGroupBy === "platform-version") {
+  if (activeGroupBy === "platform-role") {
     const platforms = {};
     const platformOrder = [];
     for (const j of jobs) {
@@ -671,27 +676,24 @@ function buildTable(jobs) {
         platforms[j.platform] = {};
         platformOrder.push(j.platform);
       }
-      const versions = j.version ? [j.version] : [...new Set((j.periodics || []).map(p => p.release))];
-      for (const v of versions) {
-        if (!platforms[j.platform][v]) platforms[j.platform][v] = [];
-        const filtered = { ...j, periodics: (j.periodics || []).filter(p => p.release === v) };
-        platforms[j.platform][v].push(filtered);
-      }
+      const role = j.role_label || j.role || "unknown";
+      if (!platforms[j.platform][role]) platforms[j.platform][role] = [];
+      platforms[j.platform][role].push(j);
     }
     for (const plat of platformOrder) {
       html += `<tr class="category-row"><td colspan="3">${esc(plat)}</td></tr>`;
-      const versionGroups = platforms[plat];
-      const versionKeys = Object.keys(versionGroups).sort().reverse();
-      for (const ver of versionKeys) {
-        html += `<tr class="subcategory-row"><td colspan="3">${esc(ver)}</td></tr>`;
-        for (const j of sortJobs(versionGroups[ver])) html += buildRow(j);
+      const roleGroups = platforms[plat];
+      const roleKeys = Object.keys(roleGroups).sort();
+      for (const role of roleKeys) {
+        html += `<tr class="subcategory-row"><td colspan="3">${esc(role)}</td></tr>`;
+        for (const j of sortJobs(roleGroups[role])) html += buildRow(j);
       }
     }
-  } else if (activeGroupBy === "platform" || activeGroupBy === "version") {
+  } else if (activeGroupBy === "platform" || activeGroupBy === "role") {
     const groups = {};
     const groupOrder = [];
     for (const j of jobs) {
-      const key = activeGroupBy === "platform" ? j.platform : (j.version || "multi");
+      const key = activeGroupBy === "platform" ? j.platform : (j.role_label || j.role || "unknown");
       if (!groups[key]) {
         groups[key] = [];
         groupOrder.push(key);

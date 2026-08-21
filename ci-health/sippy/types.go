@@ -109,7 +109,8 @@ type JobHealth struct {
 	Name        string                    `json:"name"`
 	Prow        string                    `json:"prow"`
 	Platform    string                    `json:"platform"`
-	Version     string                    `json:"version"`
+	Role        string                    `json:"role"`
+	RoleLabel   string                    `json:"role_label"`
 	Rate        float64                   `json:"rate"`
 	Prev        float64                   `json:"prev"`
 	PrevRuns    int                       `json:"prev_runs"`
@@ -139,5 +140,4 @@ type HealthSnapshot struct {
 	GeneratedAt time.Time              `json:"generated_at"`
 	Windows     map[string]*WindowData `json:"windows"`
 	Platforms   []string               `json:"platforms"`
-	Versions    []string               `json:"versions"`
 }

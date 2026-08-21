@@ -241,23 +241,17 @@ func transformWindow(raw *rawData, windowKey string, now time.Time) *WindowData 
 		preSparkline := sparklines[cfg.ProwJobName]
 		preCounts := countResultTypes(preSparkline)
 
-		// Derive version from periodic releases
-		versions := make(map[string]bool)
-		for _, p := range cfg.Periodics {
-			versions[p.Release] = true
-		}
-		version := ""
-		if len(versions) == 1 {
-			for v := range versions {
-				version = v
-			}
+		release := ""
+		if len(cfg.Periodics) > 0 {
+			release = cfg.Periodics[0].Release
 		}
 
 		jh := JobHealth{
 			Name:        cfg.Name,
 			Prow:        cfg.ProwJobName,
 			Platform:    string(cfg.Platform),
-			Version:     version,
+			Role:        string(cfg.Role),
+			RoleLabel:   jobs.RoleLabel(cfg.Role, release),
 			TestFails:   preCounts.testFails,
 			InfraFails:  preCounts.infraFails,
 			SparkRuns:   preCounts.sparkRuns,
