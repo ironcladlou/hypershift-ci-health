@@ -10,9 +10,3 @@ resources:
   - route.yaml
 patches:
   - path: route-patch.yaml
-secretGenerator:
-  - name: github-token
-    files:
-      - token=.github-token
-    options:
-      disableNameSuffixHash: true

@@ -12,6 +12,11 @@ import (
 
 const DefaultBaseURL = "https://sippy.dptools.openshift.org"
 
+const (
+	maxRequestAttempts = 4
+	initialRetryDelay  = time.Second
+)
+
 type Client struct {
 	BaseURL    string
 	HTTPClient *http.Client
@@ -54,63 +59,82 @@ func (c *Client) get(ctx context.Context, path string, params url.Values) (*http
 	u.Path = path
 	u.RawQuery = params.Encode()
 
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, u.String(), nil)
-	if err != nil {
-		return nil, err
+	delay := initialRetryDelay
+	for attempt := 1; attempt <= maxRequestAttempts; attempt++ {
+		attemptStarted := time.Now()
+		req, err := http.NewRequestWithContext(ctx, http.MethodGet, u.String(), nil)
+		if err != nil {
+			return nil, err
+		}
+		resp, requestErr := c.HTTPClient.Do(req)
+		if requestErr == nil && resp.StatusCode == http.StatusOK {
+			if attempt > 1 {
+				fmt.Fprintf(logWriter, "sippy: request recovered: path=%s release=%s attempt=%d/%d duration=%s\n", path, params.Get("release"), attempt, maxRequestAttempts, time.Since(attemptStarted).Round(time.Millisecond))
+			}
+			return resp, nil
+		}
+
+		retryable := requestErr != nil
+		if resp != nil {
+			resp.Body.Close()
+			retryable = retryableStatus(resp.StatusCode)
+			requestErr = fmt.Errorf("sippy %s: %s", path, resp.Status)
+		}
+		if ctx.Err() != nil {
+			return nil, ctx.Err()
+		}
+		if !retryable || attempt == maxRequestAttempts {
+			if attempt == 1 {
+				return nil, requestErr
+			}
+			return nil, fmt.Errorf("%w after %d attempts", requestErr, attempt)
+		}
+		fmt.Fprintf(logWriter, "sippy: request retry: path=%s release=%s attempt=%d/%d duration=%s error=%v backoff=%s\n", path, params.Get("release"), attempt, maxRequestAttempts, time.Since(attemptStarted).Round(time.Millisecond), requestErr, delay)
+		if err := waitForRetry(ctx, delay); err != nil {
+			return nil, err
+		}
+		delay *= 2
 	}
-	resp, err := c.HTTPClient.Do(req)
-	if err != nil {
-		return nil, err
-	}
-	if resp.StatusCode != http.StatusOK {
-		resp.Body.Close()
-		return nil, fmt.Errorf("sippy %s: %s", path, resp.Status)
-	}
-	return resp, nil
+	return nil, fmt.Errorf("sippy %s: request failed", path)
 }
 
-// FetchJobs fetches job stats filtered to the exact job names provided.
-func (c *Client) FetchJobs(ctx context.Context, release string, jobNames []string, period string) ([]SippyJob, error) {
+func retryableStatus(statusCode int) bool {
+	return statusCode == http.StatusRequestTimeout ||
+		statusCode == http.StatusTooManyRequests ||
+		statusCode >= http.StatusInternalServerError
+}
+
+func waitForRetry(ctx context.Context, delay time.Duration) error {
+	timer := time.NewTimer(delay)
+	defer timer.Stop()
+	select {
+	case <-ctx.Done():
+		return ctx.Err()
+	case <-timer.C:
+		return nil
+	}
+}
+
+func (c *Client) FetchJobAnalysis(ctx context.Context, release, jobName string, start, boundary, end time.Time) (*SippyJobAnalysisResponse, error) {
 	params := url.Values{
-		"release": {release},
-		"filter":  {exactMatchFilter("name", jobNames)},
+		"release":  {release},
+		"filter":   {exactMatchFilter("name", []string{jobName})},
+		"period":   {"hour"},
+		"start":    {start.Format(time.DateOnly)},
+		"boundary": {boundary.Format(time.DateOnly)},
+		"end":      {end.Format(time.DateOnly)},
 	}
-	if period != "" {
-		params.Set("period", period)
-	}
-	resp, err := c.get(ctx, "/api/jobs", params)
+	resp, err := c.get(ctx, "/api/jobs/analysis", params)
 	if err != nil {
 		return nil, err
 	}
 	defer resp.Body.Close()
 
-	var jobs []SippyJob
-	if err := json.NewDecoder(resp.Body).Decode(&jobs); err != nil {
-		return nil, fmt.Errorf("decoding jobs: %w", err)
-	}
-	return jobs, nil
-}
-
-// FetchJobRuns fetches job run data filtered to the exact job names provided.
-func (c *Client) FetchJobRuns(ctx context.Context, release string, jobNames []string, perPage int) ([]SippyJobRun, error) {
-	params := url.Values{
-		"release":   {release},
-		"filter":    {exactMatchFilter("job", jobNames)},
-		"perPage":   {strconv.Itoa(perPage)},
-		"sortField": {"timestamp"},
-		"sort":      {"desc"},
-	}
-	resp, err := c.get(ctx, "/api/jobs/runs", params)
-	if err != nil {
-		return nil, err
-	}
-	defer resp.Body.Close()
-
-	var result SippyJobRunsResponse
+	var result SippyJobAnalysisResponse
 	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
-		return nil, fmt.Errorf("decoding job runs: %w", err)
+		return nil, fmt.Errorf("decoding job analysis: %w", err)
 	}
-	return result.Rows, nil
+	return &result, nil
 }
 
 func (c *Client) FetchRecentFailures(ctx context.Context, release, period, previousPeriod string, perPage int) ([]SippyTestFailure, error) {

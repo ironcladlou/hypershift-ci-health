@@ -1,44 +1,52 @@
-# HyperShift Merge Queue Health
+# HyperShift CI Health
 
-A dashboard for HyperShift's merge-blocking presubmit jobs, with merge probability and retest estimates derived from Prow data.
-
-The Go backend fetches from [Sippy](https://sippy.dptools.openshift.org) and Prow periodically and serves the results. The frontend is a single `index.html`.
+A dashboard for the health of HyperShift's required presubmit jobs and their
+mapped periodics. The backend reads job definitions from a generated job
+registry and fetches run data from Sippy.
 
 ## Local development
 
 ### Prerequisites
 
 - Go 1.25+
-- `oc` (for deployment)
-- GitHub personal access token
+- A generated job registry in JSON format
+- `oc` for deployment
 
 ```bash
-GITHUB_TOKEN=$(gh auth token) go run . serve --dev
+go run . serve --dev --job-registry=/path/to/job-registry.json
 ```
 
-`--dev` serves `index.html` from the filesystem for live editing.
+`--dev` serves `index.html` from the filesystem for live editing. The server
+only consumes the registry file; producing and distributing that file are
+separate concerns.
+
+## Job registry command
+
+The standalone command generates a registry from an `openshift/release`
+checkout:
 
 ```bash
-GITHUB_TOKEN=$(gh auth token) go run . retests --window 7 --output retests.json
+go run . job-registry --release-dir=/path/to/openshift-release > job-registry.json
 ```
 
-One-off retest analysis for recently merged PRs.
+The reusable registry API lives in `jobregistry`. The dashboard's explicit
+presubmit-to-periodic relationships live in `jobs/config.go`; startup validates
+every referenced ID and obtains all job metadata from the registry.
 
 ## Deployment
 
-Deployed via Kustomize with a BuildConfig. Requires `oc` logged into the target cluster.
+On every pod start, an init container makes a shallow, blob-filtered sparse
+clone of the job and release-controller configuration from `openshift/release`.
+It generates `job-registry.json` in an `emptyDir` shared read-only with the
+server container. The cluster therefore needs outbound access to GitHub.
 
 ```bash
-make setup TOKEN_FILE=/path/to/github-pat.txt
+make setup
 make deploy
 ```
-
-## Job configuration
-
-Jobs are declared in `jobs/config.go` as a list of `JobSpec` entries. Set `FutureRelease` (e.g. `5.1`) and N-1 variant names and periodic mappings are derived automatically. To bump releases, change `FutureRelease`.
 
 ## API
 
 - `GET /` — dashboard UI
-- `GET /api/health` — job health snapshot (pass rates, sparklines, alerts) for 2d and 7d windows
-- `GET /api/retests` — retest analysis with per-PR counts and aggregate statistics
+- `GET /api/health` — job health snapshot for the 2-day and 7-day windows
+- `GET /api/health/status` — current Sippy collection progress and errors

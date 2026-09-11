@@ -2,166 +2,288 @@ package jobs
 
 import (
 	"fmt"
-	"strconv"
+	"sort"
 	"strings"
+
+	"github.com/ironcladlou/hypershift-ci-health/ci-health/jobregistry"
 )
-
-type Platform string
-
-const (
-	PlatformAWS      Platform = "AWS"
-	PlatformAzure    Platform = "Azure"
-	PlatformGKE      Platform = "GKE"
-	PlatformKubeVirt Platform = "KubeVirt"
-)
-
-const FutureRelease = "5.1"
 
 type Role string
 
 const (
 	RoleFuture  Role = "future"
 	RoleNMinus1 Role = "n-1"
+	RoleNMinus2 Role = "n-2"
 )
 
-type JobSpec struct {
-	Name         string
-	Platform     Platform
-	PeriodicName string // periodic short name if different from presubmit Name
-	HasNMinus1   bool
+// Mapping is report configuration for the relationship that is not available
+// in the generated registry. It contains only stable registry IDs; all job
+// definitions and metadata are resolved from the registry at startup.
+type Mapping struct {
+	PresubmitID string
+	PeriodicIDs []string
+	Role        Role
 }
 
-var Jobs = []JobSpec{
-	{Name: "e2e-aws", Platform: PlatformAWS, PeriodicName: "e2e-aws-ovn", HasNMinus1: true},
-	{Name: "e2e-aws-upgrade-hypershift-operator", Platform: PlatformAWS, PeriodicName: "e2e-aws-upgrade"},
-	{Name: "e2e-v2-aws", Platform: PlatformAWS},
-	{Name: "e2e-aks", Platform: PlatformAzure, HasNMinus1: true},
-	{Name: "e2e-v2-azure-self-managed", Platform: PlatformAzure},
-	{Name: "e2e-v2-gke", Platform: PlatformGKE},
-	{Name: "e2e-kubevirt-aws-ovn-reduced", Platform: PlatformKubeVirt, PeriodicName: "e2e-kubevirt-aws-ovn-csi"},
+var Mappings = []Mapping{
+	{PresubmitID: "pull-ci-openshift-hypershift-main-e2e-aws", PeriodicIDs: []string{"periodic-ci-openshift-hypershift-release-5.1-periodics-e2e-aws-ovn"}, Role: RoleFuture},
+	{PresubmitID: "pull-ci-openshift-hypershift-main-e2e-aws-upgrade-hypershift-operator", PeriodicIDs: []string{"periodic-ci-openshift-hypershift-release-5.1-periodics-e2e-aws-upgrade"}, Role: RoleFuture},
+	{PresubmitID: "pull-ci-openshift-hypershift-main-e2e-v2-aws", PeriodicIDs: []string{"periodic-ci-openshift-hypershift-release-5.1-periodics-e2e-v2-aws"}, Role: RoleFuture},
+	{PresubmitID: "pull-ci-openshift-hypershift-main-e2e-aks", PeriodicIDs: []string{"periodic-ci-openshift-hypershift-release-5.1-periodics-e2e-aks"}, Role: RoleFuture},
+	{PresubmitID: "pull-ci-openshift-hypershift-main-e2e-v2-azure-self-managed", PeriodicIDs: []string{"periodic-ci-openshift-hypershift-release-5.1-periodics-e2e-v2-azure-self-managed"}, Role: RoleFuture},
+	{PresubmitID: "pull-ci-openshift-hypershift-main-e2e-v2-gke", PeriodicIDs: []string{"periodic-ci-openshift-hypershift-release-5.1-periodics-e2e-v2-gke"}, Role: RoleFuture},
+	{PresubmitID: "pull-ci-openshift-hypershift-main-e2e-kubevirt-aws-ovn-reduced", PeriodicIDs: []string{"periodic-ci-openshift-hypershift-release-5.1-periodics-e2e-kubevirt-aws-ovn-csi"}, Role: RoleFuture},
+	{PresubmitID: "pull-ci-openshift-hypershift-main-e2e-aws-5-0", PeriodicIDs: []string{"periodic-ci-openshift-hypershift-release-5.0-periodics-e2e-aws-ovn"}, Role: RoleNMinus1},
+	{PresubmitID: "pull-ci-openshift-hypershift-main-e2e-aks-5-0", PeriodicIDs: []string{"periodic-ci-openshift-hypershift-release-5.0-periodics-e2e-aks"}, Role: RoleNMinus1},
+	{PresubmitID: "pull-ci-openshift-hypershift-release-4.22-e2e-aws", PeriodicIDs: []string{"periodic-ci-openshift-hypershift-release-4.22-periodics-e2e-aws-ovn"}, Role: RoleNMinus2},
+	{PresubmitID: "pull-ci-openshift-hypershift-release-4.22-e2e-aks", PeriodicIDs: []string{"periodic-ci-openshift-hypershift-release-4.22-periodics-e2e-aks"}, Role: RoleNMinus2},
 }
 
-func CurrentRelease() string {
-	parts := strings.Split(FutureRelease, ".")
-	if len(parts) != 2 {
-		panic("invalid FutureRelease: " + FutureRelease)
+type PeriodicJobConfig struct {
+	ID          string
+	Name        string
+	ProwJobName string
+	Release     string
+	Job         *jobregistry.Job
+}
+
+type BlockingJobConfig struct {
+	ID          string
+	Name        string
+	ProwJobName string
+	Platforms   []string
+	Role        Role
+	Periodics   []PeriodicJobConfig
+	Job         *jobregistry.Job
+}
+
+// PayloadBlockingJobConfig is a periodic job that gates a release payload.
+// These relationships come directly from release-controller metadata in the
+// generated registry, rather than from the explicit presubmit mapping above.
+type PayloadBlockingJobConfig struct {
+	ID                 string
+	Name               string
+	ProwJobName        string
+	Release            string
+	Platforms          []string
+	Stream             jobregistry.ReleaseControllerStream
+	Verification       jobregistry.ReleaseControllerVerification
+	MappedPresubmitIDs []string
+	Job                *jobregistry.Job
+}
+
+// Catalog is the validated, registry-backed view used by health reports.
+type Catalog struct {
+	BlockingJobs        []BlockingJobConfig
+	PayloadBlockingJobs []PayloadBlockingJobConfig
+}
+
+func NewCatalog(registry *jobregistry.Registry) (*Catalog, error) {
+	index := registry.Index()
+	catalog := &Catalog{BlockingJobs: make([]BlockingJobConfig, 0, len(Mappings))}
+	seenPresubmits := make(map[string]struct{}, len(Mappings))
+
+	for _, mapping := range Mappings {
+		if mapping.Role != RoleFuture && mapping.Role != RoleNMinus1 && mapping.Role != RoleNMinus2 {
+			return nil, fmt.Errorf("presubmit mapping %q has unsupported role %q", mapping.PresubmitID, mapping.Role)
+		}
+		if len(mapping.PeriodicIDs) == 0 {
+			return nil, fmt.Errorf("presubmit mapping %q has no periodics", mapping.PresubmitID)
+		}
+		if _, found := seenPresubmits[mapping.PresubmitID]; found {
+			return nil, fmt.Errorf("duplicate presubmit mapping %q", mapping.PresubmitID)
+		}
+		seenPresubmits[mapping.PresubmitID] = struct{}{}
+		presubmit := index[mapping.PresubmitID]
+		if presubmit == nil {
+			return nil, fmt.Errorf("mapped presubmit %q is absent from the job registry", mapping.PresubmitID)
+		}
+		if presubmit.Type != "presubmit" {
+			return nil, fmt.Errorf("mapped presubmit %q has registry type %q", mapping.PresubmitID, presubmit.Type)
+		}
+		if presubmit.Presubmit == nil || !presubmit.Presubmit.Required {
+			return nil, fmt.Errorf("mapped presubmit %q is not required", mapping.PresubmitID)
+		}
+
+		configured := BlockingJobConfig{
+			ID:          presubmit.ID,
+			Name:        shortName(presubmit.Name),
+			ProwJobName: presubmit.Name,
+			Platforms:   append([]string(nil), presubmit.Platforms...),
+			Role:        mapping.Role,
+			Job:         presubmit,
+		}
+		seenPeriodics := make(map[string]struct{}, len(mapping.PeriodicIDs))
+		for _, periodicID := range mapping.PeriodicIDs {
+			if _, found := seenPeriodics[periodicID]; found {
+				return nil, fmt.Errorf("presubmit mapping %q contains duplicate periodic %q", mapping.PresubmitID, periodicID)
+			}
+			seenPeriodics[periodicID] = struct{}{}
+			periodic := index[periodicID]
+			if periodic == nil {
+				return nil, fmt.Errorf("mapped periodic %q is absent from the job registry", periodicID)
+			}
+			if periodic.Type != "periodic" {
+				return nil, fmt.Errorf("mapped periodic %q has registry type %q", periodicID, periodic.Type)
+			}
+			if len(periodic.Versions) != 1 {
+				return nil, fmt.Errorf("mapped periodic %q has %d versions; expected exactly one", periodicID, len(periodic.Versions))
+			}
+			configured.Periodics = append(configured.Periodics, PeriodicJobConfig{
+				ID:          periodic.ID,
+				Name:        shortName(periodic.Name),
+				ProwJobName: periodic.Name,
+				Release:     periodic.Versions[0],
+				Job:         periodic,
+			})
+		}
+		catalog.BlockingJobs = append(catalog.BlockingJobs, configured)
 	}
-	minor, err := strconv.Atoi(parts[1])
-	if err != nil || minor <= 0 {
-		panic("cannot compute N-1 for FutureRelease: " + FutureRelease)
+
+	trackedReleases := make(map[string]struct{})
+	mappedPresubmits := make(map[string][]string)
+	for _, job := range catalog.BlockingJobs {
+		for _, periodic := range job.Periodics {
+			trackedReleases[periodic.Release] = struct{}{}
+			mappedPresubmits[periodic.ID] = append(mappedPresubmits[periodic.ID], job.ID)
+		}
 	}
-	return parts[0] + "." + strconv.Itoa(minor-1)
+	for i := range registry.Jobs {
+		job := &registry.Jobs[i]
+		if job.Type != "periodic" {
+			continue
+		}
+		for _, participation := range job.ReleaseController {
+			if participation.Verification.Role != "blocking" {
+				continue
+			}
+			if participation.Stream.EndOfLife {
+				continue
+			}
+			if _, tracked := trackedReleases[participation.Stream.Release]; !tracked {
+				continue
+			}
+			catalog.PayloadBlockingJobs = append(catalog.PayloadBlockingJobs, PayloadBlockingJobConfig{
+				ID:                 job.ID,
+				Name:               shortName(job.Name),
+				ProwJobName:        job.Name,
+				Release:            participation.Stream.Release,
+				Platforms:          append([]string(nil), job.Platforms...),
+				Stream:             participation.Stream,
+				Verification:       participation.Verification,
+				MappedPresubmitIDs: append([]string(nil), mappedPresubmits[job.ID]...),
+				Job:                job,
+			})
+		}
+	}
+	sort.Slice(catalog.PayloadBlockingJobs, func(i, j int) bool {
+		a, b := catalog.PayloadBlockingJobs[i], catalog.PayloadBlockingJobs[j]
+		if a.Release != b.Release {
+			return a.Release > b.Release
+		}
+		if a.Stream.Name != b.Stream.Name {
+			return a.Stream.Name < b.Stream.Name
+		}
+		return a.ProwJobName < b.ProwJobName
+	})
+	return catalog, nil
 }
 
-func versionSuffix(release string) string {
-	return strings.ReplaceAll(release, ".", "-")
-}
-
-func presubmitProwName(name string) string {
-	return "pull-ci-openshift-hypershift-main-" + name
-}
-
-func periodicProwName(periodicName, release string) string {
-	return fmt.Sprintf("periodic-ci-openshift-hypershift-release-%s-periodics-%s", release, periodicName)
+func shortName(name string) string {
+	if value := strings.TrimPrefix(name, "pull-ci-openshift-hypershift-main-"); value != name {
+		return value
+	}
+	if value := strings.TrimPrefix(name, "pull-ci-openshift-hypershift-release-4.22-"); value != name {
+		return value
+	}
+	if _, value, found := strings.Cut(name, "-periodics-"); found {
+		return value
+	}
+	return name
 }
 
 func RoleLabel(role Role, release string) string {
+	if role == RoleNMinus2 {
+		return fmt.Sprintf("N-2 (%s)", release)
+	}
 	if role == RoleNMinus1 {
 		return fmt.Sprintf("N-1 (%s)", release)
 	}
 	return fmt.Sprintf("Future (%s)", release)
 }
 
-type PeriodicJobConfig struct {
-	Name        string
-	ProwJobName string
-	Release     string
-}
-
-type BlockingJobConfig struct {
-	Name        string
-	ProwJobName string
-	Platform    Platform
-	Role        Role
-	Periodics   []PeriodicJobConfig
-}
-
-var BlockingJobs []BlockingJobConfig
-
-func init() {
-	current := CurrentRelease()
-
-	for _, spec := range Jobs {
-		periodicName := spec.PeriodicName
-		if periodicName == "" {
-			periodicName = spec.Name
-		}
-
-		BlockingJobs = append(BlockingJobs, BlockingJobConfig{
-			Name:        spec.Name,
-			ProwJobName: presubmitProwName(spec.Name),
-			Platform:    spec.Platform,
-			Role:        RoleFuture,
-			Periodics: []PeriodicJobConfig{
-				{Name: periodicName, ProwJobName: periodicProwName(periodicName, FutureRelease), Release: FutureRelease},
-			},
-		})
-
-		if spec.HasNMinus1 {
-			nm1Name := spec.Name + "-" + versionSuffix(current)
-			BlockingJobs = append(BlockingJobs, BlockingJobConfig{
-				Name:        nm1Name,
-				ProwJobName: presubmitProwName(nm1Name),
-				Platform:    spec.Platform,
-				Role:        RoleNMinus1,
-				Periodics: []PeriodicJobConfig{
-					{Name: periodicName, ProwJobName: periodicProwName(periodicName, current), Release: current},
-				},
-			})
-		}
-	}
-}
-
-func Releases() []string {
+func (c *Catalog) Releases() []string {
 	seen := map[string]bool{}
 	var releases []string
-	for _, job := range BlockingJobs {
-		for _, p := range job.Periodics {
-			if !seen[p.Release] {
-				seen[p.Release] = true
-				releases = append(releases, p.Release)
+	for _, job := range c.BlockingJobs {
+		for _, periodic := range job.Periodics {
+			if !seen[periodic.Release] {
+				seen[periodic.Release] = true
+				releases = append(releases, periodic.Release)
 			}
 		}
 	}
 	return releases
 }
 
-func Platforms() []string {
-	seen := map[Platform]bool{}
+func (c *Catalog) Platforms() []string {
+	seen := map[string]bool{}
 	var platforms []string
-	for _, job := range BlockingJobs {
-		if !seen[job.Platform] {
-			seen[job.Platform] = true
-			platforms = append(platforms, string(job.Platform))
+	for _, job := range c.BlockingJobs {
+		for _, platform := range job.Platforms {
+			if !seen[platform] {
+				seen[platform] = true
+				platforms = append(platforms, platform)
+			}
 		}
 	}
 	return platforms
 }
 
-func PresubmitProwJobNames() []string {
-	names := make([]string, len(BlockingJobs))
-	for i, job := range BlockingJobs {
+func (c *Catalog) PresubmitProwJobNames() []string {
+	names := make([]string, len(c.BlockingJobs))
+	for i, job := range c.BlockingJobs {
 		names[i] = job.ProwJobName
 	}
 	return names
 }
 
-func PeriodicProwJobNamesByRelease() map[string][]string {
+func (c *Catalog) PeriodicProwJobNamesByRelease() map[string][]string {
 	result := make(map[string][]string)
-	for _, job := range BlockingJobs {
-		for _, p := range job.Periodics {
-			result[p.Release] = append(result[p.Release], p.ProwJobName)
+	seen := make(map[string]map[string]struct{})
+	add := func(release, name string) {
+		if seen[release] == nil {
+			seen[release] = make(map[string]struct{})
+		}
+		if _, found := seen[release][name]; found {
+			return
+		}
+		seen[release][name] = struct{}{}
+		result[release] = append(result[release], name)
+	}
+	for _, job := range c.BlockingJobs {
+		for _, periodic := range job.Periodics {
+			add(periodic.Release, periodic.ProwJobName)
 		}
 	}
+	for _, job := range c.PayloadBlockingJobs {
+		add(job.Release, job.ProwJobName)
+	}
+	for release := range result {
+		sort.Strings(result[release])
+	}
 	return result
+}
+
+func (c *Catalog) PeriodicJobCount() int {
+	seen := make(map[string]struct{})
+	for _, job := range c.BlockingJobs {
+		for _, periodic := range job.Periodics {
+			seen[periodic.ID] = struct{}{}
+		}
+	}
+	for _, job := range c.PayloadBlockingJobs {
+		seen[job.ID] = struct{}{}
+	}
+	return len(seen)
 }

@@ -11,19 +11,18 @@ import (
 type WindowConfig struct {
 	SparkSlotHours int
 	SparkSlots     int
+	CurrentDays    int
 }
 
 var WindowConfigs = map[string]WindowConfig{
-	"2d": {SparkSlotHours: 2, SparkSlots: 24},
-	"7d": {SparkSlotHours: 6, SparkSlots: 28},
+	"1w": {SparkSlotHours: 6, SparkSlots: 28, CurrentDays: 7},
+	"2w": {SparkSlotHours: 12, SparkSlots: 28, CurrentDays: 14},
+	"1m": {SparkSlotHours: 24, SparkSlots: 30, CurrentDays: 30},
 }
 
 type rawData struct {
-	presubmitJobs    map[string][]SippyJob
-	periodicJobs     map[string][]SippyJob
-	presubmitRuns    []SippyJobRun
-	periodicRuns     []SippyJobRun
-	recentFailures   []SippyTestFailure
+	analyses       map[string]*SippyJobAnalysisResponse
+	recentFailures []SippyTestFailure
 }
 
 func slotKey(t time.Time, slotHours int) string {
@@ -43,42 +42,67 @@ func slotKeys(now time.Time, win WindowConfig) []string {
 	return keys
 }
 
-// bucketJobRuns groups job runs into time-slot sparklines.
-// Returns map[jobName]map[slotKey]*SparklineSlot.
-func bucketJobRuns(runs []SippyJobRun, win WindowConfig, now time.Time) map[string]map[string]*SparklineSlot {
+func analysisSparkline(analysis *SippyJobAnalysisResponse, win WindowConfig, now time.Time) map[string]*SparklineSlot {
+	if analysis == nil {
+		return nil
+	}
 	cutoff := now.Add(-time.Duration(win.SparkSlots*win.SparkSlotHours) * time.Hour)
-	cutoffMS := cutoff.UnixMilli()
-
-	data := make(map[string]map[string]*SparklineSlot)
-	for _, run := range runs {
-		if run.Timestamp < cutoffMS {
+	data := make(map[string]*SparklineSlot)
+	for period, result := range analysis.ByPeriod {
+		t, err := time.ParseInLocation("2006-01-02 15:00", period, time.UTC)
+		if err != nil || t.Before(cutoff) {
 			continue
 		}
-		t := time.UnixMilli(run.Timestamp).UTC()
 		key := slotKey(t, win.SparkSlotHours)
-
-		jobData, ok := data[run.Job]
-		if !ok {
-			jobData = make(map[string]*SparklineSlot)
-			data[run.Job] = jobData
-		}
-		slot, ok := jobData[key]
+		slot, ok := data[key]
 		if !ok {
 			slot = &SparklineSlot{ResultCount: make(map[string]int)}
-			jobData[key] = slot
+			data[key] = slot
 		}
-		slot.TotalRuns++
-		rc := run.OverallResult
-		if rc == "" {
-			if run.Succeeded {
-				rc = "S"
-			} else {
-				rc = "F"
-			}
+		slot.TotalRuns += result.TotalRuns
+		for resultCode, count := range result.ResultCount {
+			slot.ResultCount[resultCode] += count
 		}
-		slot.ResultCount[rc]++
 	}
 	return data
+}
+
+func summarizeAnalysis(analysis *SippyJobAnalysisResponse, windowKey string, now time.Time) *SippyJob {
+	if analysis == nil {
+		return nil
+	}
+	currentDuration := time.Duration(WindowConfigs[windowKey].CurrentDays) * 24 * time.Hour
+	currentStart := now.Add(-currentDuration)
+	previousStart := currentStart.Add(-currentDuration)
+
+	var currentRuns, currentPasses, previousRuns, previousPasses int
+	for period, result := range analysis.ByPeriod {
+		t, err := time.ParseInLocation("2006-01-02 15:00", period, time.UTC)
+		if err != nil || t.After(now) || t.Before(previousStart) {
+			continue
+		}
+		if t.Before(currentStart) {
+			previousRuns += result.TotalRuns
+			previousPasses += result.ResultCount["S"]
+		} else {
+			currentRuns += result.TotalRuns
+			currentPasses += result.ResultCount["S"]
+		}
+	}
+
+	summary := &SippyJob{
+		CurrentRuns:  currentRuns,
+		CurrentFails: currentRuns - currentPasses,
+		PreviousRuns: previousRuns,
+	}
+	if currentRuns > 0 {
+		summary.CurrentPassPercentage = 100 * float64(currentPasses) / float64(currentRuns)
+	}
+	if previousRuns > 0 {
+		summary.PreviousPassPercentage = 100 * float64(previousPasses) / float64(previousRuns)
+	}
+	summary.NetImprovement = summary.CurrentPassPercentage - summary.PreviousPassPercentage
+	return summary
 }
 
 type resultCounts struct {
@@ -139,101 +163,64 @@ func computeCorrelation(preSparkline, perSparkline map[string]*SparklineSlot, no
 	}
 }
 
-type flakeStats struct {
-	runs   int
-	flakes int
-}
-
-func computeFlakes(runs []SippyJobRun, cutoffMS int64) map[string]*flakeStats {
-	flakes := make(map[string]*flakeStats)
-	for _, run := range runs {
-		if run.Timestamp < cutoffMS {
-			continue
-		}
-		fs, ok := flakes[run.Job]
-		if !ok {
-			fs = &flakeStats{}
-			flakes[run.Job] = fs
-		}
-		fs.runs++
-		if run.TestFlakes > 0 {
-			fs.flakes++
-		}
+func buildPeriodicHealth(id, name, prow, release, label string, periodicMap map[string]*SippyJob, sparklines map[string]map[string]*SparklineSlot) PeriodicJobHealth {
+	d := periodicMap[prow]
+	sparkline := sparklines[prow]
+	counts := countResultTypes(sparkline)
+	health := PeriodicJobHealth{
+		ID:         id,
+		Name:       name,
+		Prow:       prow,
+		Release:    release,
+		Label:      label,
+		TestFails:  counts.testFails,
+		InfraFails: counts.infraFails,
+		SparkRuns:  counts.sparkRuns,
+		Sparkline:  sparkline,
 	}
-	return flakes
+	if d != nil {
+		health.Rate = &d.CurrentPassPercentage
+		health.Prev = &d.PreviousPassPercentage
+		health.PrevRuns = d.PreviousRuns
+		health.Trend = &d.NetImprovement
+		health.Runs = d.CurrentRuns
+		health.Fails = d.CurrentFails
+	}
+	return health
 }
 
-func transformWindow(raw *rawData, windowKey string, now time.Time) *WindowData {
+func transformWindow(raw *rawData, windowKey string, now time.Time, catalog *jobs.Catalog) *WindowData {
 	win := WindowConfigs[windowKey]
 
-	presubmitMap := make(map[string]*SippyJob)
-	if jobList, ok := raw.presubmitJobs[windowKey]; ok {
-		for i := range jobList {
-			presubmitMap[jobList[i].Name] = &jobList[i]
-		}
+	summaries := make(map[string]*SippyJob, len(raw.analyses))
+	sparklines := make(map[string]map[string]*SparklineSlot, len(raw.analyses))
+	for name, analysis := range raw.analyses {
+		summaries[name] = summarizeAnalysis(analysis, windowKey, now)
+		sparklines[name] = analysisSparkline(analysis, win, now)
 	}
-
-	periodicMap := make(map[string]*SippyJob)
-	if jobList, ok := raw.periodicJobs[windowKey]; ok {
-		for i := range jobList {
-			periodicMap[jobList[i].Name] = &jobList[i]
-		}
-	}
-
-	sparklines := bucketJobRuns(raw.presubmitRuns, win, now)
-	periodicSparklines := bucketJobRuns(raw.periodicRuns, win, now)
-
-	cutoffMS := now.Add(-time.Duration(win.SparkSlots*win.SparkSlotHours) * time.Hour).UnixMilli()
-	periodicFlakes := computeFlakes(raw.periodicRuns, cutoffMS)
 
 	blockingProwNames := make(map[string]bool)
-	for _, bj := range jobs.BlockingJobs {
+	for _, bj := range catalog.BlockingJobs {
 		blockingProwNames[bj.ProwJobName] = true
 	}
 
 	var jobHealths []JobHealth
-	for _, cfg := range jobs.BlockingJobs {
-		d := presubmitMap[cfg.ProwJobName]
+	for _, cfg := range catalog.BlockingJobs {
+		d := summaries[cfg.ProwJobName]
 
 		var periodics []PeriodicJobHealth
 		for _, cfgPer := range cfg.Periodics {
-			pd := periodicMap[cfgPer.ProwJobName]
-			perSparkline := periodicSparklines[cfgPer.ProwJobName]
-			perCounts := countResultTypes(perSparkline)
-
-			pjh := PeriodicJobHealth{
-				Name:       cfgPer.Name,
-				Prow:       cfgPer.ProwJobName,
-				Release:    cfgPer.Release,
-				Label:      cfgPer.Release,
-				TestFails:  perCounts.testFails,
-				InfraFails: perCounts.infraFails,
-				SparkRuns:  perCounts.sparkRuns,
-				Sparkline:  perSparkline,
-			}
-
-			if pd != nil {
-				pjh.Rate = &pd.CurrentPassPercentage
-				pjh.Prev = &pd.PreviousPassPercentage
-				pjh.PrevRuns = pd.PreviousRuns
-				pjh.Trend = &pd.NetImprovement
-				pjh.Runs = pd.CurrentRuns
-				pjh.Fails = pd.CurrentFails
-			}
-
-			if fs := periodicFlakes[cfgPer.ProwJobName]; fs != nil {
-				pjh.FlakyRuns = fs.flakes
-				pjh.TotalRuns = fs.runs
-			}
-
-			periodics = append(periodics, pjh)
+			periodics = append(periodics, buildPeriodicHealth(
+				cfgPer.ID, cfgPer.Name, cfgPer.ProwJobName, cfgPer.Release, cfgPer.Release,
+				summaries, sparklines,
+			))
 		}
 
 		var correlation *Correlation
 		if len(cfg.Periodics) > 0 {
 			correlation = computeCorrelation(
 				sparklines[cfg.ProwJobName],
-				periodicSparklines[cfg.Periodics[0].ProwJobName],
+				sparklines[cfg.Periodics[0].ProwJobName],
 				now, win,
 			)
 		}
@@ -247,9 +234,10 @@ func transformWindow(raw *rawData, windowKey string, now time.Time) *WindowData 
 		}
 
 		jh := JobHealth{
+			ID:          cfg.ID,
 			Name:        cfg.Name,
 			Prow:        cfg.ProwJobName,
-			Platform:    string(cfg.Platform),
+			Platforms:   cfg.Platforms,
 			Role:        string(cfg.Role),
 			RoleLabel:   jobs.RoleLabel(cfg.Role, release),
 			TestFails:   preCounts.testFails,
@@ -272,11 +260,32 @@ func transformWindow(raw *rawData, windowKey string, now time.Time) *WindowData 
 		jobHealths = append(jobHealths, jh)
 	}
 
+	payloadHealths := make([]PayloadBlockingJobHealth, 0, len(catalog.PayloadBlockingJobs))
+	for _, cfg := range catalog.PayloadBlockingJobs {
+		health := buildPeriodicHealth(
+			cfg.ID, cfg.Name, cfg.ProwJobName, cfg.Release, cfg.Stream.Name,
+			summaries, sparklines,
+		)
+		payloadHealths = append(payloadHealths, PayloadBlockingJobHealth{
+			PeriodicJobHealth:  health,
+			Platforms:          cfg.Platforms,
+			StreamName:         cfg.Stream.Name,
+			StreamKind:         cfg.Stream.Kind,
+			Architecture:       cfg.Stream.Architecture,
+			VerificationName:   cfg.Verification.Name,
+			StreamSippyURL:     cfg.Stream.SippyURL,
+			ReleaseStatusURL:   cfg.Stream.ReleaseStatusURL,
+			ProwJobHistoryURL:  cfg.Job.ProwJobHistoryURL,
+			MappedPresubmitIDs: cfg.MappedPresubmitIDs,
+		})
+	}
+
 	alerts := buildAlerts(raw.recentFailures, blockingProwNames)
 
 	return &WindowData{
-		Jobs:   jobHealths,
-		Alerts: alerts,
+		Jobs:                jobHealths,
+		PayloadBlockingJobs: payloadHealths,
+		Alerts:              alerts,
 	}
 }
 

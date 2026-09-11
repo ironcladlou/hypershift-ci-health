@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg height='1024' width='768' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M640 448c-47.625 0-88.625 26.312-110.625 64.906C523.625 512.5 518 512 512 512c-131.062 0-255.438-99.844-300.812-223.438C238.469 265.094 256 230.719 256 192c0-70.656-57.344-128-128-128S0 121.344 0 192c0 47.219 25.844 88.062 64 110.281V721.75C25.844 743.938 0 784.75 0 832c0 70.625 57.344 128 128 128s128-57.375 128-128c0-47.25-25.844-88.062-64-110.25V491.469C276.156 580.5 392.375 640 512 640c6.375 0 11.625-0.438 17.375-0.625C551.5 677.812 592.5 704 640 704c70.625 0 128-57.375 128-128C768 505.344 710.625 448 640 448zM128 896c-35.312 0-64-28.625-64-64 0-35.312 28.688-64 64-64 35.406 0 64 28.688 64 64C192 867.375 163.406 896 128 896zM128 256c-35.312 0-64-28.594-64-64s28.688-64 64-64c35.406 0 64 28.594 64 64S163.406 256 128 256zM640 640c-35.312 0-64-28.625-64-64 0-35.406 28.688-64 64-64 35.375 0 64 28.594 64 64C704 611.375 675.375 640 640 640z'/%3E%3C/svg%3E">
-<title>HyperShift Merge Queue Health</title>
+<title>HyperShift CI Health</title>
 <style>
 :root {
   --surface: #fcfcfb;
@@ -57,9 +57,7 @@ h1 { font-size: 20px; font-weight: 600; }
   display: flex;
   justify-content: space-between;
   align-items: baseline;
-  margin-bottom: 20px;
-  padding-bottom: 12px;
-  border-bottom: 1px solid var(--gridline);
+  margin-bottom: 8px;
 }
 .header-meta {
   font-size: 13px;
@@ -199,14 +197,6 @@ tr:has(+ .periodic-row) td { border-bottom: none; }
   color: var(--text-muted);
   margin-left: 6px;
 }
-.flake-badge {
-  font-size: 10px;
-  font-weight: 500;
-  color: var(--warning);
-  margin-left: 6px;
-  text-decoration: none;
-}
-.flake-badge:hover { text-decoration: underline; }
 .infra-badge {
   font-size: 10px;
   font-weight: 500;
@@ -243,49 +233,22 @@ tr:has(+ .periodic-row) td { border-bottom: none; }
   gap: 4px;
 }
 
-.merge-summary {
-  border: 1px solid var(--gridline);
-  border-radius: 6px;
-  padding: 12px 16px;
-  margin-bottom: 20px;
-  display: flex;
-  align-items: baseline;
-  gap: 24px;
-  flex-wrap: wrap;
-}
-.merge-stat {
-  display: flex;
-  align-items: baseline;
-  gap: 6px;
-}
-.merge-stat-value {
-  font-size: 20px;
-  font-weight: 600;
-}
-.merge-stat-label {
-  font-size: 12px;
-  color: var(--text-secondary);
-}
-.merge-help {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 14px;
-  height: 14px;
-  border-radius: 50%;
-  border: 1px solid var(--text-muted);
-  font-size: 10px;
-  color: var(--text-muted);
-  cursor: default;
-  margin-left: 2px;
-  position: relative;
-  vertical-align: middle;
-}
 .loading {
   text-align: center;
   padding: 48px;
   color: var(--text-muted);
   font-size: 14px;
+}
+.loading progress {
+  display: block;
+  width: min(420px, 80vw);
+  height: 10px;
+  margin: 14px auto 8px;
+  accent-color: var(--link);
+}
+.loading-detail {
+  font-size: 12px;
+  color: var(--text-secondary);
 }
 .header-meta { display: flex; align-items: baseline; gap: 8px; }
 .refresh-btn {
@@ -327,13 +290,31 @@ tr:has(+ .periodic-row) td { border-bottom: none; }
   color: var(--text-primary);
   font-weight: 500;
 }
+.view-navigation { margin-bottom: 16px; }
+.registry-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 10px;
+  color: var(--text-muted);
+  font-size: 12px;
+}
+.registry-toolbar input {
+  width: min(440px, 60vw);
+  padding: 5px 8px;
+  border: 1px solid var(--gridline);
+  border-radius: 4px;
+  background: var(--surface);
+  color: var(--text-primary);
+}
+.registry-detail { color: var(--text-muted); font-size: 11px; }
 </style>
 </head>
 <body>
 
 <div class="header">
   <div>
-    <h1>HyperShift Merge Queue Health</h1>
+    <h1>HyperShift CI Health</h1>
     <a href="https://github.com/ironcladlou/hypershift-ci-health" target="_blank" rel="noopener" style="font-size:12px;color:var(--text-muted);text-decoration:none;display:inline-flex;align-items:center;gap:4px"><svg width="12" height="12" viewBox="0 0 16 16" fill="currentColor"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.01 8.01 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>Source code</a>
   </div>
   <div class="header-meta">
@@ -344,17 +325,24 @@ tr:has(+ .periodic-row) td { border-bottom: none; }
       <button data-group="platform-role" onclick="setGroupBy('platform-role')">Platform / Role</button>
     </div>
     <div class="window-toggle" id="window-toggle">
-      <button data-window="2d" onclick="setActiveWindow('2d')">2d</button>
-      <button data-window="7d" onclick="setActiveWindow('7d')">7d</button>
+      <button data-window="1w" onclick="setActiveWindow('1w')">1w</button>
+      <button data-window="2w" onclick="setActiveWindow('2w')">2w</button>
+      <button data-window="1m" onclick="setActiveWindow('1m')">1m</button>
     </div>
     <span id="last-updated">Loading…</span>
     <button class="refresh-btn" id="refresh-btn" onclick="loadDashboard(true)">↻</button>
   </div>
 </div>
 
-<div id="alert-banner" class="alert-banner"></div>
+<div class="view-navigation">
+  <div class="window-toggle" id="view-toggle">
+    <button data-view="mapped" onclick="setActiveView('mapped')">Presubmit jobs</button>
+    <button data-view="payload" onclick="setActiveView('payload')">Payload blockers</button>
+    <button data-view="registry" onclick="setActiveView('registry')">Job registry</button>
+  </div>
+</div>
 
-<div id="merge-summary" class="merge-summary" style="display:none"></div>
+<div id="alert-banner" class="alert-banner"></div>
 
 <div id="dashboard">
   <div class="loading" id="loading">Loading…</div>
@@ -367,23 +355,24 @@ tr:has(+ .periodic-row) td { border-bottom: none; }
 const SIPPY = "https://sippy.dptools.openshift.org";
 
 const WINDOWS = {
-  "2d": { sparkSlotHours: 2, sparkSlots: 24, sparkLabel: "Last 2d", prevLabel: "Prev 7d" },
-  "7d": { sparkSlotHours: 6, sparkSlots: 28, sparkLabel: "Last 7d", prevLabel: "Prev 7d" },
+  "1w": { sparkSlotHours: 6, sparkSlots: 28, sparkLabel: "Last 1w", prevLabel: "Prev 1w" },
+  "2w": { sparkSlotHours: 12, sparkSlots: 28, sparkLabel: "Last 2w", prevLabel: "Prev 2w" },
+  "1m": { sparkSlotHours: 24, sparkSlots: 30, sparkLabel: "Last 1m", prevLabel: "Prev 1m" },
 };
-let activeWindow = localStorage.getItem("sippy_window") || "7d";
+let activeWindow = localStorage.getItem("sippy_window") || "1w";
+if (!WINDOWS[activeWindow]) activeWindow = "1w";
+let activeView = localStorage.getItem("sippy_view") || "mapped";
+if (!["mapped", "payload", "registry"].includes(activeView)) activeView = "mapped";
 let activeGroupBy = localStorage.getItem("sippy_groupby") ?? "platform-role";
 if (activeGroupBy === "platform-version") activeGroupBy = "platform-role";
 if (activeGroupBy === "version") activeGroupBy = "role";
 let healthSnapshot = null;
+let collectionStatus = null;
+let healthLoadPending = false;
+let jobRegistry = null;
+let registryLoadPending = false;
 
 // --- Helpers ---
-
-function sippyJobRunsLink(jobName, release) {
-  const filters = JSON.stringify({
-    items: [{ columnField: "name", operatorValue: "equals", value: jobName }]
-  });
-  return `${SIPPY}/sippy-ng/jobs/${encodeURIComponent(release)}/runs?filters=${encodeURIComponent(filters)}`;
-}
 
 function sippyJobLink(jobName, release) {
   const filters = JSON.stringify({
@@ -477,10 +466,15 @@ function buildSparkline(hourlyData, showDates, correlatedIndices) {
   let svg = `<svg width="${svgW}" height="${svgH}" viewBox="0 0 ${svgW} ${svgH}" xmlns="http://www.w3.org/2000/svg">`;
   let x = 0;
   const labels = [];
+  const labelEveryDays = activeWindow === "1m" ? 5 : (activeWindow === "2w" ? 2 : 1);
+  let dayBoundaryIndex = 0;
   for (let i = 0; i < win.sparkSlots; i++) {
     if (i > 0) {
       if (isDayBound[i]) {
-        labels.push({ x: x + dayGap / 2, text: `${slotData[i].month}/${slotData[i].day}` });
+        if (dayBoundaryIndex % labelEveryDays === 0) {
+          labels.push({ x: x + dayGap / 2, text: `${slotData[i].month}/${slotData[i].day}` });
+        }
+        dayBoundaryIndex++;
         x += dayGap;
       } else {
         x += gap;
@@ -652,9 +646,9 @@ function buildAlertBanner(alerts) {
 
 function sortJobs(jobs) {
   return [...jobs].sort((a, b) => {
-    const aSort = a.runs > 0 ? a.rate : 999;
-    const bSort = b.runs > 0 ? b.rate : 999;
-    return aSort - bSort;
+    const byName = (a.name || "").localeCompare(b.name || "");
+    if (byName !== 0) return byName;
+    return (a.prow || "").localeCompare(b.prow || "");
   });
 }
 
@@ -672,13 +666,14 @@ function buildTable(jobs) {
     const platforms = {};
     const platformOrder = [];
     for (const j of jobs) {
-      if (!platforms[j.platform]) {
-        platforms[j.platform] = {};
-        platformOrder.push(j.platform);
+      const platform = platformLabel(j);
+      if (!platforms[platform]) {
+        platforms[platform] = {};
+        platformOrder.push(platform);
       }
       const role = j.role_label || j.role || "unknown";
-      if (!platforms[j.platform][role]) platforms[j.platform][role] = [];
-      platforms[j.platform][role].push(j);
+      if (!platforms[platform][role]) platforms[platform][role] = [];
+      platforms[platform][role].push(j);
     }
     for (const plat of platformOrder) {
       html += `<tr class="category-row"><td colspan="3">${esc(plat)}</td></tr>`;
@@ -693,7 +688,7 @@ function buildTable(jobs) {
     const groups = {};
     const groupOrder = [];
     for (const j of jobs) {
-      const key = activeGroupBy === "platform" ? j.platform : (j.role_label || j.role || "unknown");
+      const key = activeGroupBy === "platform" ? platformLabel(j) : (j.role_label || j.role || "unknown");
       if (!groups[key]) {
         groups[key] = [];
         groupOrder.push(key);
@@ -719,6 +714,111 @@ function buildTable(jobs) {
     <span>fail = tests ran, some failed · infra = job errored before tests completed</span>
   </div>`;
   return html;
+}
+
+function buildPayloadTable(jobs) {
+  const win = WINDOWS[activeWindow];
+  let html = `<table>
+    <thead><tr>
+      <th>Payload blocking job</th>
+      <th>Pass Rate</th>
+      <th>${win.sparkLabel}</th>
+    </tr></thead>
+    <tbody>`;
+
+  const releases = {};
+  for (const job of jobs) {
+    if (!releases[job.release]) releases[job.release] = {};
+    const stream = job.stream_name || `${job.stream_kind || "stream"} / ${job.architecture || "unknown"}`;
+    if (!releases[job.release][stream]) releases[job.release][stream] = [];
+    releases[job.release][stream].push(job);
+  }
+  for (const release of Object.keys(releases).sort().reverse()) {
+    html += `<tr class="category-row"><td colspan="3">OpenShift ${esc(release)}</td></tr>`;
+    for (const stream of Object.keys(releases[release]).sort()) {
+      const streamJobs = releases[release][stream];
+      const first = streamJobs[0];
+      const streamLabel = `${first.stream_kind || "stream"} / ${first.architecture || "unknown"}`;
+      const streamOverview = first.stream_sippy_url
+        ? `<a href="${esc(first.stream_sippy_url)}" target="_blank" rel="noopener">${esc(streamLabel)}</a>`
+        : esc(streamLabel);
+      const statusLink = first.release_status_url
+        ? ` · <a href="${esc(first.release_status_url)}" target="_blank" rel="noopener">payload status</a>`
+        : "";
+      html += `<tr class="subcategory-row"><td colspan="3">${streamOverview} · ${esc(stream)}${statusLink}</td></tr>`;
+      for (const job of sortJobs(streamJobs)) html += buildPayloadRow(job);
+    }
+  }
+  if (jobs.length === 0) {
+    html += '<tr><td colspan="3" class="loading">No payload blocking jobs found for the tracked releases.</td></tr>';
+  }
+  html += "</tbody></table>";
+  html += `<div class="sparkline-legend">
+    <span><svg width="8" height="8"><rect width="8" height="8" rx="1" fill="var(--good)"/></svg> ≥80% pass</span>
+    <span><svg width="8" height="8"><rect width="8" height="8" rx="1" fill="var(--warning)"/></svg> 50–80%</span>
+    <span><svg width="8" height="8"><rect width="8" height="8" rx="1" fill="var(--critical)"/></svg> &lt;50%</span>
+    <span><svg width="8" height="8"><rect width="8" height="8" rx="1" fill="var(--gridline)"/></svg> no runs</span>
+  </div>`;
+  return html;
+}
+
+function buildRegistryTable(registry) {
+  const jobs = [...(registry.jobs || [])].sort((a, b) => (a.name || "").localeCompare(b.name || ""));
+  let html = `<div class="registry-toolbar">
+    <input type="search" placeholder="Filter jobs…" aria-label="Filter job registry" oninput="filterRegistryJobs(this.value)">
+    <span id="registry-count">${jobs.length} jobs</span>
+    <a href="/api/job-registry" target="_blank" rel="noopener">Raw JSON API</a>
+  </div>
+  <table>
+    <thead><tr>
+      <th>Job</th>
+      <th>Type</th>
+      <th>Repository / context</th>
+      <th>Versions / platforms</th>
+      <th>Release participation</th>
+    </tr></thead><tbody>`;
+
+  for (const job of jobs) {
+    const participation = (job.release_controller || []).map(p => {
+      const stream = p.stream || {};
+      const verification = p.verification || {};
+      const label = `${stream.release || stream.name || "unknown"} · ${verification.role || "unknown"}`;
+      return stream.release_status_url
+        ? `<a href="${esc(stream.release_status_url)}" target="_blank" rel="noopener">${esc(label)}</a>`
+        : esc(label);
+    }).join("<br>") || "—";
+    const versions = (job.versions || []).join(", ") || "—";
+    const platforms = (job.platforms || []).join(", ") || "—";
+    const context = job.context || "—";
+    const jobLink = job.prow_job_history_url || (job.source && job.source.url) || "";
+    const search = [job.name, job.type, job.repository, context, versions, platforms]
+      .concat((job.release_controller || []).flatMap(p => [p.stream && p.stream.name, p.stream && p.stream.release, p.verification && p.verification.role]))
+      .filter(Boolean).join(" ").toLowerCase();
+    html += `<tr class="registry-job" data-search="${esc(search)}">
+      <td class="job-name">${jobLink ? `<a href="${esc(jobLink)}" target="_blank" rel="noopener">${esc(job.name)}</a>` : esc(job.name)}${job.source && job.source.url ? ` <a class="registry-detail" href="${esc(job.source.url)}" target="_blank" rel="noopener">source</a>` : ""}</td>
+      <td><span class="job-type" style="margin-left:0">${esc(job.type)}</span></td>
+      <td>${esc(job.repository || "—")}<br><span class="registry-detail">${esc(context)}</span></td>
+      <td>${esc(versions)}<br><span class="registry-detail">${esc(platforms)}</span></td>
+      <td>${participation}</td>
+    </tr>`;
+  }
+  return html + "</tbody></table>";
+}
+
+function filterRegistryJobs(value) {
+  const query = value.trim().toLowerCase();
+  let visible = 0;
+  document.querySelectorAll(".registry-job").forEach(row => {
+    const match = !query || row.dataset.search.includes(query);
+    row.style.display = match ? "" : "none";
+    if (match) visible++;
+  });
+  const count = document.getElementById("registry-count");
+  if (count) count.textContent = `${visible} job${visible === 1 ? "" : "s"}`;
+}
+
+function platformLabel(job) {
+  return (job.platforms || []).join(" / ") || "unknown";
 }
 
 function rateTrendHtml(rate, prev, prevRuns, trend, runs, fails) {
@@ -766,7 +866,7 @@ function buildRow(j) {
       ? `<span class="infra-badge has-tip"><span class="tip">${p.infra_fails} of ${perSparkRuns} runs were infrastructure failures — the job errored or timed out before tests could run.</span>${p.infra_fails} infra</span>`
       : '';
     html += `<tr class="periodic-row">
-      <td class="job-name periodic-name"><span class="status-dot ${statusClass(pRate, pRuns)}"></span><a class="periodic-link" href="${sippyJobLink(p.prow, p.release)}" target="_blank">${esc(p.name)}</a><span class="job-type">periodic ${p.label}</span>${p.flaky_runs > 0 ? `<a class="flake-badge has-tip" href="${sippyJobRunsLink(p.prow, p.release)}" target="_blank"><span class="tip">${p.flaky_runs} of ${p.total_runs} runs had flakes</span>⚡${p.flaky_runs} flaky</a>` : ""}${perInfraBadge}</td>
+      <td class="job-name periodic-name"><span class="status-dot ${statusClass(pRate, pRuns)}"></span><a class="periodic-link" href="${sippyJobLink(p.prow, p.release)}" target="_blank">${esc(p.name)}</a><span class="job-type">periodic ${p.label}</span>${perInfraBadge}</td>
       <td class="rate-chart-cell"><div class="rate-chart-inner"><canvas id="${perChartId}" width="140" height="28"></canvas>${rateDeltaHtml(pRate, p.prev != null ? p.prev : 0, p.prev_runs ?? 0, p.trend, pRuns, p.fails ?? 0, p.test_fails ?? 0, p.infra_fails ?? 0)}</div></td>
       <td class="sparkline-cell">${buildSparkline(p.sparkline)}</td>
     </tr>`;
@@ -775,62 +875,37 @@ function buildRow(j) {
   return html;
 }
 
-// --- Merge summary (from /api/retests) ---
-
-let retestsData = null;
-
-async function fetchRetests() {
-  try {
-    const resp = await fetch("/api/retests");
-    if (resp.status === 503) return;
-    if (!resp.ok) return;
-    retestsData = await resp.json();
-    buildMergeSummary();
-  } catch (e) {
-    console.error("Failed to fetch retests:", e);
-  }
-}
-
-function buildMergeSummary() {
-  const el = document.getElementById("merge-summary");
-  if (!retestsData || !retestsData.summary) { el.style.display = "none"; return; }
-
-  const s = retestsData.summary;
-  const blockers = s.queue_blockers || [];
-  const below50 = (s.per_job || []).filter(j => j.pass_rate < 0.5);
-  const probPct = (s.first_try_merge_probability || 0) * 100;
-  const probClass = blockers.length > 0 ? 'status-bad'
-    : probPct < 10 ? 'status-bad'
-    : probPct < 50 ? 'status-warn'
-    : 'status-good';
-
-  let html = '';
-
-  if (blockers.length > 0) {
-    html += `<div class="merge-stat"><span class="merge-stat-value" style="color:var(--critical)">${blockers.length}</span><span class="merge-stat-label">job${blockers.length > 1 ? 's' : ''} at 0% — queue blocked</span></div>`;
-  }
-
-  html += `<div class="merge-stat"><span class="status-dot ${probClass}"></span><span class="merge-stat-value">${probPct < 0.1 && probPct > 0 ? '<0.1' : probPct.toFixed(1)}%</span><span class="merge-stat-label">first-try merge probability <span class="merge-help has-tip"><span class="tip">Empirical probability that all ${(s.per_job || []).length} blocking presubmits pass on a single /retest, based on ${retestsData.prs_analyzed} merged PRs over the last ${retestsData.window_days}d.</span>?</span></span></div>`;
-
-  html += `<div class="merge-stat"><span class="merge-stat-value">${s.median_retests_per_pr}</span><span class="merge-stat-label">median retests <span class="merge-help has-tip"><span class="tip">Median number of /retest rounds needed before all blocking jobs pass. P90: ${s.p90_retests_per_pr}, P95: ${s.p95_retests_per_pr}. Based on ${retestsData.prs_analyzed} merged PRs.</span>?</span></span></div>`;
-
-  html += `<div class="merge-stat"><span class="merge-stat-value">${s.p90_retests_per_pr}</span><span class="merge-stat-label">P90 retests</span></div>`;
-
-  html += `<div class="merge-stat"><span class="merge-stat-value">${below50.length}<span style="font-weight:400;color:var(--text-muted)">/${(s.per_job || []).length}</span></span><span class="merge-stat-label">jobs below 50%</span></div>`;
-
-  html += `<div class="merge-stat"><span class="merge-stat-value" style="font-size:13px;font-weight:400;color:var(--text-muted)">${retestsData.prs_analyzed} PRs · ${retestsData.window_days}d</span></div>`;
-
-  el.innerHTML = html;
-  el.style.display = "flex";
+function buildPayloadRow(p) {
+  const rate = p.rate != null ? p.rate : 0;
+  const runs = p.runs ?? 0;
+  const chartId = `rate-${++chartIdSeq}`;
+  const chart = extractErrorRates(p.sparkline);
+  pendingCharts.push({
+    id: chartId,
+    rates: chart ? chart.rates : [],
+    labels: chart ? chart.labels : [],
+    color: 'per',
+  });
+  const sparkRuns = p.spark_runs ?? 0;
+  const infraBadge = (p.infra_fails > 0 && sparkRuns > 0 && p.infra_fails / sparkRuns >= 0.15)
+    ? `<span class="infra-badge has-tip"><span class="tip">${p.infra_fails} of ${sparkRuns} runs were infrastructure failures — the job errored or timed out before tests could run.</span>${p.infra_fails} infra</span>`
+    : '';
+  const mappedBadge = p.mapped_presubmit_ids && p.mapped_presubmit_ids.length > 0
+    ? `<span class="job-type has-tip"><span class="tip">Also shown beneath ${p.mapped_presubmit_ids.length} mapped presubmit${p.mapped_presubmit_ids.length > 1 ? "s" : ""}</span>mapped</span>`
+    : '';
+  const historyLink = p.prow_job_history_url
+    ? `<a class="job-type" href="${esc(p.prow_job_history_url)}" target="_blank" rel="noopener">Prow history</a>`
+    : '';
+  return `<tr class="periodic-row">
+    <td class="job-name"><span class="status-dot ${statusClass(rate, runs)}"></span><a href="${sippyJobLink(p.prow, p.release)}" target="_blank" rel="noopener">${esc(p.name)}</a><span class="job-type">${esc(p.verification_name || "blocking")}</span>${mappedBadge}${historyLink}${infraBadge}</td>
+    <td class="rate-chart-cell"><div class="rate-chart-inner"><canvas id="${chartId}" width="140" height="28"></canvas>${rateDeltaHtml(rate, p.prev != null ? p.prev : 0, p.prev_runs ?? 0, p.trend, runs, p.fails ?? 0, p.test_fails ?? 0, p.infra_fails ?? 0)}</div></td>
+    <td class="sparkline-cell">${buildSparkline(p.sparkline)}</td>
+  </tr>`;
 }
 
 // --- Render orchestration ---
 
 function renderDashboard() {
-  if (!healthSnapshot) return;
-  const windowData = healthSnapshot.windows[activeWindow];
-  if (!windowData) return;
-
   pendingCharts = [];
   chartIdSeq = 0;
   const dashboard = document.getElementById("dashboard");
@@ -840,10 +915,45 @@ function renderDashboard() {
       if (chart) chart.destroy();
     });
   }
-  dashboard.innerHTML = buildTable(windowData.jobs || []);
-  buildAlertBanner(windowData.alerts);
-  buildMergeSummary();
+  const registryView = activeView === "registry";
+  const payloadView = activeView === "payload";
+  document.getElementById("group-toggle").style.display = payloadView || registryView ? "none" : "inline-flex";
+  document.getElementById("window-toggle").style.display = registryView ? "none" : "inline-flex";
+  if (registryView) {
+    dashboard.innerHTML = jobRegistry
+      ? buildRegistryTable(jobRegistry)
+      : '<div class="loading">Loading job registry…</div>';
+    buildAlertBanner([]);
+    return;
+  }
+
+  if (!healthSnapshot) return;
+  const windowData = healthSnapshot.windows[activeWindow];
+  if (!windowData) return;
+  dashboard.innerHTML = payloadView
+    ? buildPayloadTable(windowData.payload_blocking_jobs || [])
+    : buildTable(windowData.jobs || []);
+  buildAlertBanner(payloadView ? [] : windowData.alerts);
   initRateCharts();
+}
+
+async function loadJobRegistry() {
+  if (jobRegistry || registryLoadPending) return;
+  registryLoadPending = true;
+  try {
+    const resp = await fetch("/api/job-registry");
+    if (!resp.ok) throw new Error(`${resp.status} ${resp.statusText}`);
+    jobRegistry = await resp.json();
+    if (activeView === "registry") renderDashboard();
+  } catch (err) {
+    console.error("Job registry load failed:", err);
+    if (activeView === "registry") {
+      document.getElementById("dashboard").innerHTML =
+        `<div class="loading" style="color:var(--critical)">Failed to load job registry: ${esc(err.message)}</div>`;
+    }
+  } finally {
+    registryLoadPending = false;
+  }
 }
 
 function setStatus(text, cls) {
@@ -853,12 +963,14 @@ function setStatus(text, cls) {
 }
 
 async function loadDashboard(forceRefresh = false) {
+  if (healthLoadPending) return;
+  healthLoadPending = true;
   const btn = document.getElementById("refresh-btn");
   btn.classList.add("spinning");
   try {
     const resp = await fetch("/api/health");
     if (resp.status === 503) {
-      if (!healthSnapshot) {
+      if (!healthSnapshot && activeView !== "registry") {
         setStatus("Waiting for data…", "cache-stale");
       }
       return;
@@ -870,14 +982,55 @@ async function loadDashboard(forceRefresh = false) {
     setStatus(`Updated ${formatAge(age)}`, "cache-fresh");
   } catch (err) {
     console.error("Dashboard refresh failed:", err);
-    if (!healthSnapshot) {
+    if (!healthSnapshot && activeView !== "registry") {
       document.getElementById("dashboard").innerHTML =
         `<div class="loading" style="color:var(--critical)">Failed to load: ${esc(err.message)}</div>`;
     } else {
       setStatus("Refresh failed", "cache-error");
     }
   } finally {
+    healthLoadPending = false;
     btn.classList.remove("spinning");
+  }
+}
+
+async function loadCollectionStatus() {
+  try {
+    const resp = await fetch("/api/health/status");
+    if (!resp.ok) throw new Error(`${resp.status} ${resp.statusText}`);
+    collectionStatus = await resp.json();
+    renderCollectionStatus();
+    if (collectionStatus.has_data && !healthSnapshot) loadDashboard();
+  } catch (err) {
+    console.error("Collection status refresh failed:", err);
+  }
+}
+
+function renderCollectionStatus() {
+  if (!collectionStatus) return;
+  const s = collectionStatus;
+  if (s.state === "collecting") {
+    const total = s.total || 0;
+    const completed = s.completed || 0;
+    const detail = s.last_completed
+      ? `Last completed: ${s.last_completed}${s.failed ? ` · ${s.failed} failed` : ""}`
+      : "Waiting for Sippy responses…";
+    setStatus(`Collecting ${completed}/${total}…`, s.failed ? "cache-error" : "cache-stale");
+    if (!healthSnapshot && activeView !== "registry") {
+      document.getElementById("dashboard").innerHTML = `<div class="loading">
+        Loading Sippy data… ${completed}/${total}
+        <progress value="${completed}" max="${total || 1}"></progress>
+        <div class="loading-detail">${esc(detail)}</div>
+      </div>`;
+    }
+    return;
+  }
+  if (s.state === "error") {
+    setStatus("Collection failed", "cache-error");
+    if (!healthSnapshot && activeView !== "registry") {
+      document.getElementById("dashboard").innerHTML =
+        `<div class="loading" style="color:var(--critical)">Sippy collection failed<div class="loading-detail">${esc(s.error || s.last_error || "Unknown error")}</div></div>`;
+    }
   }
 }
 
@@ -887,6 +1040,16 @@ function setActiveWindow(w) {
   document.querySelectorAll("#window-toggle button").forEach(b => {
     b.classList.toggle("active", b.dataset.window === w);
   });
+  renderDashboard();
+}
+
+function setActiveView(view) {
+  activeView = view;
+  localStorage.setItem("sippy_view", view);
+  document.querySelectorAll("#view-toggle button").forEach(b => {
+    b.classList.toggle("active", b.dataset.view === view);
+  });
+  if (view === "registry") loadJobRegistry();
   renderDashboard();
 }
 
@@ -904,13 +1067,17 @@ function setGroupBy(g) {
 document.querySelectorAll("#window-toggle button").forEach(b => {
   b.classList.toggle("active", b.dataset.window === activeWindow);
 });
+document.querySelectorAll("#view-toggle button").forEach(b => {
+  b.classList.toggle("active", b.dataset.view === activeView);
+});
 document.querySelectorAll("#group-toggle button").forEach(b => {
   b.classList.toggle("active", b.dataset.group === activeGroupBy);
 });
 loadDashboard();
-fetchRetests();
+loadCollectionStatus();
+if (activeView === "registry") loadJobRegistry();
 setInterval(() => loadDashboard(), 15 * 60 * 1000);
-setInterval(() => fetchRetests(), 5 * 60 * 1000);
+setInterval(() => loadCollectionStatus(), 1000);
 
 const sparkTip = document.getElementById("spark-tip");
 document.addEventListener("mouseover", e => {

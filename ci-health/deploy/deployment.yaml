@@ -14,12 +14,30 @@ spec:
       labels:
         app: ci-health
     spec:
+      initContainers:
+        - name: generate-job-registry
+          image: image-registry.openshift-image-registry.svc:5000/ci-health/ci-health:latest
+          command:
+            - /bin/sh
+            - -ec
+          args:
+            - |
+              git clone --depth=1 --filter=blob:none --no-tags --single-branch --sparse \
+                https://github.com/openshift/release.git /tmp/openshift-release
+              git -C /tmp/openshift-release sparse-checkout set \
+                ci-operator/jobs \
+                core-services/release-controller/_releases
+              ci-health job-registry --release-dir=/tmp/openshift-release \
+                > /var/lib/ci-health/job-registry.json
+          volumeMounts:
+            - name: job-registry
+              mountPath: /var/lib/ci-health
       containers:
         - name: ci-health
           image: image-registry.openshift-image-registry.svc:5000/ci-health/ci-health:latest
           args:
             - serve
-            - --github-token-file=/etc/ci-health/github-token/token
+            - --job-registry=/etc/ci-health/job-registry/job-registry.json
           ports:
             - containerPort: 8080
           livenessProbe:
@@ -33,10 +51,9 @@ spec:
               port: 8080
             periodSeconds: 10
           volumeMounts:
-            - name: github-token
-              mountPath: /etc/ci-health/github-token
+            - name: job-registry
+              mountPath: /etc/ci-health/job-registry
               readOnly: true
       volumes:
-        - name: github-token
-          secret:
-            secretName: github-token
+        - name: job-registry
+          emptyDir: {}

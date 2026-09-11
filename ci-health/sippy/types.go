@@ -1,9 +1,6 @@
 package sippy
 
 import (
-	"encoding/json"
-	"fmt"
-	"strconv"
 	"time"
 )
 
@@ -19,45 +16,13 @@ type SippyJob struct {
 	PreviousRuns           int     `json:"previous_runs"`
 }
 
-type SippyJobRun struct {
-	Timestamp     int64  `json:"timestamp"`
-	Job           string `json:"job"`
-	OverallResult string `json:"overall_result"`
-	Succeeded     bool   `json:"succeeded"`
-	TestFlakes    int    `json:"test_flakes"`
+type SippyJobAnalysisPeriod struct {
+	TotalRuns   int            `json:"total_runs"`
+	ResultCount map[string]int `json:"result_count"`
 }
 
-func (r *SippyJobRun) UnmarshalJSON(data []byte) error {
-	type Alias SippyJobRun
-	aux := &struct {
-		Timestamp any `json:"timestamp"`
-		*Alias
-	}{Alias: (*Alias)(r)}
-	if err := json.Unmarshal(data, aux); err != nil {
-		return err
-	}
-	switch v := aux.Timestamp.(type) {
-	case float64:
-		r.Timestamp = int64(v)
-	case string:
-		t, err := time.Parse(time.RFC3339, v)
-		if err != nil {
-			n, err := strconv.ParseInt(v, 10, 64)
-			if err != nil {
-				return fmt.Errorf("cannot parse timestamp %q", v)
-			}
-			r.Timestamp = n
-			return nil
-		}
-		r.Timestamp = t.UnixMilli()
-	default:
-		return fmt.Errorf("unexpected timestamp type %T", v)
-	}
-	return nil
-}
-
-type SippyJobRunsResponse struct {
-	Rows []SippyJobRun `json:"rows"`
+type SippyJobAnalysisResponse struct {
+	ByPeriod map[string]SippyJobAnalysisPeriod `json:"by_period"`
 }
 
 type SippyTestOutput struct {
@@ -87,6 +52,7 @@ type Correlation struct {
 }
 
 type PeriodicJobHealth struct {
+	ID         string                    `json:"id"`
 	Name       string                    `json:"name"`
 	Prow       string                    `json:"prow"`
 	Release    string                    `json:"release"`
@@ -101,14 +67,26 @@ type PeriodicJobHealth struct {
 	InfraFails int                       `json:"infra_fails"`
 	SparkRuns  int                       `json:"spark_runs"`
 	Sparkline  map[string]*SparklineSlot `json:"sparkline"`
-	FlakyRuns  int                       `json:"flaky_runs"`
-	TotalRuns  int                       `json:"total_runs"`
+}
+
+type PayloadBlockingJobHealth struct {
+	PeriodicJobHealth
+	Platforms          []string `json:"platforms"`
+	StreamName         string   `json:"stream_name"`
+	StreamKind         string   `json:"stream_kind"`
+	Architecture       string   `json:"architecture"`
+	VerificationName   string   `json:"verification_name"`
+	StreamSippyURL     *string  `json:"stream_sippy_url"`
+	ReleaseStatusURL   string   `json:"release_status_url"`
+	ProwJobHistoryURL  string   `json:"prow_job_history_url"`
+	MappedPresubmitIDs []string `json:"mapped_presubmit_ids"`
 }
 
 type JobHealth struct {
+	ID          string                    `json:"id"`
 	Name        string                    `json:"name"`
 	Prow        string                    `json:"prow"`
-	Platform    string                    `json:"platform"`
+	Platforms   []string                  `json:"platforms"`
 	Role        string                    `json:"role"`
 	RoleLabel   string                    `json:"role_label"`
 	Rate        float64                   `json:"rate"`
@@ -132,8 +110,9 @@ type Alert struct {
 }
 
 type WindowData struct {
-	Jobs   []JobHealth `json:"jobs"`
-	Alerts []Alert     `json:"alerts"`
+	Jobs                []JobHealth                `json:"jobs"`
+	PayloadBlockingJobs []PayloadBlockingJobHealth `json:"payload_blocking_jobs"`
+	Alerts              []Alert                    `json:"alerts"`
 }
 
 type HealthSnapshot struct {

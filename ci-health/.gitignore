@@ -1,3 +1,4 @@
+/bin/
 deploy/route-patch.yaml
 deploy/.github-token
-ci-health
+job-registry.json
