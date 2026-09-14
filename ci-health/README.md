@@ -1,8 +1,9 @@
 # HyperShift CI Health
 
-A dashboard for the health of HyperShift's required presubmit jobs and their
-mapped periodics. The backend reads job definitions from a generated job
-registry and fetches run data from Sippy.
+A dashboard for the health of HyperShift's required presubmit jobs, release
+payload blockers, and Component Readiness blockers. The backend reads job
+definitions from a generated job registry and fetches policy and run data from
+Sippy.
 
 ## Local development
 
@@ -48,5 +49,5 @@ make deploy
 ## API
 
 - `GET /` — dashboard UI
-- `GET /api/health` — job health snapshot for the 2-day and 7-day windows
+- `GET /api/health` — job health snapshot for the 1-week, 2-week, and 1-month windows
 - `GET /api/health/status` — current Sippy collection progress and errors

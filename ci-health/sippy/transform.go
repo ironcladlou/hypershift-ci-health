@@ -21,8 +21,9 @@ var WindowConfigs = map[string]WindowConfig{
 }
 
 type rawData struct {
-	analyses       map[string]*SippyJobAnalysisResponse
-	recentFailures []SippyTestFailure
+	analyses           map[string]*SippyJobAnalysisResponse
+	recentFailures     []SippyTestFailure
+	componentReadiness []jobs.ComponentReadinessJobConfig
 }
 
 func slotKey(t time.Time, slotHours int) string {
@@ -263,29 +264,47 @@ func transformWindow(raw *rawData, windowKey string, now time.Time, catalog *job
 	payloadHealths := make([]PayloadBlockingJobHealth, 0, len(catalog.PayloadBlockingJobs))
 	for _, cfg := range catalog.PayloadBlockingJobs {
 		health := buildPeriodicHealth(
-			cfg.ID, cfg.Name, cfg.ProwJobName, cfg.Release, cfg.Stream.Name,
+			cfg.ID, cfg.Name, cfg.ProwJobName, cfg.Release, "release payload",
 			summaries, sparklines,
 		)
+		participations := make([]ReleasePayloadParticipation, 0, len(cfg.Participations))
+		for _, participation := range cfg.Participations {
+			participations = append(participations, ReleasePayloadParticipation{
+				StreamName:       participation.Stream.Name,
+				StreamKind:       participation.Stream.Kind,
+				Architecture:     participation.Stream.Architecture,
+				VerificationName: participation.Verification.Name,
+				StreamSippyURL:   participation.Stream.SippyURL,
+				ReleaseStatusURL: participation.Stream.ReleaseStatusURL,
+			})
+		}
 		payloadHealths = append(payloadHealths, PayloadBlockingJobHealth{
-			PeriodicJobHealth:  health,
-			Platforms:          cfg.Platforms,
-			StreamName:         cfg.Stream.Name,
-			StreamKind:         cfg.Stream.Kind,
-			Architecture:       cfg.Stream.Architecture,
-			VerificationName:   cfg.Verification.Name,
-			StreamSippyURL:     cfg.Stream.SippyURL,
-			ReleaseStatusURL:   cfg.Stream.ReleaseStatusURL,
-			ProwJobHistoryURL:  cfg.Job.ProwJobHistoryURL,
-			MappedPresubmitIDs: cfg.MappedPresubmitIDs,
+			PeriodicJobHealth: health,
+			Platforms:         cfg.Platforms,
+			Participations:    participations,
+		})
+	}
+
+	componentReadinessHealths := make([]ComponentReadinessJobHealth, 0, len(raw.componentReadiness))
+	for _, cfg := range raw.componentReadiness {
+		health := buildPeriodicHealth(
+			cfg.ID, cfg.Name, cfg.ProwJobName, cfg.Release, "component readiness",
+			summaries, sparklines,
+		)
+		componentReadinessHealths = append(componentReadinessHealths, ComponentReadinessJobHealth{
+			PeriodicJobHealth: health,
+			Platforms:         cfg.Platforms,
+			RegistryMissing:   cfg.RegistryMissing,
 		})
 	}
 
 	alerts := buildAlerts(raw.recentFailures, blockingProwNames)
 
 	return &WindowData{
-		Jobs:                jobHealths,
-		PayloadBlockingJobs: payloadHealths,
-		Alerts:              alerts,
+		Jobs:                   jobHealths,
+		PayloadBlockingJobs:    payloadHealths,
+		ComponentReadinessJobs: componentReadinessHealths,
+		Alerts:                 alerts,
 	}
 }
 

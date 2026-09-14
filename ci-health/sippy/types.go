@@ -25,6 +25,11 @@ type SippyJobAnalysisResponse struct {
 	ByPeriod map[string]SippyJobAnalysisPeriod `json:"by_period"`
 }
 
+type SippyJobListItem struct {
+	Name     string   `json:"name"`
+	Variants []string `json:"variants"`
+}
+
 type SippyTestOutput struct {
 	ProwJobName string `json:"prow_job_name"`
 }
@@ -69,17 +74,25 @@ type PeriodicJobHealth struct {
 	Sparkline  map[string]*SparklineSlot `json:"sparkline"`
 }
 
+type ReleasePayloadParticipation struct {
+	StreamName       string  `json:"stream_name"`
+	StreamKind       string  `json:"stream_kind"`
+	Architecture     string  `json:"architecture"`
+	VerificationName string  `json:"verification_name"`
+	StreamSippyURL   *string `json:"stream_sippy_url"`
+	ReleaseStatusURL string  `json:"release_status_url"`
+}
+
 type PayloadBlockingJobHealth struct {
 	PeriodicJobHealth
-	Platforms          []string `json:"platforms"`
-	StreamName         string   `json:"stream_name"`
-	StreamKind         string   `json:"stream_kind"`
-	Architecture       string   `json:"architecture"`
-	VerificationName   string   `json:"verification_name"`
-	StreamSippyURL     *string  `json:"stream_sippy_url"`
-	ReleaseStatusURL   string   `json:"release_status_url"`
-	ProwJobHistoryURL  string   `json:"prow_job_history_url"`
-	MappedPresubmitIDs []string `json:"mapped_presubmit_ids"`
+	Platforms      []string                      `json:"platforms"`
+	Participations []ReleasePayloadParticipation `json:"participations"`
+}
+
+type ComponentReadinessJobHealth struct {
+	PeriodicJobHealth
+	Platforms       []string `json:"platforms"`
+	RegistryMissing bool     `json:"registry_missing,omitempty"`
 }
 
 type JobHealth struct {
@@ -110,9 +123,10 @@ type Alert struct {
 }
 
 type WindowData struct {
-	Jobs                []JobHealth                `json:"jobs"`
-	PayloadBlockingJobs []PayloadBlockingJobHealth `json:"payload_blocking_jobs"`
-	Alerts              []Alert                    `json:"alerts"`
+	Jobs                   []JobHealth                   `json:"jobs"`
+	PayloadBlockingJobs    []PayloadBlockingJobHealth    `json:"payload_blocking_jobs"`
+	ComponentReadinessJobs []ComponentReadinessJobHealth `json:"component_readiness_jobs"`
+	Alerts                 []Alert                       `json:"alerts"`
 }
 
 type HealthSnapshot struct {

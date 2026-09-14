@@ -251,6 +251,27 @@ tr:has(+ .periodic-row) td { border-bottom: none; }
   color: var(--text-secondary);
 }
 .header-meta { display: flex; align-items: baseline; gap: 8px; }
+.platform-filter {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  white-space: nowrap;
+}
+.platform-filter select {
+  border: 1px solid var(--gridline);
+  border-radius: 4px;
+  background: var(--surface);
+  color: var(--text-primary);
+  font-size: 12px;
+  padding: 2px 6px;
+}
+.perspective-context {
+  margin: 2px 0 0 18px;
+  color: var(--text-muted);
+  font-size: 10px;
+  line-height: 1.35;
+}
+.perspective-context a { color: var(--text-secondary); }
 .refresh-btn {
   background: none;
   border: 1px solid var(--gridline);
@@ -432,11 +453,16 @@ tr:has(+ .periodic-row) td { border-bottom: none; }
     <a href="https://github.com/ironcladlou/hypershift-ci-health" target="_blank" rel="noopener" style="font-size:12px;color:var(--text-muted);text-decoration:none;display:inline-flex;align-items:center;gap:4px"><svg width="12" height="12" viewBox="0 0 16 16" fill="currentColor"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.01 8.01 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>Source code</a>
   </div>
   <div class="header-meta">
+    <label class="platform-filter" id="platform-filter-wrap">Platform
+      <select id="platform-filter" onchange="setPlatformFilter(this.value)">
+        <option value="">All</option>
+      </select>
+    </label>
     <div class="window-toggle" id="group-toggle">
       <button data-group="" onclick="setGroupBy('')">None</button>
       <button data-group="platform" onclick="setGroupBy('platform')">Platform</button>
-      <button data-group="role" onclick="setGroupBy('role')">Role</button>
-      <button data-group="platform-role" onclick="setGroupBy('platform-role')">Platform / Role</button>
+      <button data-group="release" onclick="setGroupBy('release')">Release</button>
+      <button data-group="platform-release" onclick="setGroupBy('platform-release')">Platform / Release</button>
     </div>
     <div class="window-toggle" id="window-toggle">
       <button data-window="1w" onclick="setActiveWindow('1w')">1w</button>
@@ -450,9 +476,10 @@ tr:has(+ .periodic-row) td { border-bottom: none; }
 
 <div class="view-navigation">
   <div class="window-toggle" id="view-toggle">
-    <button data-view="mapped" onclick="setActiveView('mapped')">Presubmit jobs</button>
-    <button data-view="payload" onclick="setActiveView('payload')">Payload blockers</button>
-    <button data-view="registry" onclick="setActiveView('registry')">Job registry</button>
+    <button data-view="presubmit" onclick="setActiveView('presubmit')">Presubmit</button>
+    <button data-view="payload" onclick="setActiveView('payload')">Release Payload</button>
+    <button data-view="component" onclick="setActiveView('component')">Component Readiness</button>
+    <button data-view="registry" onclick="setActiveView('registry')">Job Registry</button>
   </div>
   <div class="release-filter" id="release-filter">
     <span class="release-filter-label">Releases <strong id="release-range-label"></strong></span>
@@ -484,11 +511,13 @@ const WINDOWS = {
 };
 let activeWindow = localStorage.getItem("sippy_window") || "1w";
 if (!WINDOWS[activeWindow]) activeWindow = "1w";
-let activeView = localStorage.getItem("sippy_view") || "mapped";
-if (!["mapped", "payload", "registry"].includes(activeView)) activeView = "mapped";
-let activeGroupBy = localStorage.getItem("sippy_groupby") ?? "platform-role";
-if (activeGroupBy === "platform-version") activeGroupBy = "platform-role";
-if (activeGroupBy === "version") activeGroupBy = "role";
+let activeView = localStorage.getItem("sippy_view") || "presubmit";
+if (!["presubmit", "payload", "component", "registry"].includes(activeView)) activeView = "presubmit";
+let activeGroupBy = localStorage.getItem("sippy_groupby") ?? "platform-release";
+if (["platform-version", "platform-role"].includes(activeGroupBy)) activeGroupBy = "platform-release";
+if (["version", "role"].includes(activeGroupBy)) activeGroupBy = "release";
+if (!["", "platform", "release", "platform-release"].includes(activeGroupBy)) activeGroupBy = "platform-release";
+let activePlatform = localStorage.getItem("sippy_platform") || "";
 let healthSnapshot = null;
 let collectionStatus = null;
 let healthLoadPending = false;
@@ -879,126 +908,113 @@ function sortJobs(jobs) {
   });
 }
 
-function jobReleaseRank(job) {
+function jobRelease(job) {
   const periodic = job.periodics && job.periodics[0];
-  return periodic ? releaseRank(periodic.release) : -1;
+  return periodic ? periodic.release : job.release;
+}
+
+function releaseGroupLabel(release) {
+  const index = releaseVersions.indexOf(release);
+  if (index === 0) return `Future (${release})`;
+  if (index > 0) return `N-${index} (${release})`;
+  return release || "unknown";
+}
+
+function dimensionValue(job, dimension) {
+  return dimension === "platform" ? platformLabel(job) : jobRelease(job) || "unknown";
+}
+
+function dimensionLabel(value, dimension) {
+  return dimension === "release" ? releaseGroupLabel(value) : value;
+}
+
+function dimensionOrder(values, dimension) {
+  if (dimension === "release") {
+    return values.sort((a, b) => releaseVersions.indexOf(a) - releaseVersions.indexOf(b));
+  }
+  return values.sort((a, b) => a.localeCompare(b));
+}
+
+function groupedRows(jobs, rowBuilder) {
+  if (!activeGroupBy) return sortJobs(jobs).map(rowBuilder).join("");
+  const dimensions = activeGroupBy.split("-");
+  const outer = dimensions[0];
+  const groups = {};
+  for (const job of jobs) {
+    const value = dimensionValue(job, outer);
+    if (!groups[value]) groups[value] = [];
+    groups[value].push(job);
+  }
+  let html = "";
+  for (const value of dimensionOrder(Object.keys(groups), outer)) {
+    html += `<tr class="category-row"><td colspan="3">${esc(dimensionLabel(value, outer))}</td></tr>`;
+    if (dimensions.length === 1) {
+      html += sortJobs(groups[value]).map(rowBuilder).join("");
+      continue;
+    }
+    const inner = dimensions[1];
+    const subgroups = {};
+    for (const job of groups[value]) {
+      const innerValue = dimensionValue(job, inner);
+      if (!subgroups[innerValue]) subgroups[innerValue] = [];
+      subgroups[innerValue].push(job);
+    }
+    for (const innerValue of dimensionOrder(Object.keys(subgroups), inner)) {
+      html += `<tr class="subcategory-row"><td colspan="3">${esc(dimensionLabel(innerValue, inner))}</td></tr>`;
+      html += sortJobs(subgroups[innerValue]).map(rowBuilder).join("");
+    }
+  }
+  return html;
+}
+
+function tableLegend(includeFailureExplanation) {
+  return `<div class="sparkline-legend">
+    <span><svg width="8" height="8"><rect width="8" height="8" rx="1" fill="var(--good)"/></svg> ≥80% pass</span>
+    <span><svg width="8" height="8"><rect width="8" height="8" rx="1" fill="var(--warning)"/></svg> 50–80%</span>
+    <span><svg width="8" height="8"><rect width="8" height="8" rx="1" fill="var(--critical)"/></svg> &lt;50%</span>
+    <span><svg width="8" height="8"><rect width="8" height="8" rx="1" fill="var(--gridline)"/></svg> no runs</span>
+  </div>${includeFailureExplanation ? `<div class="sparkline-legend">
+    <span>fail = tests ran, some failed · infra = job errored before tests completed</span>
+  </div>` : ""}`;
+}
+
+function buildHealthTable(jobs, title, emptyMessage, rowBuilder, includeFailureExplanation = false) {
+  const win = WINDOWS[activeWindow];
+  let rows = jobs.length > 0
+    ? groupedRows(jobs, rowBuilder)
+    : `<tr><td colspan="3" class="loading">${esc(emptyMessage)}</td></tr>`;
+  return `<table>
+    <thead><tr><th>${esc(title)}</th><th>Pass Rate</th><th>${win.sparkLabel}</th></tr></thead>
+    <tbody>${rows}</tbody>
+  </table>${tableLegend(includeFailureExplanation)}`;
 }
 
 function buildTable(jobs) {
-  const win = WINDOWS[activeWindow];
-  let html = `<table>
-    <thead><tr>
-      <th>Job</th>
-      <th>Pass Rate</th>
-      <th>${win.sparkLabel}</th>
-    </tr></thead>
-    <tbody>`;
-
-  if (jobs.length === 0) {
-    html += '<tr><td colspan="3" class="loading">No presubmit mappings found in the selected release range.</td></tr>';
-  } else if (activeGroupBy === "platform-role") {
-    const platforms = {};
-    const platformOrder = [];
-    for (const j of jobs) {
-      const platform = platformLabel(j);
-      if (!platforms[platform]) {
-        platforms[platform] = {};
-        platformOrder.push(platform);
-      }
-      const role = j.role_label || j.role || "unknown";
-      if (!platforms[platform][role]) platforms[platform][role] = [];
-      platforms[platform][role].push(j);
-    }
-    for (const plat of platformOrder) {
-      html += `<tr class="category-row"><td colspan="3">${esc(plat)}</td></tr>`;
-      const roleGroups = platforms[plat];
-      const roleKeys = Object.keys(roleGroups).sort((a, b) =>
-        jobReleaseRank(roleGroups[b][0]) - jobReleaseRank(roleGroups[a][0]));
-      for (const role of roleKeys) {
-        html += `<tr class="subcategory-row"><td colspan="3">${esc(role)}</td></tr>`;
-        for (const j of sortJobs(roleGroups[role])) html += buildRow(j);
-      }
-    }
-  } else if (activeGroupBy === "platform" || activeGroupBy === "role") {
-    const groups = {};
-    const groupOrder = [];
-    for (const j of jobs) {
-      const key = activeGroupBy === "platform" ? platformLabel(j) : (j.role_label || j.role || "unknown");
-      if (!groups[key]) {
-        groups[key] = [];
-        groupOrder.push(key);
-      }
-      groups[key].push(j);
-    }
-    if (activeGroupBy === "role") {
-      groupOrder.sort((a, b) => jobReleaseRank(groups[b][0]) - jobReleaseRank(groups[a][0]));
-    }
-    for (const key of groupOrder) {
-      html += `<tr class="category-row"><td colspan="3">${esc(key)}</td></tr>`;
-      for (const j of sortJobs(groups[key])) html += buildRow(j);
-    }
-  } else {
-    for (const j of sortJobs(jobs)) html += buildRow(j);
-  }
-
-  html += "</tbody></table>";
-  html += `<div class="sparkline-legend">
-    <span><svg width="8" height="8"><rect width="8" height="8" rx="1" fill="var(--good)"/></svg> ≥80% pass</span>
-    <span><svg width="8" height="8"><rect width="8" height="8" rx="1" fill="var(--warning)"/></svg> 50–80%</span>
-    <span><svg width="8" height="8"><rect width="8" height="8" rx="1" fill="var(--critical)"/></svg> &lt;50%</span>
-    <span><svg width="8" height="8"><rect width="8" height="8" rx="1" fill="var(--gridline)"/></svg> no runs</span>
-  </div>
-  <div class="sparkline-legend">
-    <span>fail = tests ran, some failed · infra = job errored before tests completed</span>
-  </div>`;
-  return html;
+  return buildHealthTable(
+    jobs,
+    "Job",
+    "No presubmit jobs found for the selected filters.",
+    buildRow,
+    true,
+  );
 }
 
 function buildPayloadTable(jobs) {
-  const win = WINDOWS[activeWindow];
-  let html = `<table>
-    <thead><tr>
-      <th>Payload blocking job</th>
-      <th>Pass Rate</th>
-      <th>${win.sparkLabel}</th>
-    </tr></thead>
-    <tbody>`;
+  return buildHealthTable(
+    jobs,
+    "Release payload job",
+    "No release payload jobs found for the selected filters.",
+    buildPayloadRow,
+  );
+}
 
-  const releases = {};
-  for (const job of jobs) {
-    if (!releases[job.release]) releases[job.release] = {};
-    const stream = job.stream_name || `${job.stream_kind || "stream"} / ${job.architecture || "unknown"}`;
-    if (!releases[job.release][stream]) releases[job.release][stream] = [];
-    releases[job.release][stream].push(job);
-  }
-  const releaseOrder = selectedReleases().filter(release => releases[release]);
-  for (const release of releaseOrder) {
-    html += `<tr class="category-row"><td colspan="3">OpenShift ${esc(release)}</td></tr>`;
-    for (const stream of Object.keys(releases[release]).sort()) {
-      const streamJobs = releases[release][stream];
-      const first = streamJobs[0];
-      const streamLabel = `${first.stream_kind || "stream"} / ${first.architecture || "unknown"}`;
-      const streamOverview = first.stream_sippy_url
-        ? `<a href="${esc(first.stream_sippy_url)}" target="_blank" rel="noopener">${esc(streamLabel)}</a>`
-        : esc(streamLabel);
-      const statusLink = first.release_status_url
-        ? ` · <a href="${esc(first.release_status_url)}" target="_blank" rel="noopener">payload status</a>`
-        : "";
-      html += `<tr class="subcategory-row"><td colspan="3">${streamOverview} · ${esc(stream)}${statusLink}</td></tr>`;
-      for (const job of sortJobs(streamJobs)) html += buildPayloadRow(job);
-    }
-  }
-  if (jobs.length === 0) {
-    html += '<tr><td colspan="3" class="loading">No payload blocking jobs found for the tracked releases.</td></tr>';
-  }
-  html += "</tbody></table>";
-  html += `<div class="sparkline-legend">
-    <span><svg width="8" height="8"><rect width="8" height="8" rx="1" fill="var(--good)"/></svg> ≥80% pass</span>
-    <span><svg width="8" height="8"><rect width="8" height="8" rx="1" fill="var(--warning)"/></svg> 50–80%</span>
-    <span><svg width="8" height="8"><rect width="8" height="8" rx="1" fill="var(--critical)"/></svg> &lt;50%</span>
-    <span><svg width="8" height="8"><rect width="8" height="8" rx="1" fill="var(--gridline)"/></svg> no runs</span>
-  </div>`;
-  return html;
+function buildComponentReadinessTable(jobs) {
+  return buildHealthTable(
+    jobs,
+    "Component Readiness job",
+    "No standard-tier Component Readiness jobs found for the selected filters.",
+    buildComponentReadinessRow,
+  );
 }
 
 function buildRegistryTable(registry) {
@@ -1060,6 +1076,24 @@ function platformLabel(job) {
   return (job.platforms || []).join(" / ") || "unknown";
 }
 
+function initializePlatformFilter(platforms) {
+  const values = [...new Set(platforms || [])].sort((a, b) => a.localeCompare(b));
+  if (activePlatform && !values.includes(activePlatform)) {
+    activePlatform = "";
+    localStorage.removeItem("sippy_platform");
+  }
+  const select = document.getElementById("platform-filter");
+  select.innerHTML = '<option value="">All</option>' + values
+    .map(platform => `<option value="${esc(platform)}">${esc(platform)}</option>`)
+    .join("");
+  select.value = activePlatform;
+}
+
+function filterByPlatform(jobs) {
+  if (!activePlatform) return jobs;
+  return jobs.filter(job => (job.platforms || []).includes(activePlatform));
+}
+
 function rateTrendHtml(rate, prev, prevRuns, trend, runs, fails) {
   if (runs === 0) return '<span class="rate-na">—</span>';
   const lines = [];
@@ -1114,7 +1148,7 @@ function buildRow(j) {
   return html;
 }
 
-function buildPayloadRow(p) {
+function buildPeriodicHealthRow(p, badges, context) {
   const rate = p.rate != null ? p.rate : 0;
   const runs = p.runs ?? 0;
   const chartId = `rate-${++chartIdSeq}`;
@@ -1129,22 +1163,43 @@ function buildPayloadRow(p) {
   const infraBadge = (p.infra_fails > 0 && sparkRuns > 0 && p.infra_fails / sparkRuns >= 0.15)
     ? `<span class="infra-badge has-tip"><span class="tip">${p.infra_fails} of ${sparkRuns} runs were infrastructure failures — the job errored or timed out before tests could run.</span>${p.infra_fails} infra</span>`
     : '';
-  const mappedBadge = p.mapped_presubmit_ids && p.mapped_presubmit_ids.length > 0
-    ? `<span class="job-type has-tip"><span class="tip">Also shown beneath ${p.mapped_presubmit_ids.length} mapped presubmit${p.mapped_presubmit_ids.length > 1 ? "s" : ""}</span>mapped</span>`
-    : '';
-  const historyLink = p.prow_job_history_url
-    ? `<a class="job-type" href="${esc(p.prow_job_history_url)}" target="_blank" rel="noopener">Prow history</a>`
-    : '';
   return `<tr class="periodic-row">
-    <td class="job-name"><span class="status-dot ${statusClass(rate, runs)}"></span><a href="${sippyJobLink(p.prow, p.release)}" target="_blank" rel="noopener">${esc(p.name)}</a><span class="job-type">${esc(p.verification_name || "blocking")}</span>${mappedBadge}${historyLink}${infraBadge}</td>
+    <td class="job-name"><span class="status-dot ${statusClass(rate, runs)}"></span><a href="${sippyJobLink(p.prow, p.release)}" target="_blank" rel="noopener">${esc(p.name)}</a>${badges}${infraBadge}${context || ""}</td>
     <td class="rate-chart-cell"><div class="rate-chart-inner"><canvas id="${chartId}" width="140" height="28"></canvas>${rateDeltaHtml(rate, p.prev != null ? p.prev : 0, p.prev_runs ?? 0, p.trend, runs, p.fails ?? 0, p.test_fails ?? 0, p.infra_fails ?? 0)}</div></td>
     <td class="sparkline-cell">${buildSparkline(p.sparkline)}</td>
   </tr>`;
 }
 
+function buildPayloadRow(p) {
+  const participationLines = (p.participations || []).map(participation => {
+    const streamName = participation.stream_name || "release stream";
+    const streamKind = participation.stream_kind || "stream";
+    const architecture = participation.architecture || "unknown architecture";
+    const verification = participation.verification_name || "verification";
+    const stream = participation.stream_sippy_url
+      ? `<a href="${esc(participation.stream_sippy_url)}" target="_blank" rel="noopener">${esc(streamName)}</a>`
+      : esc(streamName);
+    const status = participation.release_status_url
+      ? ` · <a href="${esc(participation.release_status_url)}" target="_blank" rel="noopener">payload status</a>`
+      : "";
+    return `${esc(verification)} · ${stream} · ${esc(streamKind)} / ${esc(architecture)}${status}`;
+  });
+  const context = participationLines.length > 0
+    ? `<div class="perspective-context">${participationLines.join("<br>")}</div>`
+    : "";
+  return buildPeriodicHealthRow(p, "", context);
+}
+
+function buildComponentReadinessRow(p) {
+  const registryWarning = p.registry_missing
+    ? '<span class="infra-badge has-tip"><span class="tip">Sippy classifies this job as standard, but the generated registry has no current definition.</span>registry missing</span>'
+    : '';
+  return buildPeriodicHealthRow(p, registryWarning, "");
+}
+
 // --- Render orchestration ---
 
-function filteredMappedJobs(jobs, selected) {
+function filteredPresubmitJobs(jobs, selected) {
   const filtered = [];
   for (const job of jobs) {
     const periodics = (job.periodics || []).filter(periodic => selected.has(periodic.release));
@@ -1165,7 +1220,9 @@ function renderDashboard() {
   }
   const registryView = activeView === "registry";
   const payloadView = activeView === "payload";
-  document.getElementById("group-toggle").style.display = payloadView || registryView ? "none" : "inline-flex";
+  const componentView = activeView === "component";
+  document.getElementById("group-toggle").style.display = registryView ? "none" : "inline-flex";
+  document.getElementById("platform-filter-wrap").style.display = registryView ? "none" : "inline-flex";
   document.getElementById("window-toggle").style.display = registryView ? "none" : "inline-flex";
   document.getElementById("release-filter").style.display = registryView || releaseVersions.length === 0 ? "none" : "flex";
   if (registryView) {
@@ -1180,10 +1237,18 @@ function renderDashboard() {
   const windowData = healthSnapshot.windows[activeWindow];
   if (!windowData) return;
   const selected = new Set(selectedReleases());
-  dashboard.innerHTML = payloadView
-    ? buildPayloadTable((windowData.payload_blocking_jobs || []).filter(job => selected.has(job.release)))
-    : buildTable(filteredMappedJobs(windowData.jobs || [], selected));
-  buildAlertBanner(payloadView ? [] : windowData.alerts);
+  if (payloadView) {
+    dashboard.innerHTML = buildPayloadTable(filterByPlatform(
+      (windowData.payload_blocking_jobs || []).filter(job => selected.has(job.release)),
+    ));
+  } else if (componentView) {
+    dashboard.innerHTML = buildComponentReadinessTable(filterByPlatform(
+      (windowData.component_readiness_jobs || []).filter(job => selected.has(job.release)),
+    ));
+  } else {
+    dashboard.innerHTML = buildTable(filterByPlatform(filteredPresubmitJobs(windowData.jobs || [], selected)));
+  }
+  buildAlertBanner(payloadView || componentView ? [] : windowData.alerts);
   initRateCharts();
 }
 
@@ -1228,6 +1293,7 @@ async function loadDashboard(forceRefresh = false) {
     if (!resp.ok) throw new Error(`${resp.status} ${resp.statusText}`);
     healthSnapshot = await resp.json();
     initializeReleaseRange(healthSnapshot.releases || []);
+    initializePlatformFilter(healthSnapshot.platforms || []);
     renderDashboard();
     const age = Date.now() - new Date(healthSnapshot.generated_at).getTime();
     setStatus(`Updated ${formatAge(age)}`, "cache-fresh");
@@ -1310,6 +1376,13 @@ function setGroupBy(g) {
   document.querySelectorAll("#group-toggle button").forEach(b => {
     b.classList.toggle("active", b.dataset.group === g);
   });
+  renderDashboard();
+}
+
+function setPlatformFilter(platform) {
+  activePlatform = platform;
+  if (platform) localStorage.setItem("sippy_platform", platform);
+  else localStorage.removeItem("sippy_platform");
   renderDashboard();
 }
 

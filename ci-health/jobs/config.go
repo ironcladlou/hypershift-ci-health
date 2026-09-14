@@ -9,15 +9,15 @@ import (
 	"github.com/ironcladlou/hypershift-ci-health/ci-health/jobregistry"
 )
 
-// Mapping is report configuration for the relationship that is not available
+// PresubmitPeriodicPairing is report configuration for the relationship that is not available
 // in the generated registry. It contains only stable registry IDs; all job
 // definitions and metadata are resolved from the registry at startup.
-type Mapping struct {
+type PresubmitPeriodicPairing struct {
 	PresubmitID string
 	PeriodicIDs []string
 }
 
-var Mappings = []Mapping{
+var PresubmitPeriodicPairings = []PresubmitPeriodicPairing{
 	{PresubmitID: "pull-ci-openshift-hypershift-main-e2e-aws", PeriodicIDs: []string{"periodic-ci-openshift-hypershift-release-5.1-periodics-e2e-aws-ovn"}},
 	{PresubmitID: "pull-ci-openshift-hypershift-main-e2e-aws-upgrade-hypershift-operator", PeriodicIDs: []string{"periodic-ci-openshift-hypershift-release-5.1-periodics-e2e-aws-upgrade"}},
 	{PresubmitID: "pull-ci-openshift-hypershift-main-e2e-v2-aws", PeriodicIDs: []string{"periodic-ci-openshift-hypershift-release-5.1-periodics-e2e-v2-aws"}},
@@ -66,47 +66,81 @@ type BlockingJobConfig struct {
 
 // PayloadBlockingJobConfig is a periodic job that gates a release payload.
 // These relationships come directly from release-controller metadata in the
-// generated registry, rather than from the explicit presubmit mapping above.
+// generated registry, rather than from the explicit presubmit/periodic pairings above.
+type ReleasePayloadParticipation struct {
+	Stream       jobregistry.ReleaseControllerStream
+	Verification jobregistry.ReleaseControllerVerification
+}
+
 type PayloadBlockingJobConfig struct {
-	ID                 string
-	Name               string
-	ProwJobName        string
-	Release            string
-	Platforms          []string
-	Stream             jobregistry.ReleaseControllerStream
-	Verification       jobregistry.ReleaseControllerVerification
-	MappedPresubmitIDs []string
-	Job                *jobregistry.Job
+	ID             string
+	Name           string
+	ProwJobName    string
+	Release        string
+	Platforms      []string
+	Participations []ReleasePayloadParticipation
+}
+
+type JobTier string
+
+const (
+	JobTierStandard  JobTier = "standard"
+	JobTierCandidate JobTier = "candidate"
+	JobTierHidden    JobTier = "hidden"
+)
+
+// ComponentReadinessMembership is release-scoped policy supplied by Sippy.
+// It deliberately contains no static job-definition metadata.
+type ComponentReadinessMembership struct {
+	Release     string
+	ProwJobName string
+	Tier        JobTier
+}
+
+// ComponentReadinessJobConfig joins Sippy's authoritative tier membership to
+// optional static metadata from the generated job registry.
+type ComponentReadinessJobConfig struct {
+	ID              string
+	Name            string
+	ProwJobName     string
+	Release         string
+	Tier            JobTier
+	Platforms       []string
+	RegistryMissing bool
 }
 
 // Catalog is the validated, registry-backed view used by health reports.
 type Catalog struct {
 	BlockingJobs        []BlockingJobConfig
 	PayloadBlockingJobs []PayloadBlockingJobConfig
+	registryIndex       map[string]*jobregistry.Job
 }
 
 func NewCatalog(registry *jobregistry.Registry) (*Catalog, error) {
 	index := registry.Index()
-	catalog := &Catalog{BlockingJobs: make([]BlockingJobConfig, 0, len(Mappings))}
-	seenPresubmits := make(map[string]struct{}, len(Mappings))
+	catalog := &Catalog{
+		BlockingJobs:  make([]BlockingJobConfig, 0, len(PresubmitPeriodicPairings)),
+		registryIndex: index,
+	}
+	seenPresubmits := make(map[string]struct{}, len(PresubmitPeriodicPairings))
 
-	for _, mapping := range Mappings {
-		if len(mapping.PeriodicIDs) == 0 {
-			return nil, fmt.Errorf("presubmit mapping %q has no periodics", mapping.PresubmitID)
+	for _, pairing := range PresubmitPeriodicPairings {
+		if len(pairing.PeriodicIDs) == 0 {
+			return nil, fmt.Errorf("presubmit pairing %q has no periodics", pairing.PresubmitID)
 		}
-		if _, found := seenPresubmits[mapping.PresubmitID]; found {
-			return nil, fmt.Errorf("duplicate presubmit mapping %q", mapping.PresubmitID)
+		if _, found := seenPresubmits[pairing.PresubmitID]; found {
+			return nil, fmt.Errorf("duplicate presubmit pairing %q", pairing.PresubmitID)
 		}
-		seenPresubmits[mapping.PresubmitID] = struct{}{}
-		presubmit := index[mapping.PresubmitID]
+		seenPresubmits[pairing.PresubmitID] = struct{}{}
+		presubmit := index[pairing.PresubmitID]
 		if presubmit == nil {
-			return nil, fmt.Errorf("mapped presubmit %q is absent from the job registry", mapping.PresubmitID)
+			return nil, fmt.Errorf("configured presubmit %q is absent from the job registry", pairing.PresubmitID)
 		}
 		if presubmit.Type != "presubmit" {
-			return nil, fmt.Errorf("mapped presubmit %q has registry type %q", mapping.PresubmitID, presubmit.Type)
+			return nil, fmt.Errorf("configured presubmit %q has registry type %q", pairing.PresubmitID, presubmit.Type)
 		}
 		if presubmit.Presubmit == nil || !presubmit.Presubmit.Required {
-			return nil, fmt.Errorf("mapped presubmit %q is not required", mapping.PresubmitID)
+			return nil, fmt.Errorf("configured presubmit %q is not required", pairing.PresubmitID)
 		}
 
 		configured := BlockingJobConfig{
@@ -116,21 +150,21 @@ func NewCatalog(registry *jobregistry.Registry) (*Catalog, error) {
 			Platforms:   append([]string(nil), presubmit.Platforms...),
 			Job:         presubmit,
 		}
-		seenPeriodics := make(map[string]struct{}, len(mapping.PeriodicIDs))
-		for _, periodicID := range mapping.PeriodicIDs {
+		seenPeriodics := make(map[string]struct{}, len(pairing.PeriodicIDs))
+		for _, periodicID := range pairing.PeriodicIDs {
 			if _, found := seenPeriodics[periodicID]; found {
-				return nil, fmt.Errorf("presubmit mapping %q contains duplicate periodic %q", mapping.PresubmitID, periodicID)
+				return nil, fmt.Errorf("presubmit pairing %q contains duplicate periodic %q", pairing.PresubmitID, periodicID)
 			}
 			seenPeriodics[periodicID] = struct{}{}
 			periodic := index[periodicID]
 			if periodic == nil {
-				return nil, fmt.Errorf("mapped periodic %q is absent from the job registry", periodicID)
+				return nil, fmt.Errorf("paired periodic %q is absent from the job registry", periodicID)
 			}
 			if periodic.Type != "periodic" {
-				return nil, fmt.Errorf("mapped periodic %q has registry type %q", periodicID, periodic.Type)
+				return nil, fmt.Errorf("paired periodic %q has registry type %q", periodicID, periodic.Type)
 			}
 			if len(periodic.Versions) != 1 {
-				return nil, fmt.Errorf("mapped periodic %q has %d versions; expected exactly one", periodicID, len(periodic.Versions))
+				return nil, fmt.Errorf("paired periodic %q has %d versions; expected exactly one", periodicID, len(periodic.Versions))
 			}
 			configured.Periodics = append(configured.Periodics, PeriodicJobConfig{
 				ID:          periodic.ID,
@@ -143,12 +177,11 @@ func NewCatalog(registry *jobregistry.Registry) (*Catalog, error) {
 		catalog.BlockingJobs = append(catalog.BlockingJobs, configured)
 	}
 
-	mappedPresubmits := make(map[string][]string)
-	for _, job := range catalog.BlockingJobs {
-		for _, periodic := range job.Periodics {
-			mappedPresubmits[periodic.ID] = append(mappedPresubmits[periodic.ID], job.ID)
-		}
+	type payloadKey struct {
+		release string
+		jobID   string
 	}
+	payloadIndices := make(map[payloadKey]int)
 	for i := range registry.Jobs {
 		job := &registry.Jobs[i]
 		if job.Type != "periodic" {
@@ -164,26 +197,40 @@ func NewCatalog(registry *jobregistry.Registry) (*Catalog, error) {
 			if !supportedRelease(participation.Stream.Release) {
 				continue
 			}
-			catalog.PayloadBlockingJobs = append(catalog.PayloadBlockingJobs, PayloadBlockingJobConfig{
-				ID:                 job.ID,
-				Name:               shortName(job.Name),
-				ProwJobName:        job.Name,
-				Release:            participation.Stream.Release,
-				Platforms:          append([]string(nil), job.Platforms...),
-				Stream:             participation.Stream,
-				Verification:       participation.Verification,
-				MappedPresubmitIDs: append([]string(nil), mappedPresubmits[job.ID]...),
-				Job:                job,
-			})
+			key := payloadKey{release: participation.Stream.Release, jobID: job.ID}
+			index, found := payloadIndices[key]
+			if !found {
+				index = len(catalog.PayloadBlockingJobs)
+				payloadIndices[key] = index
+				catalog.PayloadBlockingJobs = append(catalog.PayloadBlockingJobs, PayloadBlockingJobConfig{
+					ID:             job.ID,
+					Name:           shortName(job.Name),
+					ProwJobName:    job.Name,
+					Release:        participation.Stream.Release,
+					Platforms:      append([]string(nil), job.Platforms...),
+					Participations: []ReleasePayloadParticipation{},
+				})
+			}
+			catalog.PayloadBlockingJobs[index].Participations = append(
+				catalog.PayloadBlockingJobs[index].Participations,
+				ReleasePayloadParticipation{Stream: participation.Stream, Verification: participation.Verification},
+			)
 		}
+	}
+	for i := range catalog.PayloadBlockingJobs {
+		sort.Slice(catalog.PayloadBlockingJobs[i].Participations, func(a, b int) bool {
+			left := catalog.PayloadBlockingJobs[i].Participations[a]
+			right := catalog.PayloadBlockingJobs[i].Participations[b]
+			if left.Stream.Name != right.Stream.Name {
+				return left.Stream.Name < right.Stream.Name
+			}
+			return left.Verification.Name < right.Verification.Name
+		})
 	}
 	sort.Slice(catalog.PayloadBlockingJobs, func(i, j int) bool {
 		a, b := catalog.PayloadBlockingJobs[i], catalog.PayloadBlockingJobs[j]
 		if a.Release != b.Release {
 			return releaseRank(a.Release) > releaseRank(b.Release)
-		}
-		if a.Stream.Name != b.Stream.Name {
-			return a.Stream.Name < b.Stream.Name
 		}
 		return a.ProwJobName < b.ProwJobName
 	})
@@ -192,6 +239,37 @@ func NewCatalog(registry *jobregistry.Registry) (*Catalog, error) {
 		catalog.BlockingJobs[i].Role = roleForRelease(catalog.BlockingJobs[i].Periodics[0].Release, releases)
 	}
 	return catalog, nil
+}
+
+// ComponentReadinessJobs selects Sippy's standard tier and enriches it from
+// the registry without allowing registry contents to determine membership.
+func (c *Catalog) ComponentReadinessJobs(memberships []ComponentReadinessMembership) []ComponentReadinessJobConfig {
+	result := make([]ComponentReadinessJobConfig, 0, len(memberships))
+	for _, membership := range memberships {
+		if membership.Tier != JobTierStandard {
+			continue
+		}
+		config := ComponentReadinessJobConfig{
+			ID:          membership.ProwJobName,
+			Name:        shortName(membership.ProwJobName),
+			ProwJobName: membership.ProwJobName,
+			Release:     membership.Release,
+			Tier:        membership.Tier,
+		}
+		if definition := c.registryIndex[membership.ProwJobName]; definition != nil {
+			config.Platforms = append([]string(nil), definition.Platforms...)
+		} else {
+			config.RegistryMissing = true
+		}
+		result = append(result, config)
+	}
+	sort.Slice(result, func(i, j int) bool {
+		if result[i].Release != result[j].Release {
+			return releaseRank(result[i].Release) > releaseRank(result[j].Release)
+		}
+		return result[i].ProwJobName < result[j].ProwJobName
+	})
+	return result
 }
 
 // supportedRelease bounds the payload view. OpenShift 5.0 follows
@@ -287,14 +365,21 @@ func (c *Catalog) Releases() []string {
 func (c *Catalog) Platforms() []string {
 	seen := map[string]bool{}
 	var platforms []string
-	for _, job := range c.BlockingJobs {
-		for _, platform := range job.Platforms {
+	add := func(values []string) {
+		for _, platform := range values {
 			if !seen[platform] {
 				seen[platform] = true
 				platforms = append(platforms, platform)
 			}
 		}
 	}
+	for _, job := range c.BlockingJobs {
+		add(job.Platforms)
+	}
+	for _, job := range c.PayloadBlockingJobs {
+		add(job.Platforms)
+	}
+	sort.Strings(platforms)
 	return platforms
 }
 

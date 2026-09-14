@@ -7,7 +7,10 @@ import (
 	"net/http"
 	"net/url"
 	"strconv"
+	"strings"
 	"time"
+
+	"github.com/ironcladlou/hypershift-ci-health/ci-health/jobs"
 )
 
 const DefaultBaseURL = "https://sippy.dptools.openshift.org"
@@ -48,6 +51,14 @@ func exactMatchFilter(field string, values []string) string {
 		items[i] = filterItem{ColumnField: field, OperatorValue: "equals", Value: v}
 	}
 	b, _ := json.Marshal(filter{Items: items, LinkOperator: "or"})
+	return string(b)
+}
+
+func fieldFilter(field, operator, value string) string {
+	b, _ := json.Marshal(filter{
+		Items:        []filterItem{{ColumnField: field, OperatorValue: operator, Value: value}},
+		LinkOperator: "and",
+	})
 	return string(b)
 }
 
@@ -135,6 +146,48 @@ func (c *Client) FetchJobAnalysis(ctx context.Context, release, jobName string, 
 		return nil, fmt.Errorf("decoding job analysis: %w", err)
 	}
 	return &result, nil
+}
+
+func (c *Client) FetchComponentReadinessMembership(ctx context.Context, release string) ([]jobs.ComponentReadinessMembership, error) {
+	params := url.Values{
+		"release": {release},
+		"filter":  {fieldFilter("name", "starts with", "periodic-ci-openshift-hypershift-")},
+	}
+	resp, err := c.get(ctx, "/api/jobs", params)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	var result []SippyJobListItem
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		return nil, fmt.Errorf("decoding component readiness jobs: %w", err)
+	}
+
+	memberships := make([]jobs.ComponentReadinessMembership, 0, len(result))
+	for _, item := range result {
+		var tier jobs.JobTier
+		for _, variant := range item.Variants {
+			value, found := strings.CutPrefix(variant, "JobTier:")
+			if !found {
+				continue
+			}
+			candidate := jobs.JobTier(value)
+			if tier != "" && tier != candidate {
+				return nil, fmt.Errorf("job %q has conflicting JobTier variants %q and %q", item.Name, tier, candidate)
+			}
+			tier = candidate
+		}
+		if tier == "" {
+			continue
+		}
+		memberships = append(memberships, jobs.ComponentReadinessMembership{
+			Release:     release,
+			ProwJobName: item.Name,
+			Tier:        tier,
+		})
+	}
+	return memberships, nil
 }
 
 func (c *Client) FetchRecentFailures(ctx context.Context, release, period, previousPeriod string, perPage int) ([]SippyTestFailure, error) {

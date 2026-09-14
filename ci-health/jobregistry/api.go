@@ -101,7 +101,7 @@ type ReleaseControllerStream struct {
 	// EndOfLife is the stream's declared release-controller end-of-life state.
 	EndOfLife bool `json:"end_of_life"`
 	// SippyURL links to Sippy's stream overview. It is nil when the stream name
-	// cannot be mapped reliably to a Sippy release, architecture, and stream.
+	// cannot be associated reliably with a Sippy release, architecture, and stream.
 	SippyURL *string `json:"sippy_url"`
 	// ReleaseStatusURL links to the release-controller payload status page. The
 	// URL is a deterministic navigation hint and is not validated.

@@ -31,7 +31,7 @@ func newServeCommand(indexHTML string) *cobra.Command {
 			}
 			catalog, err := jobs.NewCatalog(registry)
 			if err != nil {
-				return fmt.Errorf("validate dashboard job mapping: %w", err)
+				return fmt.Errorf("validate dashboard job configuration: %w", err)
 			}
 
 			sippyProvider := sippy.NewProvider(command.Context(), sippy.NewClient(), catalog, sippyInterval)
