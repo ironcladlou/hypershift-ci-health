@@ -290,7 +290,121 @@ tr:has(+ .periodic-row) td { border-bottom: none; }
   color: var(--text-primary);
   font-weight: 500;
 }
-.view-navigation { margin-bottom: 16px; }
+.view-navigation {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 24px;
+  margin-bottom: 12px;
+}
+.release-filter {
+  display: none;
+  align-items: flex-start;
+  gap: 12px;
+  color: var(--text-muted);
+  font-size: 11px;
+}
+.release-filter-label {
+  line-height: 22px;
+  white-space: nowrap;
+}
+.release-filter-label strong {
+  color: var(--text-primary);
+  font-weight: 500;
+  margin-left: 3px;
+}
+.release-range-control {
+  position: relative;
+  width: min(420px, 42vw);
+  min-width: 280px;
+  height: 38px;
+}
+.release-range-track {
+  position: absolute;
+  top: 9px;
+  right: 7px;
+  left: 7px;
+  height: 4px;
+  border-radius: 2px;
+  background: var(--gridline);
+}
+.release-range-fill {
+  position: absolute;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--series-1);
+}
+.release-range-control input[type="range"] {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 22px;
+  margin: 0;
+  appearance: none;
+  -webkit-appearance: none;
+  pointer-events: none;
+  background: transparent;
+}
+.release-range-control input[type="range"]::-webkit-slider-runnable-track {
+  height: 4px;
+  background: transparent;
+}
+.release-range-control input[type="range"]::-webkit-slider-thumb {
+  width: 14px;
+  height: 14px;
+  margin-top: -5px;
+  border: 2px solid var(--surface);
+  border-radius: 50%;
+  appearance: none;
+  -webkit-appearance: none;
+  pointer-events: auto;
+  cursor: grab;
+  background: var(--series-1);
+  box-shadow: 0 0 0 1px var(--baseline);
+}
+.release-range-control input[type="range"]::-moz-range-track {
+  height: 4px;
+  background: transparent;
+}
+.release-range-control input[type="range"]::-moz-range-thumb {
+  width: 12px;
+  height: 12px;
+  border: 2px solid var(--surface);
+  border-radius: 50%;
+  pointer-events: auto;
+  cursor: grab;
+  background: var(--series-1);
+  box-shadow: 0 0 0 1px var(--baseline);
+}
+.release-range-control input[type="range"]:focus-visible::-webkit-slider-thumb {
+  outline: 2px solid var(--series-1);
+  outline-offset: 2px;
+}
+.release-range-control input[type="range"]:focus-visible::-moz-range-thumb {
+  outline: 2px solid var(--series-1);
+  outline-offset: 2px;
+}
+.release-range-ticks {
+  position: absolute;
+  top: 23px;
+  right: 0;
+  left: 0;
+  display: flex;
+  justify-content: space-between;
+  font-size: 9px;
+  font-variant-numeric: tabular-nums;
+}
+.release-range-ticks span { color: var(--text-muted); }
+.release-range-ticks span.selected { color: var(--text-primary); }
+@media (max-width: 800px) {
+  body { padding: 16px; }
+  .header { align-items: flex-start; }
+  .header-meta { flex-wrap: wrap; justify-content: flex-end; }
+  .view-navigation { flex-direction: column; gap: 8px; }
+  .release-filter { width: 100%; }
+  .release-range-control { width: 100%; min-width: 0; }
+}
 .registry-toolbar {
   display: flex;
   align-items: center;
@@ -340,6 +454,15 @@ tr:has(+ .periodic-row) td { border-bottom: none; }
     <button data-view="payload" onclick="setActiveView('payload')">Payload blockers</button>
     <button data-view="registry" onclick="setActiveView('registry')">Job registry</button>
   </div>
+  <div class="release-filter" id="release-filter">
+    <span class="release-filter-label">Releases <strong id="release-range-label"></strong></span>
+    <div class="release-range-control">
+      <div class="release-range-track"><span class="release-range-fill" id="release-range-fill"></span></div>
+      <input id="release-min" type="range" aria-label="Oldest release" oninput="setReleaseBound('min')">
+      <input id="release-max" type="range" aria-label="Newest release" oninput="setReleaseBound('max')">
+      <div class="release-range-ticks" id="release-range-ticks" aria-hidden="true"></div>
+    </div>
+  </div>
 </div>
 
 <div id="alert-banner" class="alert-banner"></div>
@@ -371,6 +494,11 @@ let collectionStatus = null;
 let healthLoadPending = false;
 let jobRegistry = null;
 let registryLoadPending = false;
+let releaseVersions = [];
+let releaseMinIndex = 0;
+let releaseMaxIndex = 0;
+let releaseRangeInitialized = false;
+let dashboardRenderFrame = null;
 
 // --- Helpers ---
 
@@ -428,6 +556,105 @@ function formatAge(ms) {
   if (min < 60) return `${min}m ago`;
   const hrs = Math.floor(min / 60);
   return `${hrs}h ${min % 60}m ago`;
+}
+
+function releaseRank(release) {
+  const [major, minor] = release.split(".").map(Number);
+  if (!Number.isInteger(major) || !Number.isInteger(minor)) return -1;
+  if (major === 4) return minor;
+  if (major >= 5) return 23 + (major - 5) * 100 + minor;
+  return -1;
+}
+
+function initializeReleaseRange(releases) {
+  const priorMin = releaseVersions[releaseMinIndex];
+  const priorMax = releaseVersions[releaseMaxIndex];
+  releaseVersions = [...new Set(releases || [])].sort((a, b) => releaseRank(a) - releaseRank(b));
+  if (releaseVersions.length === 0) return;
+
+  if (!releaseRangeInitialized) {
+    const savedMin = localStorage.getItem("sippy_release_min");
+    const savedMax = localStorage.getItem("sippy_release_max");
+    const savedMinIndex = releaseVersions.indexOf(savedMin);
+    const savedMaxIndex = releaseVersions.indexOf(savedMax);
+    if (savedMinIndex >= 0 && savedMaxIndex >= savedMinIndex) {
+      releaseMinIndex = savedMinIndex;
+      releaseMaxIndex = savedMaxIndex;
+    } else {
+      releaseMaxIndex = releaseVersions.length - 1;
+      releaseMinIndex = Math.max(0, releaseMaxIndex - 2);
+    }
+    releaseRangeInitialized = true;
+  } else {
+    releaseMinIndex = Math.max(0, releaseVersions.indexOf(priorMin));
+    const priorMaxIndex = releaseVersions.indexOf(priorMax);
+    releaseMaxIndex = priorMaxIndex >= releaseMinIndex ? priorMaxIndex : releaseVersions.length - 1;
+  }
+
+  const minInput = document.getElementById("release-min");
+  const maxInput = document.getElementById("release-max");
+  for (const input of [minInput, maxInput]) {
+    input.min = 0;
+    input.max = releaseVersions.length - 1;
+    input.step = 1;
+    input.disabled = releaseVersions.length === 1;
+  }
+  minInput.value = releaseMinIndex;
+  maxInput.value = releaseMaxIndex;
+  document.getElementById("release-range-ticks").innerHTML = releaseVersions
+    .map(release => `<span>${esc(release)}</span>`).join("");
+  updateReleaseRangeUI();
+}
+
+function updateReleaseRangeUI() {
+  if (releaseVersions.length === 0) return;
+  const minInput = document.getElementById("release-min");
+  const maxInput = document.getElementById("release-max");
+  minInput.value = releaseMinIndex;
+  maxInput.value = releaseMaxIndex;
+  minInput.style.zIndex = releaseMinIndex === releaseMaxIndex ? "3" : "2";
+  maxInput.style.zIndex = "2";
+
+  const denominator = Math.max(1, releaseVersions.length - 1);
+  const left = 100 * releaseMinIndex / denominator;
+  const right = 100 * releaseMaxIndex / denominator;
+  const fill = document.getElementById("release-range-fill");
+  fill.style.left = `${left}%`;
+  fill.style.width = `${right - left}%`;
+
+  const count = releaseMaxIndex - releaseMinIndex + 1;
+  const first = releaseVersions[releaseMinIndex];
+  const last = releaseVersions[releaseMaxIndex];
+  document.getElementById("release-range-label").textContent =
+    first === last ? first : `${first}–${last} · ${count} releases`;
+  document.querySelectorAll("#release-range-ticks span").forEach((tick, index) => {
+    tick.classList.toggle("selected", index >= releaseMinIndex && index <= releaseMaxIndex);
+  });
+}
+
+function setReleaseBound(bound) {
+  const value = Number(document.getElementById(`release-${bound}`).value);
+  if (bound === "min") {
+    releaseMinIndex = Math.min(value, releaseMaxIndex);
+  } else {
+    releaseMaxIndex = Math.max(value, releaseMinIndex);
+  }
+  localStorage.setItem("sippy_release_min", releaseVersions[releaseMinIndex]);
+  localStorage.setItem("sippy_release_max", releaseVersions[releaseMaxIndex]);
+  updateReleaseRangeUI();
+  scheduleDashboardRender();
+}
+
+function scheduleDashboardRender() {
+  if (dashboardRenderFrame !== null) return;
+  dashboardRenderFrame = requestAnimationFrame(() => {
+    dashboardRenderFrame = null;
+    renderDashboard();
+  });
+}
+
+function selectedReleases() {
+  return releaseVersions.slice(releaseMinIndex, releaseMaxIndex + 1);
 }
 
 // --- Sparklines (use UTC for slot key alignment with server) ---
@@ -652,6 +879,11 @@ function sortJobs(jobs) {
   });
 }
 
+function jobReleaseRank(job) {
+  const periodic = job.periodics && job.periodics[0];
+  return periodic ? releaseRank(periodic.release) : -1;
+}
+
 function buildTable(jobs) {
   const win = WINDOWS[activeWindow];
   let html = `<table>
@@ -662,7 +894,9 @@ function buildTable(jobs) {
     </tr></thead>
     <tbody>`;
 
-  if (activeGroupBy === "platform-role") {
+  if (jobs.length === 0) {
+    html += '<tr><td colspan="3" class="loading">No presubmit mappings found in the selected release range.</td></tr>';
+  } else if (activeGroupBy === "platform-role") {
     const platforms = {};
     const platformOrder = [];
     for (const j of jobs) {
@@ -678,7 +912,8 @@ function buildTable(jobs) {
     for (const plat of platformOrder) {
       html += `<tr class="category-row"><td colspan="3">${esc(plat)}</td></tr>`;
       const roleGroups = platforms[plat];
-      const roleKeys = Object.keys(roleGroups).sort();
+      const roleKeys = Object.keys(roleGroups).sort((a, b) =>
+        jobReleaseRank(roleGroups[b][0]) - jobReleaseRank(roleGroups[a][0]));
       for (const role of roleKeys) {
         html += `<tr class="subcategory-row"><td colspan="3">${esc(role)}</td></tr>`;
         for (const j of sortJobs(roleGroups[role])) html += buildRow(j);
@@ -694,6 +929,9 @@ function buildTable(jobs) {
         groupOrder.push(key);
       }
       groups[key].push(j);
+    }
+    if (activeGroupBy === "role") {
+      groupOrder.sort((a, b) => jobReleaseRank(groups[b][0]) - jobReleaseRank(groups[a][0]));
     }
     for (const key of groupOrder) {
       html += `<tr class="category-row"><td colspan="3">${esc(key)}</td></tr>`;
@@ -733,7 +971,8 @@ function buildPayloadTable(jobs) {
     if (!releases[job.release][stream]) releases[job.release][stream] = [];
     releases[job.release][stream].push(job);
   }
-  for (const release of Object.keys(releases).sort().reverse()) {
+  const releaseOrder = selectedReleases().filter(release => releases[release]).reverse();
+  for (const release of releaseOrder) {
     html += `<tr class="category-row"><td colspan="3">OpenShift ${esc(release)}</td></tr>`;
     for (const stream of Object.keys(releases[release]).sort()) {
       const streamJobs = releases[release][stream];
@@ -905,6 +1144,15 @@ function buildPayloadRow(p) {
 
 // --- Render orchestration ---
 
+function filteredMappedJobs(jobs, selected) {
+  const filtered = [];
+  for (const job of jobs) {
+    const periodics = (job.periodics || []).filter(periodic => selected.has(periodic.release));
+    if (periodics.length > 0) filtered.push({ ...job, periodics });
+  }
+  return filtered;
+}
+
 function renderDashboard() {
   pendingCharts = [];
   chartIdSeq = 0;
@@ -919,6 +1167,7 @@ function renderDashboard() {
   const payloadView = activeView === "payload";
   document.getElementById("group-toggle").style.display = payloadView || registryView ? "none" : "inline-flex";
   document.getElementById("window-toggle").style.display = registryView ? "none" : "inline-flex";
+  document.getElementById("release-filter").style.display = registryView || releaseVersions.length === 0 ? "none" : "flex";
   if (registryView) {
     dashboard.innerHTML = jobRegistry
       ? buildRegistryTable(jobRegistry)
@@ -930,9 +1179,10 @@ function renderDashboard() {
   if (!healthSnapshot) return;
   const windowData = healthSnapshot.windows[activeWindow];
   if (!windowData) return;
+  const selected = new Set(selectedReleases());
   dashboard.innerHTML = payloadView
-    ? buildPayloadTable(windowData.payload_blocking_jobs || [])
-    : buildTable(windowData.jobs || []);
+    ? buildPayloadTable((windowData.payload_blocking_jobs || []).filter(job => selected.has(job.release)))
+    : buildTable(filteredMappedJobs(windowData.jobs || [], selected));
   buildAlertBanner(payloadView ? [] : windowData.alerts);
   initRateCharts();
 }
@@ -977,6 +1227,7 @@ async function loadDashboard(forceRefresh = false) {
     }
     if (!resp.ok) throw new Error(`${resp.status} ${resp.statusText}`);
     healthSnapshot = await resp.json();
+    initializeReleaseRange(healthSnapshot.releases || []);
     renderDashboard();
     const age = Date.now() - new Date(healthSnapshot.generated_at).getTime();
     setStatus(`Updated ${formatAge(age)}`, "cache-fresh");

@@ -223,6 +223,7 @@ func collect(ctx context.Context, client *Client, catalog *jobs.Catalog, progres
 		GeneratedAt: now,
 		Windows:     make(map[string]*WindowData),
 		Platforms:   catalog.Platforms(),
+		Releases:    catalog.Releases(),
 	}
 
 	for windowKey := range WindowConfigs {

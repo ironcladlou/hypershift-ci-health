@@ -3,17 +3,10 @@ package jobs
 import (
 	"fmt"
 	"sort"
+	"strconv"
 	"strings"
 
 	"github.com/ironcladlou/hypershift-ci-health/ci-health/jobregistry"
-)
-
-type Role string
-
-const (
-	RoleFuture  Role = "future"
-	RoleNMinus1 Role = "n-1"
-	RoleNMinus2 Role = "n-2"
 )
 
 // Mapping is report configuration for the relationship that is not available
@@ -22,21 +15,35 @@ const (
 type Mapping struct {
 	PresubmitID string
 	PeriodicIDs []string
-	Role        Role
 }
 
 var Mappings = []Mapping{
-	{PresubmitID: "pull-ci-openshift-hypershift-main-e2e-aws", PeriodicIDs: []string{"periodic-ci-openshift-hypershift-release-5.1-periodics-e2e-aws-ovn"}, Role: RoleFuture},
-	{PresubmitID: "pull-ci-openshift-hypershift-main-e2e-aws-upgrade-hypershift-operator", PeriodicIDs: []string{"periodic-ci-openshift-hypershift-release-5.1-periodics-e2e-aws-upgrade"}, Role: RoleFuture},
-	{PresubmitID: "pull-ci-openshift-hypershift-main-e2e-v2-aws", PeriodicIDs: []string{"periodic-ci-openshift-hypershift-release-5.1-periodics-e2e-v2-aws"}, Role: RoleFuture},
-	{PresubmitID: "pull-ci-openshift-hypershift-main-e2e-aks", PeriodicIDs: []string{"periodic-ci-openshift-hypershift-release-5.1-periodics-e2e-aks"}, Role: RoleFuture},
-	{PresubmitID: "pull-ci-openshift-hypershift-main-e2e-v2-azure-self-managed", PeriodicIDs: []string{"periodic-ci-openshift-hypershift-release-5.1-periodics-e2e-v2-azure-self-managed"}, Role: RoleFuture},
-	{PresubmitID: "pull-ci-openshift-hypershift-main-e2e-v2-gke", PeriodicIDs: []string{"periodic-ci-openshift-hypershift-release-5.1-periodics-e2e-v2-gke"}, Role: RoleFuture},
-	{PresubmitID: "pull-ci-openshift-hypershift-main-e2e-kubevirt-aws-ovn-reduced", PeriodicIDs: []string{"periodic-ci-openshift-hypershift-release-5.1-periodics-e2e-kubevirt-aws-ovn-csi"}, Role: RoleFuture},
-	{PresubmitID: "pull-ci-openshift-hypershift-main-e2e-aws-5-0", PeriodicIDs: []string{"periodic-ci-openshift-hypershift-release-5.0-periodics-e2e-aws-ovn"}, Role: RoleNMinus1},
-	{PresubmitID: "pull-ci-openshift-hypershift-main-e2e-aks-5-0", PeriodicIDs: []string{"periodic-ci-openshift-hypershift-release-5.0-periodics-e2e-aks"}, Role: RoleNMinus1},
-	{PresubmitID: "pull-ci-openshift-hypershift-release-4.22-e2e-aws", PeriodicIDs: []string{"periodic-ci-openshift-hypershift-release-4.22-periodics-e2e-aws-ovn"}, Role: RoleNMinus2},
-	{PresubmitID: "pull-ci-openshift-hypershift-release-4.22-e2e-aks", PeriodicIDs: []string{"periodic-ci-openshift-hypershift-release-4.22-periodics-e2e-aks"}, Role: RoleNMinus2},
+	{PresubmitID: "pull-ci-openshift-hypershift-main-e2e-aws", PeriodicIDs: []string{"periodic-ci-openshift-hypershift-release-5.1-periodics-e2e-aws-ovn"}},
+	{PresubmitID: "pull-ci-openshift-hypershift-main-e2e-aws-upgrade-hypershift-operator", PeriodicIDs: []string{"periodic-ci-openshift-hypershift-release-5.1-periodics-e2e-aws-upgrade"}},
+	{PresubmitID: "pull-ci-openshift-hypershift-main-e2e-v2-aws", PeriodicIDs: []string{"periodic-ci-openshift-hypershift-release-5.1-periodics-e2e-v2-aws"}},
+	{PresubmitID: "pull-ci-openshift-hypershift-main-e2e-aks", PeriodicIDs: []string{"periodic-ci-openshift-hypershift-release-5.1-periodics-e2e-aks"}},
+	{PresubmitID: "pull-ci-openshift-hypershift-main-e2e-v2-azure-self-managed", PeriodicIDs: []string{"periodic-ci-openshift-hypershift-release-5.1-periodics-e2e-v2-azure-self-managed"}},
+	{PresubmitID: "pull-ci-openshift-hypershift-main-e2e-v2-gke", PeriodicIDs: []string{"periodic-ci-openshift-hypershift-release-5.1-periodics-e2e-v2-gke"}},
+	{PresubmitID: "pull-ci-openshift-hypershift-main-e2e-kubevirt-aws-ovn-reduced", PeriodicIDs: []string{"periodic-ci-openshift-hypershift-release-5.1-periodics-e2e-kubevirt-aws-ovn-csi"}},
+	{PresubmitID: "pull-ci-openshift-hypershift-main-e2e-aws-5-0", PeriodicIDs: []string{"periodic-ci-openshift-hypershift-release-5.0-periodics-e2e-aws-ovn"}},
+	{PresubmitID: "pull-ci-openshift-hypershift-main-e2e-aks-5-0", PeriodicIDs: []string{"periodic-ci-openshift-hypershift-release-5.0-periodics-e2e-aks"}},
+	{PresubmitID: "pull-ci-openshift-hypershift-release-4.22-e2e-aws", PeriodicIDs: []string{"periodic-ci-openshift-hypershift-release-4.22-periodics-e2e-aws-ovn"}},
+	{PresubmitID: "pull-ci-openshift-hypershift-release-4.22-e2e-aks", PeriodicIDs: []string{"periodic-ci-openshift-hypershift-release-4.22-periodics-e2e-aks"}},
+	{PresubmitID: "pull-ci-openshift-hypershift-release-4.21-e2e-aws", PeriodicIDs: []string{"periodic-ci-openshift-hypershift-release-4.21-periodics-e2e-aws-ovn"}},
+	{PresubmitID: "pull-ci-openshift-hypershift-release-4.21-e2e-aks", PeriodicIDs: []string{"periodic-ci-openshift-hypershift-release-4.21-periodics-e2e-aks"}},
+	{PresubmitID: "pull-ci-openshift-hypershift-release-4.20-e2e-aws", PeriodicIDs: []string{"periodic-ci-openshift-hypershift-release-4.20-periodics-e2e-aws-ovn"}},
+	{PresubmitID: "pull-ci-openshift-hypershift-release-4.20-e2e-aks", PeriodicIDs: []string{"periodic-ci-openshift-hypershift-release-4.20-periodics-e2e-aks"}},
+	{PresubmitID: "pull-ci-openshift-hypershift-release-4.19-e2e-aws", PeriodicIDs: []string{"periodic-ci-openshift-hypershift-release-4.19-periodics-e2e-aws-ovn"}},
+	{PresubmitID: "pull-ci-openshift-hypershift-release-4.19-e2e-aks", PeriodicIDs: []string{"periodic-ci-openshift-hypershift-release-4.19-periodics-e2e-aks"}},
+	{PresubmitID: "pull-ci-openshift-hypershift-release-4.19-e2e-conformance", PeriodicIDs: []string{"periodic-ci-openshift-hypershift-release-4.19-periodics-e2e-aws-ovn-conformance"}},
+	{PresubmitID: "pull-ci-openshift-hypershift-release-4.18-e2e-aws", PeriodicIDs: []string{"periodic-ci-openshift-hypershift-release-4.18-periodics-e2e-aws-ovn"}},
+	{PresubmitID: "pull-ci-openshift-hypershift-release-4.18-e2e-conformance", PeriodicIDs: []string{"periodic-ci-openshift-hypershift-release-4.18-periodics-e2e-aws-ovn-conformance"}},
+	{PresubmitID: "pull-ci-openshift-hypershift-release-4.17-e2e-aws", PeriodicIDs: []string{"periodic-ci-openshift-hypershift-release-4.17-periodics-e2e-aws-ovn"}},
+	{PresubmitID: "pull-ci-openshift-hypershift-release-4.17-e2e-conformance", PeriodicIDs: []string{"periodic-ci-openshift-hypershift-release-4.17-periodics-e2e-aws-ovn-conformance"}},
+	{PresubmitID: "pull-ci-openshift-hypershift-release-4.16-e2e-aws", PeriodicIDs: []string{"periodic-ci-openshift-hypershift-release-4.16-periodics-e2e-aws-ovn"}},
+	{PresubmitID: "pull-ci-openshift-hypershift-release-4.16-e2e-conformance", PeriodicIDs: []string{"periodic-ci-openshift-hypershift-release-4.16-periodics-e2e-aws-ovn-conformance"}},
+	{PresubmitID: "pull-ci-openshift-hypershift-release-4.15-e2e-aws", PeriodicIDs: []string{"periodic-ci-openshift-hypershift-release-4.15-periodics-e2e-aws-ovn"}},
+	{PresubmitID: "pull-ci-openshift-hypershift-release-4.14-e2e-aws", PeriodicIDs: []string{"periodic-ci-openshift-hypershift-release-4.14-periodics-e2e-aws-ovn"}},
 }
 
 type PeriodicJobConfig struct {
@@ -52,7 +59,7 @@ type BlockingJobConfig struct {
 	Name        string
 	ProwJobName string
 	Platforms   []string
-	Role        Role
+	Role        string
 	Periodics   []PeriodicJobConfig
 	Job         *jobregistry.Job
 }
@@ -84,9 +91,6 @@ func NewCatalog(registry *jobregistry.Registry) (*Catalog, error) {
 	seenPresubmits := make(map[string]struct{}, len(Mappings))
 
 	for _, mapping := range Mappings {
-		if mapping.Role != RoleFuture && mapping.Role != RoleNMinus1 && mapping.Role != RoleNMinus2 {
-			return nil, fmt.Errorf("presubmit mapping %q has unsupported role %q", mapping.PresubmitID, mapping.Role)
-		}
 		if len(mapping.PeriodicIDs) == 0 {
 			return nil, fmt.Errorf("presubmit mapping %q has no periodics", mapping.PresubmitID)
 		}
@@ -110,7 +114,6 @@ func NewCatalog(registry *jobregistry.Registry) (*Catalog, error) {
 			Name:        shortName(presubmit.Name),
 			ProwJobName: presubmit.Name,
 			Platforms:   append([]string(nil), presubmit.Platforms...),
-			Role:        mapping.Role,
 			Job:         presubmit,
 		}
 		seenPeriodics := make(map[string]struct{}, len(mapping.PeriodicIDs))
@@ -140,11 +143,9 @@ func NewCatalog(registry *jobregistry.Registry) (*Catalog, error) {
 		catalog.BlockingJobs = append(catalog.BlockingJobs, configured)
 	}
 
-	trackedReleases := make(map[string]struct{})
 	mappedPresubmits := make(map[string][]string)
 	for _, job := range catalog.BlockingJobs {
 		for _, periodic := range job.Periodics {
-			trackedReleases[periodic.Release] = struct{}{}
 			mappedPresubmits[periodic.ID] = append(mappedPresubmits[periodic.ID], job.ID)
 		}
 	}
@@ -160,7 +161,7 @@ func NewCatalog(registry *jobregistry.Registry) (*Catalog, error) {
 			if participation.Stream.EndOfLife {
 				continue
 			}
-			if _, tracked := trackedReleases[participation.Stream.Release]; !tracked {
+			if !supportedRelease(participation.Stream.Release) {
 				continue
 			}
 			catalog.PayloadBlockingJobs = append(catalog.PayloadBlockingJobs, PayloadBlockingJobConfig{
@@ -179,22 +180,56 @@ func NewCatalog(registry *jobregistry.Registry) (*Catalog, error) {
 	sort.Slice(catalog.PayloadBlockingJobs, func(i, j int) bool {
 		a, b := catalog.PayloadBlockingJobs[i], catalog.PayloadBlockingJobs[j]
 		if a.Release != b.Release {
-			return a.Release > b.Release
+			return releaseRank(a.Release) > releaseRank(b.Release)
 		}
 		if a.Stream.Name != b.Stream.Name {
 			return a.Stream.Name < b.Stream.Name
 		}
 		return a.ProwJobName < b.ProwJobName
 	})
+	releases := catalog.Releases()
+	for i := range catalog.BlockingJobs {
+		catalog.BlockingJobs[i].Role = roleForRelease(catalog.BlockingJobs[i].Periodics[0].Release, releases)
+	}
 	return catalog, nil
+}
+
+// supportedRelease bounds the payload view. OpenShift 5.0 follows
+// 4.22; 4.23 names the same release line and is intentionally not displayed.
+func supportedRelease(release string) bool {
+	if release == "4.23" {
+		return false
+	}
+	return releaseRank(release) >= releaseRank("4.14")
+}
+
+func releaseRank(release string) int {
+	majorText, minorText, found := strings.Cut(release, ".")
+	if !found {
+		return -1
+	}
+	major, majorErr := strconv.Atoi(majorText)
+	minor, minorErr := strconv.Atoi(minorText)
+	if majorErr != nil || minorErr != nil || minor < 0 {
+		return -1
+	}
+	if major == 4 {
+		return minor
+	}
+	if major >= 5 {
+		return 23 + (major-5)*100 + minor
+	}
+	return -1
 }
 
 func shortName(name string) string {
 	if value := strings.TrimPrefix(name, "pull-ci-openshift-hypershift-main-"); value != name {
 		return value
 	}
-	if value := strings.TrimPrefix(name, "pull-ci-openshift-hypershift-release-4.22-"); value != name {
-		return value
+	if value := strings.TrimPrefix(name, "pull-ci-openshift-hypershift-release-"); value != name {
+		if _, short, found := strings.Cut(value, "-"); found {
+			return short
+		}
 	}
 	if _, value, found := strings.Cut(name, "-periodics-"); found {
 		return value
@@ -202,27 +237,50 @@ func shortName(name string) string {
 	return name
 }
 
-func RoleLabel(role Role, release string) string {
-	if role == RoleNMinus2 {
-		return fmt.Sprintf("N-2 (%s)", release)
+func roleForRelease(release string, releases []string) string {
+	for i := len(releases) - 1; i >= 0; i-- {
+		if releases[i] != release {
+			continue
+		}
+		offset := len(releases) - 1 - i
+		if offset == 0 {
+			return "future"
+		}
+		return fmt.Sprintf("n-%d", offset)
 	}
-	if role == RoleNMinus1 {
-		return fmt.Sprintf("N-1 (%s)", release)
+	return "unknown"
+}
+
+func RoleLabel(role, release string) string {
+	if role == "future" {
+		return fmt.Sprintf("Future (%s)", release)
 	}
-	return fmt.Sprintf("Future (%s)", release)
+	if offset, found := strings.CutPrefix(role, "n-"); found {
+		return fmt.Sprintf("N-%s (%s)", offset, release)
+	}
+	return fmt.Sprintf("Unknown (%s)", release)
 }
 
 func (c *Catalog) Releases() []string {
 	seen := map[string]bool{}
 	var releases []string
-	for _, job := range c.BlockingJobs {
-		for _, periodic := range job.Periodics {
-			if !seen[periodic.Release] {
-				seen[periodic.Release] = true
-				releases = append(releases, periodic.Release)
-			}
+	add := func(release string) {
+		if !seen[release] {
+			seen[release] = true
+			releases = append(releases, release)
 		}
 	}
+	for _, job := range c.BlockingJobs {
+		for _, periodic := range job.Periodics {
+			add(periodic.Release)
+		}
+	}
+	for _, job := range c.PayloadBlockingJobs {
+		add(job.Release)
+	}
+	sort.Slice(releases, func(i, j int) bool {
+		return releaseRank(releases[i]) < releaseRank(releases[j])
+	})
 	return releases
 }
 

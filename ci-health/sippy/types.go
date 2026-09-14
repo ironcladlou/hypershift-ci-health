@@ -119,4 +119,5 @@ type HealthSnapshot struct {
 	GeneratedAt time.Time              `json:"generated_at"`
 	Windows     map[string]*WindowData `json:"windows"`
 	Platforms   []string               `json:"platforms"`
+	Releases    []string               `json:"releases"`
 }
