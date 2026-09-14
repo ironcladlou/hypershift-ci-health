@@ -458,8 +458,8 @@ tr:has(+ .periodic-row) td { border-bottom: none; }
     <span class="release-filter-label">Releases <strong id="release-range-label"></strong></span>
     <div class="release-range-control">
       <div class="release-range-track"><span class="release-range-fill" id="release-range-fill"></span></div>
-      <input id="release-min" type="range" aria-label="Oldest release" oninput="setReleaseBound('min')">
-      <input id="release-max" type="range" aria-label="Newest release" oninput="setReleaseBound('max')">
+      <input id="release-min" type="range" aria-label="Newest release" oninput="setReleaseBound('min')">
+      <input id="release-max" type="range" aria-label="Oldest release" oninput="setReleaseBound('max')">
       <div class="release-range-ticks" id="release-range-ticks" aria-hidden="true"></div>
     </div>
   </div>
@@ -569,20 +569,20 @@ function releaseRank(release) {
 function initializeReleaseRange(releases) {
   const priorMin = releaseVersions[releaseMinIndex];
   const priorMax = releaseVersions[releaseMaxIndex];
-  releaseVersions = [...new Set(releases || [])].sort((a, b) => releaseRank(a) - releaseRank(b));
+  releaseVersions = [...new Set(releases || [])].sort((a, b) => releaseRank(b) - releaseRank(a));
   if (releaseVersions.length === 0) return;
 
   if (!releaseRangeInitialized) {
-    const savedMin = localStorage.getItem("sippy_release_min");
-    const savedMax = localStorage.getItem("sippy_release_max");
+    const savedMin = localStorage.getItem("sippy_release_start");
+    const savedMax = localStorage.getItem("sippy_release_end");
     const savedMinIndex = releaseVersions.indexOf(savedMin);
     const savedMaxIndex = releaseVersions.indexOf(savedMax);
     if (savedMinIndex >= 0 && savedMaxIndex >= savedMinIndex) {
       releaseMinIndex = savedMinIndex;
       releaseMaxIndex = savedMaxIndex;
     } else {
-      releaseMaxIndex = releaseVersions.length - 1;
-      releaseMinIndex = Math.max(0, releaseMaxIndex - 2);
+      releaseMinIndex = 0;
+      releaseMaxIndex = Math.min(2, releaseVersions.length - 1);
     }
     releaseRangeInitialized = true;
   } else {
@@ -639,8 +639,8 @@ function setReleaseBound(bound) {
   } else {
     releaseMaxIndex = Math.max(value, releaseMinIndex);
   }
-  localStorage.setItem("sippy_release_min", releaseVersions[releaseMinIndex]);
-  localStorage.setItem("sippy_release_max", releaseVersions[releaseMaxIndex]);
+  localStorage.setItem("sippy_release_start", releaseVersions[releaseMinIndex]);
+  localStorage.setItem("sippy_release_end", releaseVersions[releaseMaxIndex]);
   updateReleaseRangeUI();
   scheduleDashboardRender();
 }
@@ -971,7 +971,7 @@ function buildPayloadTable(jobs) {
     if (!releases[job.release][stream]) releases[job.release][stream] = [];
     releases[job.release][stream].push(job);
   }
-  const releaseOrder = selectedReleases().filter(release => releases[release]).reverse();
+  const releaseOrder = selectedReleases().filter(release => releases[release]);
   for (const release of releaseOrder) {
     html += `<tr class="category-row"><td colspan="3">OpenShift ${esc(release)}</td></tr>`;
     for (const stream of Object.keys(releases[release]).sort()) {
