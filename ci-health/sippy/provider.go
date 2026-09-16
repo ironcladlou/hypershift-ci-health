@@ -35,6 +35,7 @@ type CollectionStatus struct {
 
 func NewProvider(ctx context.Context, client *Client, catalog *jobs.Catalog, interval time.Duration) *Provider {
 	p := &Provider{}
+	staticTargets := catalog.AnalysisTargets()
 
 	refresh := func() {
 		startedAt := time.Now().UTC()
@@ -66,7 +67,7 @@ func NewProvider(ctx context.Context, client *Client, catalog *jobs.Catalog, int
 			p.mu.Unlock()
 		}
 
-		snapshot, err := collect(ctx, client, catalog, progress, addTotal)
+		snapshot, err := collect(ctx, client, catalog, staticTargets, progress, addTotal)
 		finishedAt := time.Now().UTC()
 		if err != nil {
 			p.mu.Lock()
@@ -85,7 +86,7 @@ func NewProvider(ctx context.Context, client *Client, catalog *jobs.Catalog, int
 		p.status.HasData = true
 		p.mu.Unlock()
 		componentReadinessCount := len(snapshot.Windows["1w"].ComponentReadinessJobs)
-		fmt.Fprintf(logWriter, "sippy: collection complete in %s: %d presubmits displayed (%d queried), %d periodics, %d component readiness blockers\n", finishedAt.Sub(startedAt).Round(time.Millisecond), len(catalog.BlockingJobs), len(catalog.SippyPresubmitProwJobNames()), catalog.PeriodicJobCount(), componentReadinessCount)
+		fmt.Fprintf(logWriter, "sippy: collection complete in %s: %d presubmits displayed, %d static analysis targets, %d component readiness blockers\n", finishedAt.Sub(startedAt).Round(time.Millisecond), len(catalog.BlockingJobs), len(staticTargets), componentReadinessCount)
 	}
 
 	go refresh()
@@ -118,17 +119,15 @@ func (p *Provider) Status() CollectionStatus {
 	return p.status
 }
 
-func collect(ctx context.Context, client *Client, catalog *jobs.Catalog, progress func(string, error), addTotal func(int)) (*HealthSnapshot, error) {
+func collect(ctx context.Context, client *Client, catalog *jobs.Catalog, staticTargets []jobs.AnalysisTarget, progress func(string, error), addTotal func(int)) (*HealthSnapshot, error) {
 	releases := catalog.Releases()
-	presubmitNames := catalog.SippyPresubmitProwJobNames()
-	periodicsByRelease := catalog.PeriodicProwJobNamesByRelease()
 	today := time.Now().UTC().Truncate(24 * time.Hour)
 	analysisEnd := today.AddDate(0, 0, 1)
 	analysisBoundary := analysisEnd.AddDate(0, 0, -30)
 	analysisStart := analysisBoundary.AddDate(0, 0, -30)
 
 	var mu sync.Mutex
-	analyses := make(map[string]*SippyJobAnalysisResponse)
+	analyses := make(map[analysisKey]*SippyJobAnalysisResponse)
 	var recentFailures []SippyTestFailure
 	var memberships []jobs.ComponentReadinessMembership
 	var firstErr error
@@ -183,30 +182,27 @@ func collect(ctx context.Context, client *Client, catalog *jobs.Catalog, progres
 
 	componentReadinessJobs := catalog.ComponentReadinessJobs(memberships)
 	type analysisRequest struct {
-		release string
-		name    string
+		key  analysisKey
+		name string
 	}
-	requestSet := make(map[analysisRequest]struct{})
-	for _, name := range presubmitNames {
-		requestSet[analysisRequest{release: "Presubmits", name: name}] = struct{}{}
-	}
-	for release, names := range periodicsByRelease {
-		for _, name := range names {
-			requestSet[analysisRequest{release: release, name: name}] = struct{}{}
-		}
+	requestSet := make(map[analysisKey]analysisRequest)
+	for _, target := range staticTargets {
+		key := analysisKey{release: target.Release, jobID: target.Job.ID}
+		requestSet[key] = analysisRequest{key: key, name: target.Job.Name}
 	}
 	for _, job := range componentReadinessJobs {
-		requestSet[analysisRequest{release: job.Release, name: job.ProwJobName}] = struct{}{}
+		key := analysisKey{release: job.Membership.Release, jobID: job.Membership.ProwJobName}
+		requestSet[key] = analysisRequest{key: key, name: job.Membership.ProwJobName}
 	}
 	requests := make([]analysisRequest, 0, len(requestSet))
-	for request := range requestSet {
+	for _, request := range requestSet {
 		requests = append(requests, request)
 	}
 	sort.Slice(requests, func(i, j int) bool {
-		if requests[i].release != requests[j].release {
-			return requests[i].release < requests[j].release
+		if requests[i].key.release != requests[j].key.release {
+			return requests[i].key.release < requests[j].key.release
 		}
-		return requests[i].name < requests[j].name
+		return requests[i].key.jobID < requests[j].key.jobID
 	})
 	if addTotal != nil {
 		addTotal(1 + len(requests))
@@ -231,10 +227,11 @@ func collect(ctx context.Context, client *Client, catalog *jobs.Catalog, progres
 	}()
 
 	analysisSlots := make(chan struct{}, 6)
-	fetchAnalysis := func(release, name string) {
+	fetchAnalysis := func(request analysisRequest) {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
+			release, name := request.key.release, request.name
 			label := fmt.Sprintf("job analysis %s %s", release, name)
 			select {
 			case analysisSlots <- struct{}{}:
@@ -254,7 +251,7 @@ func collect(ctx context.Context, client *Client, catalog *jobs.Catalog, progres
 				return
 			}
 			mu.Lock()
-			analyses[name] = result
+			analyses[request.key] = result
 			mu.Unlock()
 			fmt.Fprintf(logWriter, "sippy: analysis complete: release=%s job=%s periods=%d duration=%s\n", release, name, len(result.ByPeriod), time.Since(started).Round(time.Millisecond))
 			report(label, nil)
@@ -262,7 +259,7 @@ func collect(ctx context.Context, client *Client, catalog *jobs.Catalog, progres
 	}
 
 	for _, request := range requests {
-		fetchAnalysis(request.release, request.name)
+		fetchAnalysis(request)
 	}
 
 	wg.Wait()
@@ -299,7 +296,10 @@ func collectedPlatforms(static []string, componentReadiness []jobs.ComponentRead
 		seen[platform] = struct{}{}
 	}
 	for _, job := range componentReadiness {
-		for _, platform := range job.Platforms {
+		if job.Job == nil {
+			continue
+		}
+		for _, platform := range job.Job.Platforms {
 			seen[platform] = struct{}{}
 		}
 	}

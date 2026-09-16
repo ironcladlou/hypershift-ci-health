@@ -19,7 +19,7 @@ func TestGoldenRegistryPresubmitHealthQueries(t *testing.T) {
 		t.Fatalf("build catalog: %v", err)
 	}
 	window := transformWindow(
-		&rawData{analyses: map[string]*SippyJobAnalysisResponse{}},
+		&rawData{analyses: map[analysisKey]*SippyJobAnalysisResponse{}},
 		"1w",
 		time.Date(2026, 9, 16, 12, 0, 0, 0, time.UTC),
 		catalog,
@@ -104,5 +104,18 @@ func TestGoldenRegistryPresubmitHealthQueries(t *testing.T) {
 	}
 	if payload.Name != "e2e-aks" || !slices.Equal(payload.Platforms, []string{"aro"}) || len(payload.Participations) == 0 {
 		t.Errorf("payload registry projection = %+v", payload)
+	}
+}
+
+func TestAnalysisResultsAreReleaseScoped(t *testing.T) {
+	key50 := analysisKey{release: "5.0", jobID: "shared"}
+	key51 := analysisKey{release: "5.1", jobID: "shared"}
+	summaries := map[analysisKey]*SippyJob{
+		key50: {CurrentPassPercentage: 50},
+		key51: {CurrentPassPercentage: 90},
+	}
+	health := buildPeriodicHealth(key51, "shared", "shared", "shared", "5.1", "test", "", "", "", summaries, nil)
+	if health.Rate == nil || *health.Rate != 90 {
+		t.Fatalf("5.1 health rate = %v, want 90", health.Rate)
 	}
 }

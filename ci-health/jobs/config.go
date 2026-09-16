@@ -49,13 +49,14 @@ type ComponentReadinessMembership struct {
 // ComponentReadinessJobConfig joins Sippy's authoritative tier membership to
 // optional static metadata from the generated job registry.
 type ComponentReadinessJobConfig struct {
-	ID              string
-	Name            string
-	ProwJobName     string
-	Release         string
-	Tier            JobTier
-	Platforms       []string
-	RegistryMissing bool
+	Membership ComponentReadinessMembership
+	Job        *jobregistry.Job
+}
+
+// AnalysisTarget identifies one registry job in one Sippy release namespace.
+type AnalysisTarget struct {
+	Release string
+	Job     *jobregistry.Job
 }
 
 // Catalog is the validated, registry-backed view used by health reports.
@@ -176,24 +177,16 @@ func (c *Catalog) ComponentReadinessJobs(memberships []ComponentReadinessMembers
 			continue
 		}
 		config := ComponentReadinessJobConfig{
-			ID:          membership.ProwJobName,
-			Name:        DisplayName(membership.ProwJobName),
-			ProwJobName: membership.ProwJobName,
-			Release:     membership.Release,
-			Tier:        membership.Tier,
-		}
-		if definition := c.registryIndex[membership.ProwJobName]; definition != nil {
-			config.Platforms = append([]string(nil), definition.Platforms...)
-		} else {
-			config.RegistryMissing = true
+			Membership: membership,
+			Job:        c.registryIndex[membership.ProwJobName],
 		}
 		result = append(result, config)
 	}
 	sort.Slice(result, func(i, j int) bool {
-		if result[i].Release != result[j].Release {
-			return releaseRank(result[i].Release) > releaseRank(result[j].Release)
+		if result[i].Membership.Release != result[j].Membership.Release {
+			return releaseRank(result[i].Membership.Release) > releaseRank(result[j].Membership.Release)
 		}
-		return result[i].ProwJobName < result[j].ProwJobName
+		return result[i].Membership.ProwJobName < result[j].Membership.ProwJobName
 	})
 	return result
 }
@@ -308,55 +301,41 @@ func (c *Catalog) Platforms() []string {
 	return platforms
 }
 
-// SippyPresubmitProwJobNames returns only presubmits whose registry metadata
-// says Sippy ingestion is enabled. Catalog membership remains broader so the
-// UI can display intentionally uningested jobs.
-func (c *Catalog) SippyPresubmitProwJobNames() []string {
-	var names []string
-	for _, job := range c.BlockingJobs {
-		if job.Job.Presubmit.SippyIngestion.Enabled {
-			names = append(names, job.Job.Name)
-		}
+// AnalysisTargets returns the deduplicated static Sippy query plan. Component
+// Readiness targets are added after their membership is fetched from Sippy.
+func (c *Catalog) AnalysisTargets() []AnalysisTarget {
+	type targetKey struct {
+		release string
+		jobID   string
 	}
-	return names
-}
-
-func (c *Catalog) PeriodicProwJobNamesByRelease() map[string][]string {
-	result := make(map[string][]string)
-	seen := make(map[string]map[string]struct{})
-	add := func(release, name string) {
-		if seen[release] == nil {
-			seen[release] = make(map[string]struct{})
-		}
-		if _, found := seen[release][name]; found {
+	seen := make(map[targetKey]struct{})
+	var targets []AnalysisTarget
+	add := func(release string, job *jobregistry.Job) {
+		key := targetKey{release: release, jobID: job.ID}
+		if _, found := seen[key]; found {
 			return
 		}
-		seen[release][name] = struct{}{}
-		result[release] = append(result[release], name)
+		seen[key] = struct{}{}
+		targets = append(targets, AnalysisTarget{Release: release, Job: job})
+	}
+	for _, job := range c.BlockingJobs {
+		if job.Job.Presubmit.SippyIngestion.Enabled {
+			add("Presubmits", job.Job)
+		}
 	}
 	for _, job := range c.BlockingJobs {
 		for _, periodic := range job.Periodics {
-			add(periodic.Counterpart.TestedRelease, periodic.Job.Name)
+			add(periodic.Counterpart.TestedRelease, periodic.Job)
 		}
 	}
 	for _, job := range c.PayloadBlockingJobs {
-		add(job.Release, job.Job.Name)
+		add(job.Release, job.Job)
 	}
-	for release := range result {
-		sort.Strings(result[release])
-	}
-	return result
-}
-
-func (c *Catalog) PeriodicJobCount() int {
-	seen := make(map[string]struct{})
-	for _, job := range c.BlockingJobs {
-		for _, periodic := range job.Periodics {
-			seen[periodic.Job.ID] = struct{}{}
+	sort.Slice(targets, func(i, j int) bool {
+		if targets[i].Release != targets[j].Release {
+			return targets[i].Release < targets[j].Release
 		}
-	}
-	for _, job := range c.PayloadBlockingJobs {
-		seen[job.Job.ID] = struct{}{}
-	}
-	return len(seen)
+		return targets[i].Job.Name < targets[j].Job.Name
+	})
+	return targets
 }

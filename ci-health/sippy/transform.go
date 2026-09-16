@@ -21,9 +21,14 @@ var WindowConfigs = map[string]WindowConfig{
 }
 
 type rawData struct {
-	analyses           map[string]*SippyJobAnalysisResponse
+	analyses           map[analysisKey]*SippyJobAnalysisResponse
 	recentFailures     []SippyTestFailure
 	componentReadiness []jobs.ComponentReadinessJobConfig
+}
+
+type analysisKey struct {
+	release string
+	jobID   string
 }
 
 func slotKey(t time.Time, slotHours int) string {
@@ -164,9 +169,9 @@ func computeCorrelation(preSparkline, perSparkline map[string]*SparklineSlot, no
 	}
 }
 
-func buildPeriodicHealth(id, name, prow, release, label, relationshipSource, relationshipVerification, relationshipRationale string, periodicMap map[string]*SippyJob, sparklines map[string]map[string]*SparklineSlot) PeriodicJobHealth {
-	d := periodicMap[prow]
-	sparkline := sparklines[prow]
+func buildPeriodicHealth(key analysisKey, id, name, prow, release, label, relationshipSource, relationshipVerification, relationshipRationale string, periodicMap map[analysisKey]*SippyJob, sparklines map[analysisKey]map[string]*SparklineSlot) PeriodicJobHealth {
+	d := periodicMap[key]
+	sparkline := sparklines[key]
 	counts := countResultTypes(sparkline)
 	health := PeriodicJobHealth{
 		ID:                       id,
@@ -196,11 +201,11 @@ func buildPeriodicHealth(id, name, prow, release, label, relationshipSource, rel
 func transformWindow(raw *rawData, windowKey string, now time.Time, catalog *jobs.Catalog) *WindowData {
 	win := WindowConfigs[windowKey]
 
-	summaries := make(map[string]*SippyJob, len(raw.analyses))
-	sparklines := make(map[string]map[string]*SparklineSlot, len(raw.analyses))
-	for name, analysis := range raw.analyses {
-		summaries[name] = summarizeAnalysis(analysis, windowKey, now)
-		sparklines[name] = analysisSparkline(analysis, win, now)
+	summaries := make(map[analysisKey]*SippyJob, len(raw.analyses))
+	sparklines := make(map[analysisKey]map[string]*SparklineSlot, len(raw.analyses))
+	for key, analysis := range raw.analyses {
+		summaries[key] = summarizeAnalysis(analysis, windowKey, now)
+		sparklines[key] = analysisSparkline(analysis, win, now)
 	}
 
 	blockingProwNames := make(map[string]bool)
@@ -210,11 +215,14 @@ func transformWindow(raw *rawData, windowKey string, now time.Time, catalog *job
 
 	var jobHealths []JobHealth
 	for _, cfg := range catalog.BlockingJobs {
-		d := summaries[cfg.Job.Name]
+		key := analysisKey{release: "Presubmits", jobID: cfg.Job.ID}
+		d := summaries[key]
 
 		var periodics []PeriodicJobHealth
 		for _, cfgPer := range cfg.Periodics {
+			periodicKey := analysisKey{release: cfgPer.Counterpart.TestedRelease, jobID: cfgPer.Job.ID}
 			periodics = append(periodics, buildPeriodicHealth(
+				periodicKey,
 				cfgPer.Job.ID, jobs.DisplayName(cfgPer.Job.Name), cfgPer.Job.Name, cfgPer.Counterpart.TestedRelease, cfgPer.Counterpart.TestedRelease,
 				string(cfgPer.Counterpart.Source), string(cfgPer.Counterpart.Verification), cfgPer.Counterpart.Rationale,
 				summaries, sparklines,
@@ -223,14 +231,15 @@ func transformWindow(raw *rawData, windowKey string, now time.Time, catalog *job
 
 		var correlation *Correlation
 		if len(cfg.Periodics) > 0 {
+			periodicKey := analysisKey{release: cfg.Periodics[0].Counterpart.TestedRelease, jobID: cfg.Periodics[0].Job.ID}
 			correlation = computeCorrelation(
-				sparklines[cfg.Job.Name],
-				sparklines[cfg.Periodics[0].Job.Name],
+				sparklines[key],
+				sparklines[periodicKey],
 				now, win,
 			)
 		}
 
-		preSparkline := sparklines[cfg.Job.Name]
+		preSparkline := sparklines[key]
 		preCounts := countResultTypes(preSparkline)
 
 		jh := JobHealth{
@@ -264,7 +273,9 @@ func transformWindow(raw *rawData, windowKey string, now time.Time, catalog *job
 
 	payloadHealths := make([]PayloadBlockingJobHealth, 0, len(catalog.PayloadBlockingJobs))
 	for _, cfg := range catalog.PayloadBlockingJobs {
+		key := analysisKey{release: cfg.Release, jobID: cfg.Job.ID}
 		health := buildPeriodicHealth(
+			key,
 			cfg.Job.ID, jobs.DisplayName(cfg.Job.Name), cfg.Job.Name, cfg.Release, "release payload",
 			"", "", "",
 			summaries, sparklines,
@@ -289,15 +300,22 @@ func transformWindow(raw *rawData, windowKey string, now time.Time, catalog *job
 
 	componentReadinessHealths := make([]ComponentReadinessJobHealth, 0, len(raw.componentReadiness))
 	for _, cfg := range raw.componentReadiness {
+		membership := cfg.Membership
+		key := analysisKey{release: membership.Release, jobID: membership.ProwJobName}
+		var platforms []string
+		if cfg.Job != nil {
+			platforms = cfg.Job.Platforms
+		}
 		health := buildPeriodicHealth(
-			cfg.ID, cfg.Name, cfg.ProwJobName, cfg.Release, "component readiness",
+			key,
+			membership.ProwJobName, jobs.DisplayName(membership.ProwJobName), membership.ProwJobName, membership.Release, "component readiness",
 			"", "", "",
 			summaries, sparklines,
 		)
 		componentReadinessHealths = append(componentReadinessHealths, ComponentReadinessJobHealth{
 			PeriodicJobHealth: health,
-			Platforms:         cfg.Platforms,
-			RegistryMissing:   cfg.RegistryMissing,
+			Platforms:         platforms,
+			RegistryMissing:   cfg.Job == nil,
 		})
 	}
 

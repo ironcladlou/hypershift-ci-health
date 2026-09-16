@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"github.com/ironcladlou/hypershift-ci-health/ci-health/jobregistry"
+	"github.com/ironcladlou/hypershift-ci-health/ci-health/jobs"
 )
 
 func TestGoldenRegistrySingleJobAPI(t *testing.T) {
@@ -15,7 +16,12 @@ func TestGoldenRegistrySingleJobAPI(t *testing.T) {
 	if err != nil {
 		t.Fatalf("load golden registry: %v", err)
 	}
-	handler := newHTTPHandler("", false, registry, nil)
+	catalog, err := jobs.NewCatalog(registry)
+	if err != nil {
+		t.Fatalf("build catalog: %v", err)
+	}
+	states := newApplicationStateStore(newApplicationState(registry, catalog, nil))
+	handler := newHTTPHandler("", false, states)
 	const id = "pull-ci-openshift-hypershift-release-4.22-e2e-v2-aws"
 	tests := []struct {
 		name        string

@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/http"
 	"os"
+	"sync/atomic"
 	"time"
 
 	"github.com/ironcladlou/hypershift-ci-health/ci-health/jobregistry"
@@ -36,7 +37,8 @@ func newServeCommand(indexHTML string) *cobra.Command {
 			}
 
 			sippyProvider := sippy.NewProvider(command.Context(), sippy.NewClient(), catalog, sippyInterval)
-			server := &http.Server{Addr: addr, Handler: newHTTPHandler(indexHTML, dev, registry, sippyProvider)}
+			states := newApplicationStateStore(newApplicationState(registry, catalog, sippyProvider))
+			server := &http.Server{Addr: addr, Handler: newHTTPHandler(indexHTML, dev, states)}
 			go func() {
 				<-command.Context().Done()
 				server.Close()
@@ -60,9 +62,42 @@ func newServeCommand(indexHTML string) *cobra.Command {
 	return command
 }
 
-func newHTTPHandler(indexHTML string, dev bool, registry *jobregistry.Registry, provider *sippy.Provider) http.Handler {
+type applicationState struct {
+	registry      *jobregistry.Registry
+	catalog       *jobs.Catalog
+	registryIndex map[string]*jobregistry.Job
+	provider      *sippy.Provider
+}
+
+type applicationStateStore struct {
+	current atomic.Pointer[applicationState]
+}
+
+func newApplicationState(registry *jobregistry.Registry, catalog *jobs.Catalog, provider *sippy.Provider) *applicationState {
+	return &applicationState{
+		registry:      registry,
+		catalog:       catalog,
+		registryIndex: registry.Index(),
+		provider:      provider,
+	}
+}
+
+func newApplicationStateStore(state *applicationState) *applicationStateStore {
+	store := &applicationStateStore{}
+	store.replace(state)
+	return store
+}
+
+func (s *applicationStateStore) load() *applicationState {
+	return s.current.Load()
+}
+
+func (s *applicationStateStore) replace(state *applicationState) {
+	s.current.Store(state)
+}
+
+func newHTTPHandler(indexHTML string, dev bool, states *applicationStateStore) http.Handler {
 	mux := http.NewServeMux()
-	registryIndex := registry.Index()
 	if dev {
 		fmt.Fprintln(os.Stderr, "Dev mode: serving index.html from filesystem")
 		mux.Handle("/", http.FileServer(http.Dir(".")))
@@ -77,7 +112,7 @@ func newHTTPHandler(indexHTML string, dev bool, registry *jobregistry.Registry, 
 		})
 	}
 	mux.HandleFunc("/api/health", func(w http.ResponseWriter, r *http.Request) {
-		data := provider.Data()
+		data := states.load().provider.Data()
 		if data == nil {
 			http.Error(w, "data not yet available", http.StatusServiceUnavailable)
 			return
@@ -85,13 +120,13 @@ func newHTTPHandler(indexHTML string, dev bool, registry *jobregistry.Registry, 
 		writeJSON(w, data)
 	})
 	mux.HandleFunc("/api/health/status", func(w http.ResponseWriter, r *http.Request) {
-		writeJSON(w, provider.Status())
+		writeJSON(w, states.load().provider.Status())
 	})
 	mux.HandleFunc("/api/job-registry", func(w http.ResponseWriter, r *http.Request) {
-		writeJSON(w, registry)
+		writeJSON(w, states.load().registry)
 	})
 	mux.HandleFunc("GET /api/job-registry/jobs/{id}", func(w http.ResponseWriter, r *http.Request) {
-		job := registryIndex[r.PathValue("id")]
+		job := states.load().registryIndex[r.PathValue("id")]
 		if job == nil {
 			http.NotFound(w, r)
 			return

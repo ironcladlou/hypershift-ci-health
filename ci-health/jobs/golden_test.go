@@ -37,7 +37,6 @@ func TestGoldenRegistryCatalogQueries(t *testing.T) {
 		{"payload-blocking job count", len(catalog.PayloadBlockingJobs), 37},
 		{"releases", catalog.Releases(), []string{"4.14", "4.15", "4.16", "4.17", "4.18", "4.19", "4.20", "4.21", "4.22", "5.0", "5.1"}},
 		{"platforms", catalog.Platforms(), []string{"aro", "aws", "azure", "gcp", "kubevirt"}},
-		{"Sippy presubmit query count", len(catalog.SippyPresubmitProwJobNames()), 11},
 	}
 	for _, test := range aggregates {
 		t.Run(test.name, func(t *testing.T) {
@@ -47,7 +46,20 @@ func TestGoldenRegistryCatalogQueries(t *testing.T) {
 		})
 	}
 
-	periodics := catalog.PeriodicProwJobNamesByRelease()
+	targets := catalog.AnalysisTargets()
+	seenTargets := make(map[string]struct{}, len(targets))
+	for _, target := range targets {
+		key := target.Release + "\x00" + target.Job.ID
+		if _, found := seenTargets[key]; found {
+			t.Errorf("duplicate analysis target %q/%q", target.Release, target.Job.ID)
+		}
+		seenTargets[key] = struct{}{}
+	}
+	hasTarget := func(release, name string) bool {
+		return slices.ContainsFunc(targets, func(target AnalysisTarget) bool {
+			return target.Release == release && target.Job.Name == name
+		})
+	}
 	queries := []struct {
 		release string
 		name    string
@@ -57,8 +69,8 @@ func TestGoldenRegistryCatalogQueries(t *testing.T) {
 	}
 	for _, query := range queries {
 		t.Run(query.release+"/"+query.name, func(t *testing.T) {
-			if !slices.Contains(periodics[query.release], query.name) {
-				t.Errorf("periodics[%q] does not contain %q", query.release, query.name)
+			if !hasTarget(query.release, query.name) {
+				t.Errorf("analysis targets do not contain %q/%q", query.release, query.name)
 			}
 		})
 	}
@@ -84,7 +96,6 @@ func TestGoldenRegistryCatalogQueries(t *testing.T) {
 		})
 	}
 
-	sippyPresubmits := catalog.SippyPresubmitProwJobNames()
 	sippyQueries := []struct {
 		name string
 		want bool
@@ -94,7 +105,7 @@ func TestGoldenRegistryCatalogQueries(t *testing.T) {
 	}
 	for _, query := range sippyQueries {
 		t.Run("Sippy presubmit/"+query.name, func(t *testing.T) {
-			if got := slices.Contains(sippyPresubmits, query.name); got != query.want {
+			if got := hasTarget("Presubmits", query.name); got != query.want {
 				t.Errorf("membership = %t, want %t", got, query.want)
 			}
 		})
@@ -108,7 +119,7 @@ func TestComponentReadinessExcludesUnsupportedReleases(t *testing.T) {
 		{Release: "4.23", ProwJobName: "excluded-4.23", Tier: JobTierStandard},
 		{Release: "5.0", ProwJobName: "excluded-candidate", Tier: JobTierCandidate},
 	})
-	if len(jobs) != 1 || jobs[0].Release != "5.0" || jobs[0].ProwJobName != "kept" {
+	if len(jobs) != 1 || jobs[0].Membership.Release != "5.0" || jobs[0].Membership.ProwJobName != "kept" || jobs[0].Job != nil {
 		t.Fatalf("ComponentReadinessJobs() = %+v", jobs)
 	}
 }
