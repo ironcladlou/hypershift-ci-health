@@ -11,6 +11,7 @@ import (
 	"github.com/ironcladlou/hypershift-ci-health/ci-health/jobs"
 	"github.com/ironcladlou/hypershift-ci-health/ci-health/sippy"
 	"github.com/spf13/cobra"
+	"go.yaml.in/yaml/v3"
 )
 
 func newServeCommand(indexHTML string) *cobra.Command {
@@ -61,6 +62,7 @@ func newServeCommand(indexHTML string) *cobra.Command {
 
 func newHTTPHandler(indexHTML string, dev bool, registry *jobregistry.Registry, provider *sippy.Provider) http.Handler {
 	mux := http.NewServeMux()
+	registryIndex := registry.Index()
 	if dev {
 		fmt.Fprintln(os.Stderr, "Dev mode: serving index.html from filesystem")
 		mux.Handle("/", http.FileServer(http.Dir(".")))
@@ -88,6 +90,21 @@ func newHTTPHandler(indexHTML string, dev bool, registry *jobregistry.Registry, 
 	mux.HandleFunc("/api/job-registry", func(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, registry)
 	})
+	mux.HandleFunc("GET /api/job-registry/jobs/{id}", func(w http.ResponseWriter, r *http.Request) {
+		job := registryIndex[r.PathValue("id")]
+		if job == nil {
+			http.NotFound(w, r)
+			return
+		}
+		switch r.URL.Query().Get("format") {
+		case "", "json":
+			writeJSON(w, job)
+		case "yaml":
+			writeYAML(w, job)
+		default:
+			http.Error(w, "unsupported registry entry format", http.StatusBadRequest)
+		}
+	})
 	return mux
 }
 
@@ -95,4 +112,33 @@ func writeJSON(w http.ResponseWriter, value any) {
 	w.Header().Set("Content-Type", "application/json")
 	w.Header().Set("Access-Control-Allow-Origin", "*")
 	_ = json.NewEncoder(w).Encode(value)
+}
+
+func writeYAML(w http.ResponseWriter, value any) {
+	jsonData, err := json.Marshal(value)
+	if err != nil {
+		http.Error(w, "encode registry entry", http.StatusInternalServerError)
+		return
+	}
+	var document yaml.Node
+	if err := yaml.Unmarshal(jsonData, &document); err != nil {
+		http.Error(w, "encode registry entry", http.StatusInternalServerError)
+		return
+	}
+	clearYAMLStyle(&document)
+	w.Header().Set("Content-Type", "application/yaml; charset=utf-8")
+	w.Header().Set("Access-Control-Allow-Origin", "*")
+	encoder := yaml.NewEncoder(w)
+	encoder.SetIndent(2)
+	defer encoder.Close()
+	if len(document.Content) > 0 {
+		_ = encoder.Encode(document.Content[0])
+	}
+}
+
+func clearYAMLStyle(node *yaml.Node) {
+	node.Style = 0
+	for _, child := range node.Content {
+		clearYAMLStyle(child)
+	}
 }

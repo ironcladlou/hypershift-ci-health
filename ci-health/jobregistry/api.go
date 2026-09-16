@@ -6,7 +6,33 @@ type Registry struct {
 	APIVersion string `json:"api_version"`
 	// Jobs contains every discovered job, ordered by stable job ID.
 	Jobs []Job `json:"jobs"`
+	// PresubmitPeriodicRelationships contains provisional associations between
+	// presubmit and periodic jobs. Prow does not currently express these
+	// relationships, so each entry identifies the heuristic or override used to
+	// produce it and must not be treated as authoritative Prow metadata.
+	PresubmitPeriodicRelationships []PresubmitPeriodicRelationship `json:"presubmit_periodic_relationships"`
 }
+
+// PresubmitPeriodicRelationship associates one presubmit with one or more
+// periodics that exercise the same scenario. Provisional remains true until
+// the relationship can be sourced from authoritative Prow data.
+type PresubmitPeriodicRelationship struct {
+	PresubmitID string   `json:"presubmit_id"`
+	PeriodicIDs []string `json:"periodic_ids"`
+	Provisional bool     `json:"provisional"`
+	// Basis describes how the provisional relationship was established. Current
+	// values are "exact-release-name" and "manual-override".
+	Basis PresubmitPeriodicRelationshipBasis `json:"basis"`
+}
+
+// PresubmitPeriodicRelationshipBasis identifies the evidence used to create a
+// provisional relationship.
+type PresubmitPeriodicRelationshipBasis string
+
+const (
+	PresubmitPeriodicRelationshipBasisExactReleaseName PresubmitPeriodicRelationshipBasis = "exact-release-name"
+	PresubmitPeriodicRelationshipBasisManualOverride   PresubmitPeriodicRelationshipBasis = "manual-override"
+)
 
 // Job describes one Prow job. A Prow job name is its globally unique, stable
 // identity and is also retained as Name to keep identity and display concerns

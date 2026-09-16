@@ -30,8 +30,7 @@ checkout:
 go run . job-registry --release-dir=/path/to/openshift-release > job-registry.json
 ```
 
-The reusable registry API lives in `jobregistry`. The dashboard's explicit
-presubmit-to-periodic relationships live in `jobs/config.go`; startup validates
+The reusable registry API lives in `jobregistry`. Startup validates
 every referenced ID and obtains all job metadata from the registry.
 
 ## Deployment
@@ -51,3 +50,6 @@ make deploy
 - `GET /` — dashboard UI
 - `GET /api/health` — job health snapshot for the 1-week, 2-week, and 1-month windows
 - `GET /api/health/status` — current Sippy collection progress and errors
+- `GET /api/job-registry` — complete generated job registry
+- `GET /api/job-registry/jobs/{id}` — one job registry entry; add
+  `?format=yaml` for block-formatted YAML

@@ -18,6 +18,7 @@ import (
 )
 
 const (
+	currentAPIVersion           = "job-registry/v2"
 	releaseRepository           = "openshift/release"
 	releaseMainURL              = "https://github.com/openshift/release/blob/main/"
 	defaultSippyURL             = "https://sippy.dptools.openshift.org"
@@ -124,6 +125,9 @@ func Discover(releaseDir string, options Options) (Registry, error) {
 	populateProwJobHistoryURLs(&registry, options.ProwBaseURL)
 	if err := populateReleaseController(&registry, releaseDir, options.SippyStreamBaseURL, options.ReleaseStatusBaseURL); err != nil {
 		return Registry{}, fmt.Errorf("discover release-controller participation: %w", err)
+	}
+	if err := populatePresubmitPeriodicRelationships(&registry); err != nil {
+		return Registry{}, fmt.Errorf("discover presubmit-periodic relationships: %w", err)
 	}
 	return registry, nil
 }
@@ -329,7 +333,7 @@ func discover(releaseDir string) (Registry, error) {
 		return Registry{}, fmt.Errorf("%s is not a directory", root)
 	}
 
-	registry := Registry{APIVersion: "job-registry/v1", Jobs: []Job{}}
+	registry := Registry{APIVersion: currentAPIVersion, Jobs: []Job{}, PresubmitPeriodicRelationships: []PresubmitPeriodicRelationship{}}
 	seen := map[string]Source{}
 	err := filepath.WalkDir(root, func(path string, entry fs.DirEntry, walkErr error) error {
 		if walkErr != nil {

@@ -197,6 +197,10 @@ tr:has(+ .periodic-row) td { border-bottom: none; }
   color: var(--text-muted);
   margin-left: 6px;
 }
+.job-type .tip {
+  text-transform: none;
+  letter-spacing: normal;
+}
 .infra-badge {
   font-size: 10px;
   font-weight: 500;
@@ -443,6 +447,41 @@ tr:has(+ .periodic-row) td { border-bottom: none; }
   color: var(--text-primary);
 }
 .registry-detail { color: var(--text-muted); font-size: 11px; }
+.registry-yaml-row td {
+  border-top: 0;
+}
+.registry-yaml-row .registry-yaml-cell {
+  padding: 0 12px 12px 12px;
+}
+.registry-yaml-row .registry-yaml-spacer {
+  padding: 0;
+}
+.registry-yaml-panel {
+  position: relative;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+  background: color-mix(in srgb, var(--surface) 80%, var(--surface-page));
+  border: 1px solid var(--gridline);
+  border-radius: 4px;
+  overflow: hidden;
+}
+.registry-yaml-panel pre {
+  max-height: 420px;
+  margin: 0;
+  padding: 12px 14px;
+  overflow: auto;
+  color: var(--text-secondary);
+  font: 11px/1.5 ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+.yaml-key { color: var(--series-1); font-weight: 600; }
+.yaml-string { color: var(--text-primary); }
+.yaml-scalar { color: var(--delta-good); }
+.yaml-null { color: var(--text-muted); font-style: italic; }
 </style>
 </head>
 <body>
@@ -1046,11 +1085,18 @@ function buildRegistryTable(registry) {
     const platforms = (job.platforms || []).join(", ") || "—";
     const context = job.context || "—";
     const jobLink = job.prow_job_history_url || (job.source && job.source.url) || "";
+    const sippyLink = job.sippy_url || "";
+    const registryEntryURL = `/api/job-registry/jobs/${encodeURIComponent(job.id)}`;
+    const detailLinks = [
+      sippyLink ? `<a href="${esc(sippyLink)}" target="_blank" rel="noopener">sippy</a>` : `<span>sippy unavailable</span>`,
+      job.source && job.source.url ? `<a href="${esc(job.source.url)}" target="_blank" rel="noopener">source</a>` : "",
+      `<a href="${registryEntryURL}?format=yaml" data-job-id="${esc(job.id)}" aria-expanded="false" onclick="toggleRegistryYAML(this); return false">registry YAML</a>`,
+    ].filter(Boolean).join(" · ");
     const search = [job.name, job.type, job.repository, context, versions, platforms]
       .concat((job.release_controller || []).flatMap(p => [p.stream && p.stream.name, p.stream && p.stream.release, p.verification && p.verification.role]))
       .filter(Boolean).join(" ").toLowerCase();
     html += `<tr class="registry-job" data-search="${esc(search)}">
-      <td class="job-name">${jobLink ? `<a href="${esc(jobLink)}" target="_blank" rel="noopener">${esc(job.name)}</a>` : esc(job.name)}${job.source && job.source.url ? ` <a class="registry-detail" href="${esc(job.source.url)}" target="_blank" rel="noopener">source</a>` : ""}</td>
+      <td class="job-name">${jobLink ? `<a href="${esc(jobLink)}" target="_blank" rel="noopener">${esc(job.name)}</a>` : esc(job.name)}<br><span class="registry-detail">${detailLinks}</span></td>
       <td><span class="job-type" style="margin-left:0">${esc(job.type)}</span></td>
       <td>${esc(job.repository || "—")}<br><span class="registry-detail">${esc(context)}</span></td>
       <td>${esc(versions)}<br><span class="registry-detail">${esc(platforms)}</span></td>
@@ -1066,10 +1112,57 @@ function filterRegistryJobs(value) {
   document.querySelectorAll(".registry-job").forEach(row => {
     const match = !query || row.dataset.search.includes(query);
     row.style.display = match ? "" : "none";
+    const detail = row.nextElementSibling;
+    if (detail && detail.classList.contains("registry-yaml-row")) {
+      detail.hidden = !match || detail.dataset.expanded !== "true";
+    }
     if (match) visible++;
   });
   const count = document.getElementById("registry-count");
   if (count) count.textContent = `${visible} job${visible === 1 ? "" : "s"}`;
+}
+
+function highlightRegistryYAML(yaml) {
+  return yaml.split("\n").map(line => {
+    const field = line.match(/^(\s*(?:-\s+)?)([A-Za-z0-9_-]+):(.*)$/);
+    if (field) {
+      const value = field[3];
+      const trimmed = value.trim();
+      let valueClass = "yaml-string";
+      if (trimmed === "null" || trimmed === "~") valueClass = "yaml-null";
+      else if (/^(true|false|-?\d+(?:\.\d+)?)$/.test(trimmed)) valueClass = "yaml-scalar";
+      return `${esc(field[1])}<span class="yaml-key">${esc(field[2])}</span>:${trimmed ? `<span class="${valueClass}">${esc(value)}</span>` : ""}`;
+    }
+    const item = line.match(/^(\s*-\s+)(.*)$/);
+    if (item) return `${esc(item[1])}<span class="yaml-string">${esc(item[2])}</span>`;
+    return esc(line);
+  }).join("\n");
+}
+
+async function toggleRegistryYAML(control) {
+  const jobRow = control.closest("tr");
+  let detail = jobRow.nextElementSibling;
+  if (detail && detail.classList.contains("registry-yaml-row")) {
+    const expanding = detail.dataset.expanded !== "true";
+    detail.dataset.expanded = expanding ? "true" : "false";
+    detail.hidden = !expanding;
+    control.textContent = expanding ? "Hide Registry YAML" : "Registry YAML";
+    control.setAttribute("aria-expanded", String(expanding));
+    return;
+  }
+
+  jobRow.insertAdjacentHTML("afterend", `<tr class="registry-yaml-row" data-expanded="true"><td class="registry-yaml-cell"><div class="registry-yaml-panel"><pre>Loading registry entry…</pre></div></td><td class="registry-yaml-spacer" colspan="4"></td></tr>`);
+  detail = jobRow.nextElementSibling;
+  control.textContent = "Hide Registry YAML";
+  control.setAttribute("aria-expanded", "true");
+  const pre = detail.querySelector("pre");
+  try {
+    const resp = await fetch(control.href, {headers: {Accept: "application/yaml"}});
+    if (!resp.ok) throw new Error(`${resp.status} ${resp.statusText}`);
+    pre.innerHTML = `<code>${highlightRegistryYAML(await resp.text())}</code>`;
+  } catch (err) {
+    pre.textContent = `Failed to load registry entry: ${err.message}`;
+  }
 }
 
 function platformLabel(job) {
@@ -1100,6 +1193,12 @@ function rateTrendHtml(rate, prev, prevRuns, trend, runs, fails) {
   lines.push(prevRuns > 0 ? `prev ${prev.toFixed(1)}%` : "no prev data");
   lines.push(`${runs} runs, ${fails} fails`);
   return `<div class="rate-cell has-tip"><span class="tip">${lines.join("<br>")}</span><span class="pass-rate ${rateClass(rate, runs)}">${rate.toFixed(1)}%</span> ${trendHtml(trend)}</div>`;
+}
+
+function relationshipBasisTooltip(basis) {
+  if (basis === "exact-release-name") return "Pairing basis: exact release and job name match";
+  if (basis === "manual-override") return "Pairing basis: manual override";
+  return basis ? `Pairing basis: ${basis}` : "";
 }
 
 function buildRow(j) {
@@ -1138,8 +1237,12 @@ function buildRow(j) {
     const perInfraBadge = (p.infra_fails > 0 && perSparkRuns > 0 && p.infra_fails / perSparkRuns >= 0.15)
       ? `<span class="infra-badge has-tip"><span class="tip">${p.infra_fails} of ${perSparkRuns} runs were infrastructure failures — the job errored or timed out before tests could run.</span>${p.infra_fails} infra</span>`
       : '';
+    const pairingTip = relationshipBasisTooltip(p.relationship_basis);
+    const periodicBadge = pairingTip
+      ? `<span class="job-type has-tip"><span class="tip">${esc(pairingTip)}</span>periodic ${esc(p.label)}</span>`
+      : `<span class="job-type">periodic ${esc(p.label)}</span>`;
     html += `<tr class="periodic-row">
-      <td class="job-name periodic-name"><span class="status-dot ${statusClass(pRate, pRuns)}"></span><a class="periodic-link" href="${sippyJobLink(p.prow, p.release)}" target="_blank">${esc(p.name)}</a><span class="job-type">periodic ${p.label}</span>${perInfraBadge}</td>
+      <td class="job-name periodic-name"><span class="status-dot ${statusClass(pRate, pRuns)}"></span><a class="periodic-link" href="${sippyJobLink(p.prow, p.release)}" target="_blank">${esc(p.name)}</a>${periodicBadge}${perInfraBadge}</td>
       <td class="rate-chart-cell"><div class="rate-chart-inner"><canvas id="${perChartId}" width="140" height="28"></canvas>${rateDeltaHtml(pRate, p.prev != null ? p.prev : 0, p.prev_runs ?? 0, p.trend, pRuns, p.fails ?? 0, p.test_fails ?? 0, p.infra_fails ?? 0)}</div></td>
       <td class="sparkline-cell">${buildSparkline(p.sparkline)}</td>
     </tr>`;

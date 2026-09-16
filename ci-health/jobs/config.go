@@ -9,49 +9,13 @@ import (
 	"github.com/ironcladlou/hypershift-ci-health/ci-health/jobregistry"
 )
 
-// PresubmitPeriodicPairing is report configuration for the relationship that is not available
-// in the generated registry. It contains only stable registry IDs; all job
-// definitions and metadata are resolved from the registry at startup.
-type PresubmitPeriodicPairing struct {
-	PresubmitID string
-	PeriodicIDs []string
-}
-
-var PresubmitPeriodicPairings = []PresubmitPeriodicPairing{
-	{PresubmitID: "pull-ci-openshift-hypershift-main-e2e-aws", PeriodicIDs: []string{"periodic-ci-openshift-hypershift-release-5.1-periodics-e2e-aws-ovn"}},
-	{PresubmitID: "pull-ci-openshift-hypershift-main-e2e-aws-upgrade-hypershift-operator", PeriodicIDs: []string{"periodic-ci-openshift-hypershift-release-5.1-periodics-e2e-aws-upgrade"}},
-	{PresubmitID: "pull-ci-openshift-hypershift-main-e2e-v2-aws", PeriodicIDs: []string{"periodic-ci-openshift-hypershift-release-5.1-periodics-e2e-v2-aws"}},
-	{PresubmitID: "pull-ci-openshift-hypershift-main-e2e-aks", PeriodicIDs: []string{"periodic-ci-openshift-hypershift-release-5.1-periodics-e2e-aks"}},
-	{PresubmitID: "pull-ci-openshift-hypershift-main-e2e-v2-azure-self-managed", PeriodicIDs: []string{"periodic-ci-openshift-hypershift-release-5.1-periodics-e2e-v2-azure-self-managed"}},
-	{PresubmitID: "pull-ci-openshift-hypershift-main-e2e-v2-gke", PeriodicIDs: []string{"periodic-ci-openshift-hypershift-release-5.1-periodics-e2e-v2-gke"}},
-	{PresubmitID: "pull-ci-openshift-hypershift-main-e2e-kubevirt-aws-ovn-reduced", PeriodicIDs: []string{"periodic-ci-openshift-hypershift-release-5.1-periodics-e2e-kubevirt-aws-ovn-csi"}},
-	{PresubmitID: "pull-ci-openshift-hypershift-main-e2e-aws-5-0", PeriodicIDs: []string{"periodic-ci-openshift-hypershift-release-5.0-periodics-e2e-aws-ovn"}},
-	{PresubmitID: "pull-ci-openshift-hypershift-main-e2e-aks-5-0", PeriodicIDs: []string{"periodic-ci-openshift-hypershift-release-5.0-periodics-e2e-aks"}},
-	{PresubmitID: "pull-ci-openshift-hypershift-release-4.22-e2e-aws", PeriodicIDs: []string{"periodic-ci-openshift-hypershift-release-4.22-periodics-e2e-aws-ovn"}},
-	{PresubmitID: "pull-ci-openshift-hypershift-release-4.22-e2e-aks", PeriodicIDs: []string{"periodic-ci-openshift-hypershift-release-4.22-periodics-e2e-aks"}},
-	{PresubmitID: "pull-ci-openshift-hypershift-release-4.21-e2e-aws", PeriodicIDs: []string{"periodic-ci-openshift-hypershift-release-4.21-periodics-e2e-aws-ovn"}},
-	{PresubmitID: "pull-ci-openshift-hypershift-release-4.21-e2e-aks", PeriodicIDs: []string{"periodic-ci-openshift-hypershift-release-4.21-periodics-e2e-aks"}},
-	{PresubmitID: "pull-ci-openshift-hypershift-release-4.20-e2e-aws", PeriodicIDs: []string{"periodic-ci-openshift-hypershift-release-4.20-periodics-e2e-aws-ovn"}},
-	{PresubmitID: "pull-ci-openshift-hypershift-release-4.20-e2e-aks", PeriodicIDs: []string{"periodic-ci-openshift-hypershift-release-4.20-periodics-e2e-aks"}},
-	{PresubmitID: "pull-ci-openshift-hypershift-release-4.19-e2e-aws", PeriodicIDs: []string{"periodic-ci-openshift-hypershift-release-4.19-periodics-e2e-aws-ovn"}},
-	{PresubmitID: "pull-ci-openshift-hypershift-release-4.19-e2e-aks", PeriodicIDs: []string{"periodic-ci-openshift-hypershift-release-4.19-periodics-e2e-aks"}},
-	{PresubmitID: "pull-ci-openshift-hypershift-release-4.19-e2e-conformance", PeriodicIDs: []string{"periodic-ci-openshift-hypershift-release-4.19-periodics-e2e-aws-ovn-conformance"}},
-	{PresubmitID: "pull-ci-openshift-hypershift-release-4.18-e2e-aws", PeriodicIDs: []string{"periodic-ci-openshift-hypershift-release-4.18-periodics-e2e-aws-ovn"}},
-	{PresubmitID: "pull-ci-openshift-hypershift-release-4.18-e2e-conformance", PeriodicIDs: []string{"periodic-ci-openshift-hypershift-release-4.18-periodics-e2e-aws-ovn-conformance"}},
-	{PresubmitID: "pull-ci-openshift-hypershift-release-4.17-e2e-aws", PeriodicIDs: []string{"periodic-ci-openshift-hypershift-release-4.17-periodics-e2e-aws-ovn"}},
-	{PresubmitID: "pull-ci-openshift-hypershift-release-4.17-e2e-conformance", PeriodicIDs: []string{"periodic-ci-openshift-hypershift-release-4.17-periodics-e2e-aws-ovn-conformance"}},
-	{PresubmitID: "pull-ci-openshift-hypershift-release-4.16-e2e-aws", PeriodicIDs: []string{"periodic-ci-openshift-hypershift-release-4.16-periodics-e2e-aws-ovn"}},
-	{PresubmitID: "pull-ci-openshift-hypershift-release-4.16-e2e-conformance", PeriodicIDs: []string{"periodic-ci-openshift-hypershift-release-4.16-periodics-e2e-aws-ovn-conformance"}},
-	{PresubmitID: "pull-ci-openshift-hypershift-release-4.15-e2e-aws", PeriodicIDs: []string{"periodic-ci-openshift-hypershift-release-4.15-periodics-e2e-aws-ovn"}},
-	{PresubmitID: "pull-ci-openshift-hypershift-release-4.14-e2e-aws", PeriodicIDs: []string{"periodic-ci-openshift-hypershift-release-4.14-periodics-e2e-aws-ovn"}},
-}
-
 type PeriodicJobConfig struct {
-	ID          string
-	Name        string
-	ProwJobName string
-	Release     string
-	Job         *jobregistry.Job
+	ID                string
+	Name              string
+	ProwJobName       string
+	Release           string
+	RelationshipBasis jobregistry.PresubmitPeriodicRelationshipBasis
+	Job               *jobregistry.Job
 }
 
 type BlockingJobConfig struct {
@@ -66,7 +30,7 @@ type BlockingJobConfig struct {
 
 // PayloadBlockingJobConfig is a periodic job that gates a release payload.
 // These relationships come directly from release-controller metadata in the
-// generated registry, rather than from the explicit presubmit/periodic pairings above.
+// generated registry rather than from its provisional presubmit relationships.
 type ReleasePayloadParticipation struct {
 	Stream       jobregistry.ReleaseControllerStream
 	Verification jobregistry.ReleaseControllerVerification
@@ -119,12 +83,12 @@ type Catalog struct {
 func NewCatalog(registry *jobregistry.Registry) (*Catalog, error) {
 	index := registry.Index()
 	catalog := &Catalog{
-		BlockingJobs:  make([]BlockingJobConfig, 0, len(PresubmitPeriodicPairings)),
+		BlockingJobs:  make([]BlockingJobConfig, 0, len(registry.PresubmitPeriodicRelationships)),
 		registryIndex: index,
 	}
-	seenPresubmits := make(map[string]struct{}, len(PresubmitPeriodicPairings))
+	seenPresubmits := make(map[string]struct{}, len(registry.PresubmitPeriodicRelationships))
 
-	for _, pairing := range PresubmitPeriodicPairings {
+	for _, pairing := range registry.PresubmitPeriodicRelationships {
 		if len(pairing.PeriodicIDs) == 0 {
 			return nil, fmt.Errorf("presubmit pairing %q has no periodics", pairing.PresubmitID)
 		}
@@ -140,7 +104,7 @@ func NewCatalog(registry *jobregistry.Registry) (*Catalog, error) {
 			return nil, fmt.Errorf("configured presubmit %q has registry type %q", pairing.PresubmitID, presubmit.Type)
 		}
 		if presubmit.Presubmit == nil || !presubmit.Presubmit.Required {
-			return nil, fmt.Errorf("configured presubmit %q is not required", pairing.PresubmitID)
+			continue
 		}
 
 		configured := BlockingJobConfig{
@@ -167,12 +131,16 @@ func NewCatalog(registry *jobregistry.Registry) (*Catalog, error) {
 				return nil, fmt.Errorf("paired periodic %q has %d versions; expected exactly one", periodicID, len(periodic.Versions))
 			}
 			configured.Periodics = append(configured.Periodics, PeriodicJobConfig{
-				ID:          periodic.ID,
-				Name:        shortName(periodic.Name),
-				ProwJobName: periodic.Name,
-				Release:     periodic.Versions[0],
-				Job:         periodic,
+				ID:                periodic.ID,
+				Name:              shortName(periodic.Name),
+				ProwJobName:       periodic.Name,
+				Release:           periodic.Versions[0],
+				RelationshipBasis: pairing.Basis,
+				Job:               periodic,
 			})
+		}
+		if len(configured.Periodics) == 0 || !supportedRelease(configured.Periodics[0].Release) {
+			continue
 		}
 		catalog.BlockingJobs = append(catalog.BlockingJobs, configured)
 	}
