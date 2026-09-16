@@ -38,6 +38,7 @@ func TestGoldenRegistryCatalogQueries(t *testing.T) {
 		{"releases", catalog.Releases(), []string{"4.14", "4.15", "4.16", "4.17", "4.18", "4.19", "4.20", "4.21", "4.22", "5.0", "5.1"}},
 		{"platforms", catalog.Platforms(), []string{"aro", "aws", "azure", "gcp", "kubevirt"}},
 		{"presubmit query count", len(catalog.PresubmitProwJobNames()), 69},
+		{"Sippy presubmit query count", len(catalog.SippyPresubmitProwJobNames()), 11},
 	}
 	for _, test := range aggregates {
 		t.Run(test.name, func(t *testing.T) {
@@ -80,6 +81,22 @@ func TestGoldenRegistryCatalogQueries(t *testing.T) {
 			}
 		})
 	}
+
+	sippyPresubmits := catalog.SippyPresubmitProwJobNames()
+	sippyQueries := []struct {
+		name string
+		want bool
+	}{
+		{"pull-ci-openshift-hypershift-main-e2e-aws-5-0", true},
+		{"pull-ci-openshift-hypershift-release-4.22-e2e-v2-aws", false},
+	}
+	for _, query := range sippyQueries {
+		t.Run("Sippy presubmit/"+query.name, func(t *testing.T) {
+			if got := slices.Contains(sippyPresubmits, query.name); got != query.want {
+				t.Errorf("membership = %t, want %t", got, query.want)
+			}
+		})
+	}
 }
 
 func TestComponentReadinessExcludesUnsupportedReleases(t *testing.T) {
@@ -101,12 +118,13 @@ func TestGoldenRegistryBlockingJobPairingQueries(t *testing.T) {
 		index[job.ProwJobName] = job
 	}
 	tests := []struct {
-		name      string
-		presubmit string
-		periodic  string
-		target    string
-		release   string
-		source    jobregistry.PeriodicCounterpartSource
+		name         string
+		presubmit    string
+		periodic     string
+		target       string
+		release      string
+		source       jobregistry.PeriodicCounterpartSource
+		verification jobregistry.PeriodicCounterpartVerification
 	}{
 		{
 			"main exact match",
@@ -115,6 +133,7 @@ func TestGoldenRegistryBlockingJobPairingQueries(t *testing.T) {
 			"5.1",
 			"5.1",
 			jobregistry.PeriodicCounterpartSourceRegistryManual,
+			jobregistry.PeriodicCounterpartVerificationHuman,
 		},
 		{
 			"release exact match",
@@ -123,6 +142,7 @@ func TestGoldenRegistryBlockingJobPairingQueries(t *testing.T) {
 			"4.22",
 			"4.22",
 			jobregistry.PeriodicCounterpartSourceRegistryManual,
+			jobregistry.PeriodicCounterpartVerificationHuman,
 		},
 		{
 			"AWS name alias",
@@ -131,14 +151,7 @@ func TestGoldenRegistryBlockingJobPairingQueries(t *testing.T) {
 			"5.1",
 			"5.1",
 			jobregistry.PeriodicCounterpartSourceRegistryManual,
-		},
-		{
-			"upgrade name alias",
-			"pull-ci-openshift-hypershift-main-e2e-aws-upgrade-hypershift-operator",
-			"periodic-ci-openshift-hypershift-release-5.1-periodics-e2e-aws-upgrade",
-			"5.1",
-			"5.1",
-			jobregistry.PeriodicCounterpartSourceRegistryManual,
+			jobregistry.PeriodicCounterpartVerificationHuman,
 		},
 		{
 			"KubeVirt name alias",
@@ -147,6 +160,7 @@ func TestGoldenRegistryBlockingJobPairingQueries(t *testing.T) {
 			"5.1",
 			"5.1",
 			jobregistry.PeriodicCounterpartSourceRegistryManual,
+			jobregistry.PeriodicCounterpartVerificationHuman,
 		},
 		{
 			"conformance name alias on release branch",
@@ -155,6 +169,16 @@ func TestGoldenRegistryBlockingJobPairingQueries(t *testing.T) {
 			"4.16",
 			"4.16",
 			jobregistry.PeriodicCounterpartSourceRegistryManual,
+			jobregistry.PeriodicCounterpartVerificationHuman,
+		},
+		{
+			"verified branch-derived mapping",
+			"pull-ci-openshift-hypershift-release-4.22-e2e-v2-aws",
+			"periodic-ci-openshift-hypershift-release-4.22-periodics-e2e-v2-aws",
+			"4.22",
+			"4.22",
+			jobregistry.PeriodicCounterpartSourceRegistryManual,
+			jobregistry.PeriodicCounterpartVerificationHuman,
 		},
 	}
 	for _, test := range tests {
@@ -167,7 +191,7 @@ func TestGoldenRegistryBlockingJobPairingQueries(t *testing.T) {
 				t.Fatalf("periodics = %+v", job.Periodics)
 			}
 			got := job.Periodics[0]
-			if job.TargetRelease != test.target || got.ProwJobName != test.periodic || got.Release != test.release || got.RelationshipSource != test.source || got.RelationshipVerification != jobregistry.PeriodicCounterpartVerificationHuman || got.RelationshipRationale == "" {
+			if job.TargetRelease != test.target || got.ProwJobName != test.periodic || got.Release != test.release || got.RelationshipSource != test.source || got.RelationshipVerification != test.verification || got.RelationshipRationale == "" {
 				t.Errorf("periodic pairing = %+v", got)
 			}
 		})
@@ -187,7 +211,8 @@ func TestGoldenRegistryUnpairedPresubmitsRemainVisible(t *testing.T) {
 	}{
 		{"main compatibility job", "pull-ci-openshift-hypershift-main-e2e-aws-5-0", "5.1"},
 		{"release compatibility job", "pull-ci-openshift-hypershift-release-4.22-e2e-aws-4-21", "4.22"},
-		{"same-name jobs are not inferred", "pull-ci-openshift-hypershift-release-4.22-e2e-v2-aws", "4.22"},
+		{"main operator upgrade job", "pull-ci-openshift-hypershift-main-e2e-aws-upgrade-hypershift-operator", "5.1"},
+		{"release operator upgrade job", "pull-ci-openshift-hypershift-release-4.22-e2e-aws-upgrade-hypershift-operator", "4.22"},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {

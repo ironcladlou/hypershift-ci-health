@@ -11,21 +11,21 @@ const (
 	developmentBranch  = "main"
 	developmentRelease = "5.1"
 	manualRationale    = "A human reviewed the job definitions and verified that these jobs exercise corresponding test scenarios."
+	proposalRationale  = "Proposed by applying a human-verified main-branch scenario mapping to jobs on the same release branch; requires human review."
 )
 
 var presubmitReleaseBranchRE = regexp.MustCompile(`^release-(\d+\.\d+)-(.+)$`)
 
-type manualPeriodicMapping struct {
+type periodicMapping struct {
 	PresubmitID string
 	PeriodicID  string
 }
 
-// manualPeriodicMappings is the sole source of presubmit/periodic
-// relationships published by the registry. Heuristic candidates must not be
-// added here until a human has compared the underlying job definitions.
-var manualPeriodicMappings = []manualPeriodicMapping{
+// The registry publishes only relationships explicitly listed below. Manual
+// mappings have been reviewed against job definitions; proposals are visible
+// candidates that still require that review.
+var manualPeriodicMappings = []periodicMapping{
 	{"pull-ci-openshift-hypershift-main-e2e-aws", "periodic-ci-openshift-hypershift-release-5.1-periodics-e2e-aws-ovn"},
-	{"pull-ci-openshift-hypershift-main-e2e-aws-upgrade-hypershift-operator", "periodic-ci-openshift-hypershift-release-5.1-periodics-e2e-aws-upgrade"},
 	{"pull-ci-openshift-hypershift-main-e2e-v2-aws", "periodic-ci-openshift-hypershift-release-5.1-periodics-e2e-v2-aws"},
 	{"pull-ci-openshift-hypershift-main-e2e-aks", "periodic-ci-openshift-hypershift-release-5.1-periodics-e2e-aks"},
 	{"pull-ci-openshift-hypershift-main-e2e-v2-azure-self-managed", "periodic-ci-openshift-hypershift-release-5.1-periodics-e2e-v2-azure-self-managed"},
@@ -48,7 +48,24 @@ var manualPeriodicMappings = []manualPeriodicMapping{
 	{"pull-ci-openshift-hypershift-release-4.16-e2e-conformance", "periodic-ci-openshift-hypershift-release-4.16-periodics-e2e-aws-ovn-conformance"},
 	{"pull-ci-openshift-hypershift-release-4.15-e2e-aws", "periodic-ci-openshift-hypershift-release-4.15-periodics-e2e-aws-ovn"},
 	{"pull-ci-openshift-hypershift-release-4.14-e2e-aws", "periodic-ci-openshift-hypershift-release-4.14-periodics-e2e-aws-ovn"},
+	{"pull-ci-openshift-hypershift-release-4.15-e2e-kubevirt-aws-ovn-reduced", "periodic-ci-openshift-hypershift-release-4.15-periodics-e2e-kubevirt-aws-ovn-csi"},
+	{"pull-ci-openshift-hypershift-release-4.16-e2e-kubevirt-aws-ovn-reduced", "periodic-ci-openshift-hypershift-release-4.16-periodics-e2e-kubevirt-aws-ovn-csi"},
+	{"pull-ci-openshift-hypershift-release-4.17-e2e-kubevirt-aws-ovn-reduced", "periodic-ci-openshift-hypershift-release-4.17-periodics-e2e-kubevirt-aws-ovn-csi"},
+	{"pull-ci-openshift-hypershift-release-4.18-e2e-kubevirt-aws-ovn-reduced", "periodic-ci-openshift-hypershift-release-4.18-periodics-e2e-kubevirt-aws-ovn-csi"},
+	{"pull-ci-openshift-hypershift-release-4.19-e2e-kubevirt-aws-ovn-reduced", "periodic-ci-openshift-hypershift-release-4.19-periodics-e2e-kubevirt-aws-ovn-csi"},
+	{"pull-ci-openshift-hypershift-release-4.20-e2e-kubevirt-aws-ovn-reduced", "periodic-ci-openshift-hypershift-release-4.20-periodics-e2e-kubevirt-aws-ovn-csi"},
+	{"pull-ci-openshift-hypershift-release-4.21-e2e-kubevirt-aws-ovn-reduced", "periodic-ci-openshift-hypershift-release-4.21-periodics-e2e-kubevirt-aws-ovn-csi"},
+	{"pull-ci-openshift-hypershift-release-4.22-e2e-v2-aws", "periodic-ci-openshift-hypershift-release-4.22-periodics-e2e-v2-aws"},
+	{"pull-ci-openshift-hypershift-release-4.22-e2e-kubevirt-aws-ovn-reduced", "periodic-ci-openshift-hypershift-release-4.22-periodics-e2e-kubevirt-aws-ovn-csi"},
+	{"pull-ci-openshift-hypershift-release-5.0-e2e-aws", "periodic-ci-openshift-hypershift-release-5.0-periodics-e2e-aws-ovn"},
+	{"pull-ci-openshift-hypershift-release-5.0-e2e-v2-aws", "periodic-ci-openshift-hypershift-release-5.0-periodics-e2e-v2-aws"},
+	{"pull-ci-openshift-hypershift-release-5.0-e2e-aks", "periodic-ci-openshift-hypershift-release-5.0-periodics-e2e-aks"},
+	{"pull-ci-openshift-hypershift-release-5.0-e2e-v2-azure-self-managed", "periodic-ci-openshift-hypershift-release-5.0-periodics-e2e-v2-azure-self-managed"},
+	{"pull-ci-openshift-hypershift-release-5.0-e2e-v2-gke", "periodic-ci-openshift-hypershift-release-5.0-periodics-e2e-v2-gke"},
+	{"pull-ci-openshift-hypershift-release-5.0-e2e-kubevirt-aws-ovn-reduced", "periodic-ci-openshift-hypershift-release-5.0-periodics-e2e-kubevirt-aws-ovn-csi"},
 }
+
+var proposedPeriodicMappings = []periodicMapping{}
 
 func populatePeriodicCounterparts(registry *Registry) error {
 	index := registry.Index()
@@ -65,22 +82,34 @@ func populatePeriodicCounterparts(registry *Registry) error {
 		}
 	}
 
-	for _, mapping := range manualPeriodicMappings {
-		presubmit := index[mapping.PresubmitID]
-		if presubmit == nil || presubmit.Type != "presubmit" || presubmit.Presubmit == nil {
-			return fmt.Errorf("manual mapping presubmit %q is not a presubmit job", mapping.PresubmitID)
+	mappingSets := []struct {
+		name         string
+		mappings     []periodicMapping
+		source       PeriodicCounterpartSource
+		verification PeriodicCounterpartVerification
+		rationale    string
+	}{
+		{"manual", manualPeriodicMappings, PeriodicCounterpartSourceRegistryManual, PeriodicCounterpartVerificationHuman, manualRationale},
+		{"proposal", proposedPeriodicMappings, PeriodicCounterpartSourceRegistryProposal, PeriodicCounterpartVerificationNeedsReview, proposalRationale},
+	}
+	for _, set := range mappingSets {
+		for _, mapping := range set.mappings {
+			presubmit := index[mapping.PresubmitID]
+			if presubmit == nil || presubmit.Type != "presubmit" || presubmit.Presubmit == nil {
+				return fmt.Errorf("%s mapping presubmit %q is not a presubmit job", set.name, mapping.PresubmitID)
+			}
+			periodic := index[mapping.PeriodicID]
+			if periodic == nil || periodic.Type != "periodic" || len(periodic.Versions) != 1 {
+				return fmt.Errorf("%s mapping periodic %q is not a single-release periodic job", set.name, mapping.PeriodicID)
+			}
+			presubmit.Presubmit.PeriodicCounterparts = append(presubmit.Presubmit.PeriodicCounterparts, PeriodicCounterpart{
+				JobID:         periodic.ID,
+				TestedRelease: periodic.Versions[0],
+				Source:        set.source,
+				Verification:  set.verification,
+				Rationale:     set.rationale,
+			})
 		}
-		periodic := index[mapping.PeriodicID]
-		if periodic == nil || periodic.Type != "periodic" || len(periodic.Versions) != 1 {
-			return fmt.Errorf("manual mapping periodic %q is not a single-release periodic job", mapping.PeriodicID)
-		}
-		presubmit.Presubmit.PeriodicCounterparts = append(presubmit.Presubmit.PeriodicCounterparts, PeriodicCounterpart{
-			JobID:         periodic.ID,
-			TestedRelease: periodic.Versions[0],
-			Source:        PeriodicCounterpartSourceRegistryManual,
-			Verification:  PeriodicCounterpartVerificationHuman,
-			Rationale:     manualRationale,
-		})
 	}
 
 	for i := range registry.Jobs {
@@ -90,9 +119,6 @@ func populatePeriodicCounterparts(registry *Registry) error {
 		sort.Slice(registry.Jobs[i].Presubmit.PeriodicCounterparts, func(a, b int) bool {
 			return registry.Jobs[i].Presubmit.PeriodicCounterparts[a].JobID < registry.Jobs[i].Presubmit.PeriodicCounterparts[b].JobID
 		})
-	}
-	if err := validatePeriodicCounterparts(registry, index); err != nil {
-		return fmt.Errorf("validate periodic counterparts: %w", err)
 	}
 	return nil
 }
@@ -120,10 +146,30 @@ func validatePeriodicCounterparts(registry *Registry, index map[string]*Job) err
 	if !registry.PresubmitPolicy.Provisional {
 		return fmt.Errorf("presubmit policy is not marked provisional")
 	}
+	if !sort.StringsAreSorted(registry.PresubmitPolicy.SippyReleaseBranchAllowlist) {
+		return fmt.Errorf("Sippy release branch allowlist is not sorted")
+	}
+	for i, release := range registry.PresubmitPolicy.SippyReleaseBranchAllowlist {
+		if release == "" || i > 0 && release == registry.PresubmitPolicy.SippyReleaseBranchAllowlist[i-1] {
+			return fmt.Errorf("Sippy release branch allowlist contains an empty or duplicate release")
+		}
+	}
+	allowedReleases := make(map[string]struct{}, len(registry.PresubmitPolicy.SippyReleaseBranchAllowlist))
+	for _, release := range registry.PresubmitPolicy.SippyReleaseBranchAllowlist {
+		allowedReleases[release] = struct{}{}
+	}
 	for i := range registry.Jobs {
 		presubmit := &registry.Jobs[i]
 		if presubmit.Presubmit == nil {
 			continue
+		}
+		if presubmit.Presubmit.SippyIngestion.Basis == "" {
+			return fmt.Errorf("presubmit %q has no Sippy ingestion basis", presubmit.ID)
+		}
+		_, releaseIsAllowed := allowedReleases[presubmit.Presubmit.TargetRelease]
+		expectedEnabled := presubmit.Presubmit.TargetBranch == registry.PresubmitPolicy.DevelopmentBranch || releaseIsAllowed
+		if presubmit.Presubmit.SippyIngestion.Enabled != expectedEnabled {
+			return fmt.Errorf("presubmit %q has Sippy ingestion enabled=%t, expected %t from registry policy", presubmit.ID, presubmit.Presubmit.SippyIngestion.Enabled, expectedEnabled)
 		}
 		seen := make(map[string]struct{}, len(presubmit.Presubmit.PeriodicCounterparts))
 		for _, counterpart := range presubmit.Presubmit.PeriodicCounterparts {
@@ -133,11 +179,15 @@ func validatePeriodicCounterparts(registry *Registry, index map[string]*Job) err
 			if counterpart.JobID == "" || counterpart.TestedRelease == "" || counterpart.Source == "" || counterpart.Verification == "" || counterpart.Rationale == "" {
 				return fmt.Errorf("presubmit %q has an incomplete periodic counterpart", presubmit.ID)
 			}
-			if counterpart.Source != PeriodicCounterpartSourceRegistryManual {
+			if counterpart.Source != PeriodicCounterpartSourceRegistryManual && counterpart.Source != PeriodicCounterpartSourceRegistryProposal {
 				return fmt.Errorf("periodic counterpart %q on presubmit %q has unsupported source %q", counterpart.JobID, presubmit.ID, counterpart.Source)
 			}
-			if counterpart.Verification != PeriodicCounterpartVerificationHuman {
+			if counterpart.Verification != PeriodicCounterpartVerificationHuman && counterpart.Verification != PeriodicCounterpartVerificationNeedsReview {
 				return fmt.Errorf("periodic counterpart %q on presubmit %q has unsupported verification %q", counterpart.JobID, presubmit.ID, counterpart.Verification)
+			}
+			if counterpart.Source == PeriodicCounterpartSourceRegistryManual && counterpart.Verification != PeriodicCounterpartVerificationHuman ||
+				counterpart.Source == PeriodicCounterpartSourceRegistryProposal && counterpart.Verification != PeriodicCounterpartVerificationNeedsReview {
+				return fmt.Errorf("periodic counterpart %q on presubmit %q has inconsistent source %q and verification %q", counterpart.JobID, presubmit.ID, counterpart.Source, counterpart.Verification)
 			}
 			if _, found := seen[counterpart.JobID]; found {
 				return fmt.Errorf("presubmit %q contains duplicate periodic counterpart %q", presubmit.ID, counterpart.JobID)

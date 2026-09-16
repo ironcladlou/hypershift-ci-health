@@ -35,11 +35,14 @@ func TestGoldenRegistryPresubmitHealthQueries(t *testing.T) {
 		role            string
 		periodic        string
 		periodicRelease string
+		source          string
+		verification    string
 	}{
 		{
 			"main compatibility job is in Future",
 			"pull-ci-openshift-hypershift-main-e2e-aws-5-0",
 			"main", "5.1", "future",
+			"", "",
 			"", "",
 		},
 		{
@@ -47,12 +50,21 @@ func TestGoldenRegistryPresubmitHealthQueries(t *testing.T) {
 			"pull-ci-openshift-hypershift-release-4.22-e2e-aws-4-21",
 			"release-4.22", "4.22", "n-2",
 			"", "",
+			"", "",
 		},
 		{
 			"human-verified mapping is exposed",
 			"pull-ci-openshift-hypershift-main-e2e-aws",
 			"main", "5.1", "future",
 			"periodic-ci-openshift-hypershift-release-5.1-periodics-e2e-aws-ovn", "5.1",
+			"registry-manual", "human-verified",
+		},
+		{
+			"verified branch-derived mapping is exposed",
+			"pull-ci-openshift-hypershift-release-4.22-e2e-v2-aws",
+			"release-4.22", "4.22", "n-2",
+			"periodic-ci-openshift-hypershift-release-4.22-periodics-e2e-v2-aws", "4.22",
+			"registry-manual", "human-verified",
 		},
 	}
 	for _, test := range tests {
@@ -67,7 +79,7 @@ func TestGoldenRegistryPresubmitHealthQueries(t *testing.T) {
 			if test.periodic == "" && len(job.Periodics) != 0 {
 				t.Errorf("unexpected periodics = %+v", job.Periodics)
 			}
-			if test.periodic != "" && (len(job.Periodics) != 1 || job.Periodics[0].Prow != test.periodic || job.Periodics[0].Release != test.periodicRelease || job.Periodics[0].RelationshipSource != "registry-manual" || job.Periodics[0].RelationshipVerification != "human-verified") {
+			if test.periodic != "" && (len(job.Periodics) != 1 || job.Periodics[0].Prow != test.periodic || job.Periodics[0].Release != test.periodicRelease || job.Periodics[0].RelationshipSource != test.source || job.Periodics[0].RelationshipVerification != test.verification) {
 				t.Errorf("periodics = %+v", job.Periodics)
 			}
 		})

@@ -119,6 +119,33 @@ tbody tr:last-child td { border-bottom: none; }
   font-weight: 400;
 }
 .job-name a:hover { text-decoration: underline; }
+.job-name-label { color: var(--text-primary); }
+.job-links {
+  width: 1%;
+  padding-left: 8px;
+  padding-right: 10px;
+  white-space: nowrap;
+  text-align: right;
+}
+.job-links-header { width: 1%; text-align: right; }
+.job-link-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin-left: 7px;
+  color: var(--text-muted);
+  vertical-align: middle;
+}
+.job-link-icon:hover {
+  color: var(--link);
+  text-decoration: none;
+  opacity: 0.8;
+}
+.job-link-icon svg {
+  display: block;
+  width: 17px;
+  height: 17px;
+}
 .category-row td {
   padding: 6px 12px;
   font-size: 11px;
@@ -561,6 +588,7 @@ let healthSnapshot = null;
 let collectionStatus = null;
 let healthLoadPending = false;
 let jobRegistry = null;
+let jobRegistryIndex = new Map();
 let registryLoadPending = false;
 let releaseVersions = [];
 let releaseMinIndex = 0;
@@ -987,7 +1015,7 @@ function groupedRows(jobs, rowBuilder) {
   }
   let html = "";
   for (const value of dimensionOrder(Object.keys(groups), outer)) {
-    html += `<tr class="category-row"><td colspan="3">${esc(dimensionLabel(value, outer))}</td></tr>`;
+    html += `<tr class="category-row"><td colspan="4">${esc(dimensionLabel(value, outer))}</td></tr>`;
     if (dimensions.length === 1) {
       html += sortJobs(groups[value]).map(rowBuilder).join("");
       continue;
@@ -1000,7 +1028,7 @@ function groupedRows(jobs, rowBuilder) {
       subgroups[innerValue].push(job);
     }
     for (const innerValue of dimensionOrder(Object.keys(subgroups), inner)) {
-      html += `<tr class="subcategory-row"><td colspan="3">${esc(dimensionLabel(innerValue, inner))}</td></tr>`;
+      html += `<tr class="subcategory-row"><td colspan="4">${esc(dimensionLabel(innerValue, inner))}</td></tr>`;
       html += sortJobs(subgroups[innerValue]).map(rowBuilder).join("");
     }
   }
@@ -1022,9 +1050,9 @@ function buildHealthTable(jobs, title, emptyMessage, rowBuilder, includeFailureE
   const win = WINDOWS[activeWindow];
   let rows = jobs.length > 0
     ? groupedRows(jobs, rowBuilder)
-    : `<tr><td colspan="3" class="loading">${esc(emptyMessage)}</td></tr>`;
+    : `<tr><td colspan="4" class="loading">${esc(emptyMessage)}</td></tr>`;
   return `<table>
-    <thead><tr><th>${esc(title)}</th><th>Pass Rate</th><th>${win.sparkLabel}</th></tr></thead>
+    <thead><tr><th>${esc(title)}</th><th>Pass Rate</th><th>${win.sparkLabel}</th><th class="job-links-header">Links</th></tr></thead>
     <tbody>${rows}</tbody>
   </table>${tableLegend(includeFailureExplanation)}`;
 }
@@ -1087,9 +1115,13 @@ function buildRegistryTable(registry) {
     const context = job.context || "—";
     const jobLink = job.prow_job_history_url || (job.source && job.source.url) || "";
     const sippyLink = job.sippy_url || "";
+    const sippyIngestion = job.presubmit && job.presubmit.sippy_ingestion;
+    const sippyDetail = sippyIngestion && !sippyIngestion.enabled
+      ? `<span title="${esc(sippyIngestion.basis)}">sippy ingestion disabled</span>`
+      : sippyLink ? `<a href="${esc(sippyLink)}" target="_blank" rel="noopener">sippy</a>` : `<span>sippy unavailable</span>`;
     const registryEntryURL = `/api/job-registry/jobs/${encodeURIComponent(job.id)}`;
     const detailLinks = [
-      sippyLink ? `<a href="${esc(sippyLink)}" target="_blank" rel="noopener">sippy</a>` : `<span>sippy unavailable</span>`,
+      sippyDetail,
       job.source && job.source.url ? `<a href="${esc(job.source.url)}" target="_blank" rel="noopener">source</a>` : "",
       `<a href="${registryEntryURL}?format=yaml" data-job-id="${esc(job.id)}" aria-expanded="false" onclick="toggleRegistryYAML(this); return false">registry YAML</a>`,
     ].filter(Boolean).join(" · ");
@@ -1202,6 +1234,45 @@ function relationshipTooltip(periodic) {
   return [periodic.relationship_rationale, source, verification].filter(Boolean).join(" · ");
 }
 
+function registryJobFor(job) {
+  return jobRegistryIndex.get(job.id || job.prow);
+}
+
+function disabledSippyIngestion(job) {
+  const registryJob = registryJobFor(job);
+  const ingestion = registryJob && registryJob.presubmit && registryJob.presubmit.sippy_ingestion;
+  return ingestion && !ingestion.enabled ? ingestion : null;
+}
+
+function sippyIngestionBadge(job) {
+  const ingestion = disabledSippyIngestion(job);
+  if (!ingestion) return "";
+  return `<span class="job-type has-tip"><span class="tip">${esc(ingestion.basis)}</span>· Sippy disabled</span>`;
+}
+
+function presubmitJobName(job) {
+  if (!registryJobFor(job) || disabledSippyIngestion(job)) {
+    return `<span class="job-name-label">${esc(job.name)}</span>`;
+  }
+  return `<a href="${sippyJobLink(job.prow, "Presubmits")}" target="_blank" rel="noopener">${esc(job.name)}</a>`;
+}
+
+function prowHistoryLink(job) {
+  const registryJob = registryJobFor(job);
+  if (!registryJob || !registryJob.prow_job_history_url) return "";
+  return `<a class="job-link-icon" href="${esc(registryJob.prow_job_history_url)}" target="_blank" rel="noopener" title="Prow job history" aria-label="Prow history for ${esc(registryJob.name)}"><svg focusable="false" aria-hidden="true" viewBox="0 0 24 24" fill="currentColor"><path d="M20 21c-1.39 0-2.78-.47-4-1.32-2.44 1.71-5.56 1.71-8 0C6.78 20.53 5.39 21 4 21H2v2h2c1.38 0 2.74-.35 4-.99 2.52 1.29 5.48 1.29 8 0 1.26.65 2.62.99 4 .99h2v-2h-2zM3.95 19H4c1.6 0 3.02-.88 4-2 .98 1.12 2.4 2 4 2s3.02-.88 4-2c.98 1.12 2.4 2 4 2h.05l1.89-6.68c.08-.26.06-.54-.06-.78s-.34-.42-.6-.5L20 10.62V6c0-1.1-.9-2-2-2h-3V1H9v3H6c-1.1 0-2 .9-2 2v4.62l-1.29.42c-.26.08-.48.26-.6.5s-.15.52-.06.78L3.95 19zM6 6h12v3.97L12 8 6 9.97V6z"></path></svg></a>`;
+}
+
+function sippyAnalysisLink(job, release, presubmit = false) {
+  if (presubmit && (!registryJobFor(job) || disabledSippyIngestion(job))) return "";
+  const href = sippyJobLink(job.prow, presubmit ? "Presubmits" : release);
+  return `<a class="job-link-icon" href="${esc(href)}" target="_blank" rel="noopener" title="Sippy analysis" aria-label="Sippy analysis for ${esc(job.prow)}"><svg focusable="false" aria-hidden="true" viewBox="0 0 100 100"><path d="M 32 28 C 12 28 5 42 10 59" stroke="#848484" stroke-width="9" stroke-linecap="round" fill="none"/><path d="M 68 28 C 88 28 95 42 90 59" stroke="#848484" stroke-width="9" stroke-linecap="round" fill="none"/><path d="M 24 40 H 76 C 76 40 82 54 82 70 C 82 86 70 93 50 93 C 30 93 18 86 18 70 C 18 54 24 40 24 40 Z" fill="#b7b7b7"/><path d="M 24 40 H 76 C 76 42 70 48 50 48 C 30 48 24 42 24 40 Z" fill="#929292"/><path d="M 27 53 H 73 C 74 53 75 64 75 72 C 75 83 64 87 50 87 C 36 87 25 83 25 72 C 25 64 26 53 27 53 Z" fill="#bebebe"/><ellipse cx="37" cy="68" rx="2.2" ry="3.8" fill="#3b3b3b"/><ellipse cx="63" cy="68" rx="2.2" ry="3.8" fill="#3b3b3b"/><path d="M 45 71 Q 50 75 55 71" stroke="#3b3b3b" stroke-width="2.5" stroke-linecap="round" fill="none"/><path d="M 50 7 C 45 7 38 18 33 26 C 44 28 56 28 67 26 C 62 18 55 7 50 7 Z" fill="#747474"/><path d="M 19 36 C 19 25 33 23 50 23 C 67 23 81 25 81 36 C 81 42 67 44 50 44 C 33 44 19 42 19 36 Z" fill="#848484"/></svg></a>`;
+}
+
+function jobLinksCell(job, release, presubmit = false) {
+  return `<td class="job-links">${sippyAnalysisLink(job, release, presubmit)}${prowHistoryLink(job)}</td>`;
+}
+
 function buildRow(j) {
   const preChartId = `rate-${++chartIdSeq}`;
   const pre = extractErrorRates(j.sparkline);
@@ -1218,9 +1289,10 @@ function buildRow(j) {
 
   const hasPeriodics = j.periodics && j.periodics.length > 0;
   let html = `<tr>
-    <td class="job-name"><span class="status-dot ${statusClass(j.rate, j.runs)}"></span><a href="${sippyJobLink(j.prow, "Presubmits")}" target="_blank">${esc(j.name)}</a><span class="job-type">presubmit</span>${preInfraBadge}</td>
+    <td class="job-name"><span class="status-dot ${statusClass(j.rate, j.runs)}"></span>${presubmitJobName(j)}<span class="job-type">presubmit</span>${sippyIngestionBadge(j)}${preInfraBadge}</td>
     <td class="rate-chart-cell"><div class="rate-chart-inner"><canvas id="${preChartId}" width="140" height="28"></canvas>${rateDeltaHtml(j.rate, j.prev, j.prev_runs, j.trend, j.runs, j.fails, j.test_fails, j.infra_fails)}</div></td>
     <td class="sparkline-cell">${buildSparkline(j.sparkline, !hasPeriodics, j.correlation ? j.correlation.indices : null)}</td>
+    ${jobLinksCell(j, "Presubmits", true)}
   </tr>`;
 
   for (const p of (j.periodics || [])) {
@@ -1239,13 +1311,15 @@ function buildRow(j) {
       ? `<span class="infra-badge has-tip"><span class="tip">${p.infra_fails} of ${perSparkRuns} runs were infrastructure failures — the job errored or timed out before tests could run.</span>${p.infra_fails} infra</span>`
       : '';
     const pairingTip = relationshipTooltip(p);
+    const reviewLabel = p.relationship_verification === "needs-review" ? " · needs review" : "";
     const periodicBadge = pairingTip
-      ? `<span class="job-type has-tip"><span class="tip">${esc(pairingTip)}</span>periodic ${esc(p.label)}</span>`
+      ? `<span class="job-type has-tip"><span class="tip">${esc(pairingTip)}</span>periodic ${esc(p.label)}${reviewLabel}</span>`
       : `<span class="job-type">periodic ${esc(p.label)}</span>`;
     html += `<tr class="periodic-row">
-      <td class="job-name periodic-name"><span class="status-dot ${statusClass(pRate, pRuns)}"></span><a class="periodic-link" href="${sippyJobLink(p.prow, p.release)}" target="_blank">${esc(p.name)}</a>${periodicBadge}${perInfraBadge}</td>
+      <td class="job-name periodic-name"><span class="status-dot ${statusClass(pRate, pRuns)}"></span><a class="periodic-link" href="${sippyJobLink(p.prow, p.release)}" target="_blank" rel="noopener">${esc(p.name)}</a>${periodicBadge}${perInfraBadge}</td>
       <td class="rate-chart-cell"><div class="rate-chart-inner"><canvas id="${perChartId}" width="140" height="28"></canvas>${rateDeltaHtml(pRate, p.prev != null ? p.prev : 0, p.prev_runs ?? 0, p.trend, pRuns, p.fails ?? 0, p.test_fails ?? 0, p.infra_fails ?? 0)}</div></td>
       <td class="sparkline-cell">${buildSparkline(p.sparkline)}</td>
+      ${jobLinksCell(p, p.release)}
     </tr>`;
   }
 
@@ -1271,6 +1345,7 @@ function buildPeriodicHealthRow(p, badges, context) {
     <td class="job-name"><span class="status-dot ${statusClass(rate, runs)}"></span><a href="${sippyJobLink(p.prow, p.release)}" target="_blank" rel="noopener">${esc(p.name)}</a>${badges}${infraBadge}${context || ""}</td>
     <td class="rate-chart-cell"><div class="rate-chart-inner"><canvas id="${chartId}" width="140" height="28"></canvas>${rateDeltaHtml(rate, p.prev != null ? p.prev : 0, p.prev_runs ?? 0, p.trend, runs, p.fails ?? 0, p.test_fails ?? 0, p.infra_fails ?? 0)}</div></td>
     <td class="sparkline-cell">${buildSparkline(p.sparkline)}</td>
+    ${jobLinksCell(p, p.release)}
   </tr>`;
 }
 
@@ -1362,7 +1437,8 @@ async function loadJobRegistry() {
     const resp = await fetch("/api/job-registry");
     if (!resp.ok) throw new Error(`${resp.status} ${resp.statusText}`);
     jobRegistry = await resp.json();
-    if (activeView === "registry") renderDashboard();
+    jobRegistryIndex = new Map((jobRegistry.jobs || []).map(job => [job.id, job]));
+    renderDashboard();
   } catch (err) {
     console.error("Job registry load failed:", err);
     if (activeView === "registry") {
@@ -1502,7 +1578,7 @@ document.querySelectorAll("#group-toggle button").forEach(b => {
 });
 loadDashboard();
 loadCollectionStatus();
-if (activeView === "registry") loadJobRegistry();
+loadJobRegistry();
 setInterval(() => loadDashboard(), 15 * 60 * 1000);
 setInterval(() => loadCollectionStatus(), 1000);
 

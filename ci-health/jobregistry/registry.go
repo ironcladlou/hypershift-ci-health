@@ -18,7 +18,7 @@ import (
 )
 
 const (
-	currentAPIVersion           = "job-registry/v5"
+	currentAPIVersion           = "job-registry/v6"
 	releaseRepository           = "openshift/release"
 	releaseMainURL              = "https://github.com/openshift/release/blob/main/"
 	defaultSippyURL             = "https://sippy.dptools.openshift.org"
@@ -128,6 +128,10 @@ func Discover(releaseDir string, options Options) (Registry, error) {
 	}
 	if err := populatePeriodicCounterparts(&registry); err != nil {
 		return Registry{}, fmt.Errorf("discover periodic counterparts: %w", err)
+	}
+	populateSippyIngestion(&registry)
+	if err := registry.Validate(); err != nil {
+		return Registry{}, fmt.Errorf("validate decorated registry: %w", err)
 	}
 	return registry, nil
 }
@@ -336,10 +340,11 @@ func discover(releaseDir string) (Registry, error) {
 	registry := Registry{
 		APIVersion: currentAPIVersion,
 		PresubmitPolicy: PresubmitPolicy{
-			DevelopmentBranch:  developmentBranch,
-			DevelopmentRelease: developmentRelease,
-			Provisional:        true,
-			Description:        "Maps pull requests targeting main to the configured development release until Prow publishes a release identity for the branch.",
+			DevelopmentBranch:           developmentBranch,
+			DevelopmentRelease:          developmentRelease,
+			SippyReleaseBranchAllowlist: []string{},
+			Provisional:                 true,
+			Description:                 "Maps pull requests targeting main to the configured development release until Prow publishes a release identity for the branch.",
 		},
 		Jobs: []Job{},
 	}

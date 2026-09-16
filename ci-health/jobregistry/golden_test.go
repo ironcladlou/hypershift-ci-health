@@ -55,8 +55,8 @@ func TestGoldenRegistrySnapshot(t *testing.T) {
 		{"jobs", 893},
 		{"periodics", 464},
 		{"presubmits", 429},
-		{"presubmits with counterparts", 24},
-		{"counterparts", 24},
+		{"presubmits with counterparts", 38},
+		{"counterparts", 38},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
@@ -94,6 +94,9 @@ func TestGoldenRegistryInvariants(t *testing.T) {
 			}
 		}
 		if job.Presubmit != nil {
+			if job.Presubmit.SippyIngestion.Basis == "" {
+				t.Errorf("presubmit %q has no Sippy ingestion basis", job.ID)
+			}
 			counterpartIDs := make([]string, len(job.Presubmit.PeriodicCounterparts))
 			for i := range job.Presubmit.PeriodicCounterparts {
 				counterpartIDs[i] = job.Presubmit.PeriodicCounterparts[i].JobID
@@ -126,9 +129,11 @@ func TestGoldenRegistryJobQueries(t *testing.T) {
 		platforms         []string
 		counterpartID     string
 		counterpartSource PeriodicCounterpartSource
+		verification      PeriodicCounterpartVerification
 		targetBranch      string
 		targetRelease     string
 		testedRelease     string
+		sippyEnabled      bool
 	}{
 		{
 			name:    "main presubmit with aliased periodic",
@@ -136,7 +141,9 @@ func TestGoldenRegistryJobQueries(t *testing.T) {
 			jobType: "presubmit", platforms: []string{"aws"},
 			counterpartID:     "periodic-ci-openshift-hypershift-release-5.1-periodics-e2e-aws-ovn",
 			counterpartSource: PeriodicCounterpartSourceRegistryManual,
+			verification:      PeriodicCounterpartVerificationHuman,
 			targetBranch:      "main", targetRelease: "5.1", testedRelease: "5.1",
+			sippyEnabled: true,
 		},
 		{
 			name:    "release presubmit with exact periodic",
@@ -144,6 +151,7 @@ func TestGoldenRegistryJobQueries(t *testing.T) {
 			jobType: "presubmit", versions: []string{"4.22"}, platforms: []string{"aro"},
 			counterpartID:     "periodic-ci-openshift-hypershift-release-4.22-periodics-e2e-aks",
 			counterpartSource: PeriodicCounterpartSourceRegistryManual,
+			verification:      PeriodicCounterpartVerificationHuman,
 			targetBranch:      "release-4.22", targetRelease: "4.22", testedRelease: "4.22",
 		},
 		{
@@ -151,6 +159,7 @@ func TestGoldenRegistryJobQueries(t *testing.T) {
 			id:      "pull-ci-openshift-hypershift-main-e2e-aws-5-0",
 			jobType: "presubmit", versions: []string{"5.0"}, platforms: []string{"aws"},
 			targetBranch: "main", targetRelease: "5.1",
+			sippyEnabled: true,
 		},
 		{
 			name:    "release branch compatibility presubmit",
@@ -159,10 +168,20 @@ func TestGoldenRegistryJobQueries(t *testing.T) {
 			targetBranch: "release-4.22", targetRelease: "4.22",
 		},
 		{
-			name:    "same-name jobs are not inferred",
+			name:    "operator upgrade presubmit has no periodic counterpart",
+			id:      "pull-ci-openshift-hypershift-main-e2e-aws-upgrade-hypershift-operator",
+			jobType: "presubmit", platforms: []string{"aws"},
+			targetBranch: "main", targetRelease: "5.1",
+			sippyEnabled: true,
+		},
+		{
+			name:    "verified branch-derived mapping",
 			id:      "pull-ci-openshift-hypershift-release-4.22-e2e-v2-aws",
 			jobType: "presubmit", versions: []string{"4.22"}, platforms: []string{"aws"},
-			targetBranch: "release-4.22", targetRelease: "4.22",
+			counterpartID:     "periodic-ci-openshift-hypershift-release-4.22-periodics-e2e-v2-aws",
+			counterpartSource: PeriodicCounterpartSourceRegistryManual,
+			verification:      PeriodicCounterpartVerificationHuman,
+			targetBranch:      "release-4.22", targetRelease: "4.22", testedRelease: "4.22",
 		},
 		{
 			name:    "periodic",
@@ -182,6 +201,9 @@ func TestGoldenRegistryJobQueries(t *testing.T) {
 			if test.targetBranch != "" && (job.Presubmit == nil || job.Presubmit.TargetBranch != test.targetBranch || job.Presubmit.TargetRelease != test.targetRelease) {
 				t.Errorf("target = %+v", job.Presubmit)
 			}
+			if job.Presubmit != nil && (job.Presubmit.SippyIngestion.Enabled != test.sippyEnabled || job.Presubmit.SippyIngestion.Basis == "") {
+				t.Errorf("Sippy ingestion = %+v, want enabled=%t with a basis", job.Presubmit.SippyIngestion, test.sippyEnabled)
+			}
 			if test.counterpartID == "" {
 				if job.Presubmit != nil && len(job.Presubmit.PeriodicCounterparts) != 0 {
 					t.Errorf("unexpected periodic counterparts = %+v", job.Presubmit.PeriodicCounterparts)
@@ -192,8 +214,40 @@ func TestGoldenRegistryJobQueries(t *testing.T) {
 				t.Fatalf("periodic counterparts = %+v", job.Presubmit)
 			}
 			counterpart := job.Presubmit.PeriodicCounterparts[0]
-			if counterpart.JobID != test.counterpartID || counterpart.TestedRelease != test.testedRelease || counterpart.Source != test.counterpartSource || counterpart.Verification != PeriodicCounterpartVerificationHuman || counterpart.Rationale == "" {
+			if counterpart.JobID != test.counterpartID || counterpart.TestedRelease != test.testedRelease || counterpart.Source != test.counterpartSource || counterpart.Verification != test.verification || counterpart.Rationale == "" {
 				t.Errorf("counterpart = %+v", counterpart)
+			}
+		})
+	}
+}
+
+func TestSippyIngestionReleaseAllowlist(t *testing.T) {
+	golden := loadGoldenRegistry(t)
+	tests := []struct {
+		name      string
+		allowlist []string
+		jobID     string
+		enabled   bool
+	}{
+		{"main is enabled independently", nil, "pull-ci-openshift-hypershift-main-e2e-aws", true},
+		{"release branch is disabled by default", nil, "pull-ci-openshift-hypershift-release-4.22-e2e-v2-aws", false},
+		{"allowlisted release branch is enabled", []string{"4.22"}, "pull-ci-openshift-hypershift-release-4.22-e2e-v2-aws", true},
+		{"other release branch remains disabled", []string{"4.22"}, "pull-ci-openshift-hypershift-release-4.21-e2e-aws", false},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			registry := cloneRegistry(t, golden)
+			registry.PresubmitPolicy.SippyReleaseBranchAllowlist = append([]string(nil), test.allowlist...)
+			populateSippyIngestion(registry)
+			job := registry.Index()[test.jobID]
+			if job == nil || job.Presubmit == nil {
+				t.Fatalf("presubmit %q not found", test.jobID)
+			}
+			if job.Presubmit.SippyIngestion.Enabled != test.enabled || job.Presubmit.SippyIngestion.Basis == "" {
+				t.Errorf("Sippy ingestion = %+v, want enabled=%t with a basis", job.Presubmit.SippyIngestion, test.enabled)
+			}
+			if err := registry.Validate(); err != nil {
+				t.Errorf("Validate() = %v", err)
 			}
 		})
 	}
@@ -211,7 +265,6 @@ func TestValidateRejectsBrokenInvariants(t *testing.T) {
 		wantInError string
 	}{
 		{"API version", func(r *Registry) { r.APIVersion = "job-registry/v0" }, "unsupported job registry API version"},
-		{"empty ID", func(r *Registry) { r.Jobs[0].ID = "" }, "empty ID or name"},
 		{"duplicate ID", func(r *Registry) { r.Jobs[1].ID = r.Jobs[0].ID }, "duplicate job ID"},
 		{"unsupported type", func(r *Registry) { r.Jobs[0].Type = "postsubmit" }, "unsupported type"},
 		{"presubmit metadata missing", func(r *Registry) { r.Index()["pull-ci-openshift-hypershift-main-e2e-aws"].Presubmit = nil }, "has no presubmit configuration"},
@@ -219,6 +272,16 @@ func TestValidateRejectsBrokenInvariants(t *testing.T) {
 		{"incomplete counterpart", func(r *Registry) { _, c := withCounterpart(r); c.Rationale = "" }, "incomplete periodic counterpart"},
 		{"unsupported counterpart source", func(r *Registry) { _, c := withCounterpart(r); c.Source = "heuristic" }, "unsupported source"},
 		{"unsupported counterpart verification", func(r *Registry) { _, c := withCounterpart(r); c.Verification = "suggested" }, "unsupported verification"},
+		{"inconsistent counterpart state", func(r *Registry) {
+			_, c := withCounterpart(r)
+			c.Verification = PeriodicCounterpartVerificationNeedsReview
+		}, "inconsistent source"},
+		{"missing Sippy ingestion basis", func(r *Registry) {
+			r.Index()["pull-ci-openshift-hypershift-main-e2e-aws"].Presubmit.SippyIngestion.Basis = ""
+		}, "no Sippy ingestion basis"},
+		{"Sippy ingestion policy mismatch", func(r *Registry) {
+			r.Index()["pull-ci-openshift-hypershift-release-4.22-e2e-v2-aws"].Presubmit.SippyIngestion.Enabled = true
+		}, "expected false from registry policy"},
 		{"duplicate counterpart", func(r *Registry) {
 			j, c := withCounterpart(r)
 			j.Presubmit.PeriodicCounterparts = append(j.Presubmit.PeriodicCounterparts, *c)

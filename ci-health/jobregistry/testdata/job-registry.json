@@ -1,8 +1,9 @@
 {
-  "api_version": "job-registry/v5",
+  "api_version": "job-registry/v6",
   "presubmit_policy": {
     "development_branch": "main",
     "development_release": "5.1",
+    "sippy_release_branch_allowlist": [],
     "provisional": true,
     "description": "Maps pull requests targeting main to the configured development release until Prow publishes a release identity for the branch."
   },
@@ -12024,6 +12025,10 @@
       "presubmit": {
         "target_branch": "",
         "target_release": "",
+        "sippy_ingestion": {
+          "enabled": false,
+          "basis": "Sippy presubmit ingestion is disabled because no release branch policy applies to this job."
+        },
         "required": false,
         "always_run": true,
         "branches": [
@@ -12059,6 +12064,10 @@
       "presubmit": {
         "target_branch": "",
         "target_release": "",
+        "sippy_ingestion": {
+          "enabled": false,
+          "basis": "Sippy presubmit ingestion is disabled because no release branch policy applies to this job."
+        },
         "required": true,
         "always_run": true,
         "branches": [
@@ -12094,6 +12103,10 @@
       "presubmit": {
         "target_branch": "",
         "target_release": "",
+        "sippy_ingestion": {
+          "enabled": false,
+          "basis": "Sippy presubmit ingestion is disabled because no release branch policy applies to this job."
+        },
         "required": true,
         "always_run": true,
         "branches": [
@@ -12129,6 +12142,10 @@
       "presubmit": {
         "target_branch": "",
         "target_release": "",
+        "sippy_ingestion": {
+          "enabled": false,
+          "basis": "Sippy presubmit ingestion is disabled because no release branch policy applies to this job."
+        },
         "required": true,
         "always_run": true,
         "branches": [
@@ -12164,6 +12181,10 @@
       "presubmit": {
         "target_branch": "",
         "target_release": "",
+        "sippy_ingestion": {
+          "enabled": false,
+          "basis": "Sippy presubmit ingestion is disabled because no release branch policy applies to this job."
+        },
         "required": true,
         "always_run": true,
         "branches": [
@@ -12199,6 +12220,10 @@
       "presubmit": {
         "target_branch": "",
         "target_release": "",
+        "sippy_ingestion": {
+          "enabled": false,
+          "basis": "Sippy presubmit ingestion is disabled because no release branch policy applies to this job."
+        },
         "required": true,
         "always_run": true,
         "branches": [
@@ -12234,6 +12259,10 @@
       "presubmit": {
         "target_branch": "",
         "target_release": "",
+        "sippy_ingestion": {
+          "enabled": false,
+          "basis": "Sippy presubmit ingestion is disabled because no release branch policy applies to this job."
+        },
         "required": true,
         "always_run": true,
         "branches": [
@@ -12269,6 +12298,10 @@
       "presubmit": {
         "target_branch": "",
         "target_release": "",
+        "sippy_ingestion": {
+          "enabled": false,
+          "basis": "Sippy presubmit ingestion is disabled because no release branch policy applies to this job."
+        },
         "required": true,
         "always_run": true,
         "branches": [
@@ -12304,6 +12337,10 @@
       "presubmit": {
         "target_branch": "",
         "target_release": "",
+        "sippy_ingestion": {
+          "enabled": false,
+          "basis": "Sippy presubmit ingestion is disabled because no release branch policy applies to this job."
+        },
         "required": true,
         "always_run": true,
         "branches": [
@@ -12339,6 +12376,10 @@
       "presubmit": {
         "target_branch": "",
         "target_release": "",
+        "sippy_ingestion": {
+          "enabled": false,
+          "basis": "Sippy presubmit ingestion is disabled because no release branch policy applies to this job."
+        },
         "required": true,
         "always_run": true,
         "branches": [
@@ -12374,6 +12415,10 @@
       "presubmit": {
         "target_branch": "",
         "target_release": "",
+        "sippy_ingestion": {
+          "enabled": false,
+          "basis": "Sippy presubmit ingestion is disabled because no release branch policy applies to this job."
+        },
         "required": false,
         "always_run": true,
         "branches": [
@@ -12409,6 +12454,10 @@
       "presubmit": {
         "target_branch": "",
         "target_release": "",
+        "sippy_ingestion": {
+          "enabled": false,
+          "basis": "Sippy presubmit ingestion is disabled because no release branch policy applies to this job."
+        },
         "required": true,
         "always_run": true,
         "branches": [
@@ -12444,6 +12493,10 @@
       "presubmit": {
         "target_branch": "",
         "target_release": "",
+        "sippy_ingestion": {
+          "enabled": false,
+          "basis": "Sippy presubmit ingestion is disabled because no release branch policy applies to this job."
+        },
         "required": false,
         "always_run": true,
         "branches": [
@@ -12479,6 +12532,10 @@
       "presubmit": {
         "target_branch": "",
         "target_release": "",
+        "sippy_ingestion": {
+          "enabled": false,
+          "basis": "Sippy presubmit ingestion is disabled because no release branch policy applies to this job."
+        },
         "required": false,
         "always_run": true,
         "branches": [
@@ -12509,6 +12566,10 @@
       "presubmit": {
         "target_branch": "main",
         "target_release": "5.1",
+        "sippy_ingestion": {
+          "enabled": true,
+          "basis": "Sippy presubmit ingestion is enabled for the development branch."
+        },
         "required": false,
         "always_run": false,
         "branches": [
@@ -12542,6 +12603,10 @@
       "presubmit": {
         "target_branch": "main",
         "target_release": "5.1",
+        "sippy_ingestion": {
+          "enabled": true,
+          "basis": "Sippy presubmit ingestion is enabled for the development branch."
+        },
         "required": false,
         "always_run": false,
         "branches": [
@@ -12575,6 +12640,10 @@
       "presubmit": {
         "target_branch": "main",
         "target_release": "5.1",
+        "sippy_ingestion": {
+          "enabled": true,
+          "basis": "Sippy presubmit ingestion is enabled for the development branch."
+        },
         "required": false,
         "always_run": false,
         "branches": [
@@ -12607,6 +12676,10 @@
       "presubmit": {
         "target_branch": "main",
         "target_release": "5.1",
+        "sippy_ingestion": {
+          "enabled": true,
+          "basis": "Sippy presubmit ingestion is enabled for the development branch."
+        },
         "required": true,
         "always_run": false,
         "branches": [
@@ -12649,6 +12722,10 @@
       "presubmit": {
         "target_branch": "main",
         "target_release": "5.1",
+        "sippy_ingestion": {
+          "enabled": true,
+          "basis": "Sippy presubmit ingestion is enabled for the development branch."
+        },
         "required": true,
         "always_run": false,
         "branches": [
@@ -12681,6 +12758,10 @@
       "presubmit": {
         "target_branch": "main",
         "target_release": "5.1",
+        "sippy_ingestion": {
+          "enabled": true,
+          "basis": "Sippy presubmit ingestion is enabled for the development branch."
+        },
         "required": false,
         "always_run": false,
         "branches": [
@@ -12713,6 +12794,10 @@
       "presubmit": {
         "target_branch": "main",
         "target_release": "5.1",
+        "sippy_ingestion": {
+          "enabled": true,
+          "basis": "Sippy presubmit ingestion is enabled for the development branch."
+        },
         "required": true,
         "always_run": false,
         "branches": [
@@ -12746,6 +12831,10 @@
       "presubmit": {
         "target_branch": "main",
         "target_release": "5.1",
+        "sippy_ingestion": {
+          "enabled": true,
+          "basis": "Sippy presubmit ingestion is enabled for the development branch."
+        },
         "required": false,
         "always_run": false,
         "branches": [
@@ -12778,6 +12867,10 @@
       "presubmit": {
         "target_branch": "main",
         "target_release": "5.1",
+        "sippy_ingestion": {
+          "enabled": true,
+          "basis": "Sippy presubmit ingestion is enabled for the development branch."
+        },
         "required": true,
         "always_run": false,
         "branches": [
@@ -12820,6 +12913,10 @@
       "presubmit": {
         "target_branch": "main",
         "target_release": "5.1",
+        "sippy_ingestion": {
+          "enabled": true,
+          "basis": "Sippy presubmit ingestion is enabled for the development branch."
+        },
         "required": true,
         "always_run": false,
         "branches": [
@@ -12852,6 +12949,10 @@
       "presubmit": {
         "target_branch": "main",
         "target_release": "5.1",
+        "sippy_ingestion": {
+          "enabled": true,
+          "basis": "Sippy presubmit ingestion is enabled for the development branch."
+        },
         "required": false,
         "always_run": false,
         "branches": [
@@ -12884,6 +12985,10 @@
       "presubmit": {
         "target_branch": "main",
         "target_release": "5.1",
+        "sippy_ingestion": {
+          "enabled": true,
+          "basis": "Sippy presubmit ingestion is enabled for the development branch."
+        },
         "required": false,
         "always_run": false,
         "branches": [
@@ -12916,6 +13021,10 @@
       "presubmit": {
         "target_branch": "main",
         "target_release": "5.1",
+        "sippy_ingestion": {
+          "enabled": true,
+          "basis": "Sippy presubmit ingestion is enabled for the development branch."
+        },
         "required": false,
         "always_run": false,
         "branches": [
@@ -12948,6 +13057,10 @@
       "presubmit": {
         "target_branch": "main",
         "target_release": "5.1",
+        "sippy_ingestion": {
+          "enabled": true,
+          "basis": "Sippy presubmit ingestion is enabled for the development branch."
+        },
         "required": false,
         "always_run": false,
         "branches": [
@@ -12980,6 +13093,10 @@
       "presubmit": {
         "target_branch": "main",
         "target_release": "5.1",
+        "sippy_ingestion": {
+          "enabled": true,
+          "basis": "Sippy presubmit ingestion is enabled for the development branch."
+        },
         "required": false,
         "always_run": false,
         "branches": [
@@ -13012,6 +13129,10 @@
       "presubmit": {
         "target_branch": "main",
         "target_release": "5.1",
+        "sippy_ingestion": {
+          "enabled": true,
+          "basis": "Sippy presubmit ingestion is enabled for the development branch."
+        },
         "required": false,
         "always_run": false,
         "branches": [
@@ -13044,6 +13165,10 @@
       "presubmit": {
         "target_branch": "main",
         "target_release": "5.1",
+        "sippy_ingestion": {
+          "enabled": true,
+          "basis": "Sippy presubmit ingestion is enabled for the development branch."
+        },
         "required": true,
         "always_run": false,
         "branches": [
@@ -13077,6 +13202,10 @@
       "presubmit": {
         "target_branch": "main",
         "target_release": "5.1",
+        "sippy_ingestion": {
+          "enabled": true,
+          "basis": "Sippy presubmit ingestion is enabled for the development branch."
+        },
         "required": false,
         "always_run": false,
         "branches": [
@@ -13109,6 +13238,10 @@
       "presubmit": {
         "target_branch": "main",
         "target_release": "5.1",
+        "sippy_ingestion": {
+          "enabled": true,
+          "basis": "Sippy presubmit ingestion is enabled for the development branch."
+        },
         "required": false,
         "always_run": false,
         "branches": [
@@ -13141,6 +13274,10 @@
       "presubmit": {
         "target_branch": "main",
         "target_release": "5.1",
+        "sippy_ingestion": {
+          "enabled": true,
+          "basis": "Sippy presubmit ingestion is enabled for the development branch."
+        },
         "required": false,
         "always_run": false,
         "branches": [
@@ -13173,6 +13310,10 @@
       "presubmit": {
         "target_branch": "main",
         "target_release": "5.1",
+        "sippy_ingestion": {
+          "enabled": true,
+          "basis": "Sippy presubmit ingestion is enabled for the development branch."
+        },
         "required": true,
         "always_run": false,
         "branches": [
@@ -13180,15 +13321,7 @@
           "^main-"
         ],
         "skip_branches": [],
-        "periodic_counterparts": [
-          {
-            "job_id": "periodic-ci-openshift-hypershift-release-5.1-periodics-e2e-aws-upgrade",
-            "tested_release": "5.1",
-            "source": "registry-manual",
-            "verification": "human-verified",
-            "rationale": "A human reviewed the job definitions and verified that these jobs exercise corresponding test scenarios."
-          }
-        ]
+        "periodic_counterparts": []
       },
       "release_controller": [],
       "sippy_url": "https://sippy.dptools.openshift.org/sippy-ng/jobs/Presubmits/analysis?filters=%7B%22items%22%3A%5B%7B%22columnField%22%3A%22name%22%2C%22operatorValue%22%3A%22equals%22%2C%22value%22%3A%22pull-ci-openshift-hypershift-main-e2e-aws-upgrade-hypershift-operator%22%7D%5D%7D",
@@ -13214,6 +13347,10 @@
       "presubmit": {
         "target_branch": "main",
         "target_release": "5.1",
+        "sippy_ingestion": {
+          "enabled": true,
+          "basis": "Sippy presubmit ingestion is enabled for the development branch."
+        },
         "required": false,
         "always_run": false,
         "branches": [
@@ -13247,6 +13384,10 @@
       "presubmit": {
         "target_branch": "main",
         "target_release": "5.1",
+        "sippy_ingestion": {
+          "enabled": true,
+          "basis": "Sippy presubmit ingestion is enabled for the development branch."
+        },
         "required": false,
         "always_run": false,
         "branches": [
@@ -13280,6 +13421,10 @@
       "presubmit": {
         "target_branch": "main",
         "target_release": "5.1",
+        "sippy_ingestion": {
+          "enabled": true,
+          "basis": "Sippy presubmit ingestion is enabled for the development branch."
+        },
         "required": false,
         "always_run": false,
         "branches": [
@@ -13313,6 +13458,10 @@
       "presubmit": {
         "target_branch": "main",
         "target_release": "5.1",
+        "sippy_ingestion": {
+          "enabled": true,
+          "basis": "Sippy presubmit ingestion is enabled for the development branch."
+        },
         "required": false,
         "always_run": false,
         "branches": [
@@ -13345,6 +13494,10 @@
       "presubmit": {
         "target_branch": "main",
         "target_release": "5.1",
+        "sippy_ingestion": {
+          "enabled": true,
+          "basis": "Sippy presubmit ingestion is enabled for the development branch."
+        },
         "required": false,
         "always_run": false,
         "branches": [
@@ -13377,6 +13530,10 @@
       "presubmit": {
         "target_branch": "main",
         "target_release": "5.1",
+        "sippy_ingestion": {
+          "enabled": true,
+          "basis": "Sippy presubmit ingestion is enabled for the development branch."
+        },
         "required": false,
         "always_run": false,
         "branches": [
@@ -13410,6 +13567,10 @@
       "presubmit": {
         "target_branch": "main",
         "target_release": "5.1",
+        "sippy_ingestion": {
+          "enabled": true,
+          "basis": "Sippy presubmit ingestion is enabled for the development branch."
+        },
         "required": false,
         "always_run": false,
         "branches": [
@@ -13443,6 +13604,10 @@
       "presubmit": {
         "target_branch": "main",
         "target_release": "5.1",
+        "sippy_ingestion": {
+          "enabled": true,
+          "basis": "Sippy presubmit ingestion is enabled for the development branch."
+        },
         "required": true,
         "always_run": false,
         "branches": [
@@ -13484,6 +13649,10 @@
       "presubmit": {
         "target_branch": "main",
         "target_release": "5.1",
+        "sippy_ingestion": {
+          "enabled": true,
+          "basis": "Sippy presubmit ingestion is enabled for the development branch."
+        },
         "required": false,
         "always_run": false,
         "branches": [
@@ -13517,6 +13686,10 @@
       "presubmit": {
         "target_branch": "main",
         "target_release": "5.1",
+        "sippy_ingestion": {
+          "enabled": true,
+          "basis": "Sippy presubmit ingestion is enabled for the development branch."
+        },
         "required": false,
         "always_run": false,
         "branches": [
@@ -13550,6 +13723,10 @@
       "presubmit": {
         "target_branch": "main",
         "target_release": "5.1",
+        "sippy_ingestion": {
+          "enabled": true,
+          "basis": "Sippy presubmit ingestion is enabled for the development branch."
+        },
         "required": false,
         "always_run": false,
         "branches": [
@@ -13583,6 +13760,10 @@
       "presubmit": {
         "target_branch": "main",
         "target_release": "5.1",
+        "sippy_ingestion": {
+          "enabled": true,
+          "basis": "Sippy presubmit ingestion is enabled for the development branch."
+        },
         "required": false,
         "always_run": false,
         "branches": [
@@ -13616,6 +13797,10 @@
       "presubmit": {
         "target_branch": "main",
         "target_release": "5.1",
+        "sippy_ingestion": {
+          "enabled": true,
+          "basis": "Sippy presubmit ingestion is enabled for the development branch."
+        },
         "required": false,
         "always_run": false,
         "branches": [
@@ -13649,6 +13834,10 @@
       "presubmit": {
         "target_branch": "main",
         "target_release": "5.1",
+        "sippy_ingestion": {
+          "enabled": true,
+          "basis": "Sippy presubmit ingestion is enabled for the development branch."
+        },
         "required": false,
         "always_run": false,
         "branches": [
@@ -13682,6 +13871,10 @@
       "presubmit": {
         "target_branch": "main",
         "target_release": "5.1",
+        "sippy_ingestion": {
+          "enabled": true,
+          "basis": "Sippy presubmit ingestion is enabled for the development branch."
+        },
         "required": false,
         "always_run": false,
         "branches": [
@@ -13714,6 +13907,10 @@
       "presubmit": {
         "target_branch": "main",
         "target_release": "5.1",
+        "sippy_ingestion": {
+          "enabled": true,
+          "basis": "Sippy presubmit ingestion is enabled for the development branch."
+        },
         "required": true,
         "always_run": false,
         "branches": [
@@ -13754,6 +13951,10 @@
       "presubmit": {
         "target_branch": "main",
         "target_release": "5.1",
+        "sippy_ingestion": {
+          "enabled": true,
+          "basis": "Sippy presubmit ingestion is enabled for the development branch."
+        },
         "required": false,
         "always_run": false,
         "branches": [
@@ -13786,6 +13987,10 @@
       "presubmit": {
         "target_branch": "main",
         "target_release": "5.1",
+        "sippy_ingestion": {
+          "enabled": true,
+          "basis": "Sippy presubmit ingestion is enabled for the development branch."
+        },
         "required": false,
         "always_run": false,
         "branches": [
@@ -13818,6 +14023,10 @@
       "presubmit": {
         "target_branch": "main",
         "target_release": "5.1",
+        "sippy_ingestion": {
+          "enabled": true,
+          "basis": "Sippy presubmit ingestion is enabled for the development branch."
+        },
         "required": true,
         "always_run": false,
         "branches": [
@@ -13858,6 +14067,10 @@
       "presubmit": {
         "target_branch": "main",
         "target_release": "5.1",
+        "sippy_ingestion": {
+          "enabled": true,
+          "basis": "Sippy presubmit ingestion is enabled for the development branch."
+        },
         "required": true,
         "always_run": false,
         "branches": [
@@ -13896,6 +14109,10 @@
       "presubmit": {
         "target_branch": "main",
         "target_release": "5.1",
+        "sippy_ingestion": {
+          "enabled": true,
+          "basis": "Sippy presubmit ingestion is enabled for the development branch."
+        },
         "required": true,
         "always_run": true,
         "branches": [
@@ -13929,6 +14146,10 @@
       "presubmit": {
         "target_branch": "main",
         "target_release": "5.1",
+        "sippy_ingestion": {
+          "enabled": true,
+          "basis": "Sippy presubmit ingestion is enabled for the development branch."
+        },
         "required": false,
         "always_run": false,
         "branches": [
@@ -13960,6 +14181,10 @@
       "presubmit": {
         "target_branch": "main",
         "target_release": "5.1",
+        "sippy_ingestion": {
+          "enabled": true,
+          "basis": "Sippy presubmit ingestion is enabled for the development branch."
+        },
         "required": true,
         "always_run": true,
         "branches": [
@@ -13992,6 +14217,10 @@
       "presubmit": {
         "target_branch": "main",
         "target_release": "5.1",
+        "sippy_ingestion": {
+          "enabled": true,
+          "basis": "Sippy presubmit ingestion is enabled for the development branch."
+        },
         "required": false,
         "always_run": false,
         "branches": [
@@ -14022,6 +14251,10 @@
       "presubmit": {
         "target_branch": "main",
         "target_release": "5.1",
+        "sippy_ingestion": {
+          "enabled": true,
+          "basis": "Sippy presubmit ingestion is enabled for the development branch."
+        },
         "required": true,
         "always_run": false,
         "branches": [
@@ -14053,6 +14286,10 @@
       "presubmit": {
         "target_branch": "main",
         "target_release": "5.1",
+        "sippy_ingestion": {
+          "enabled": true,
+          "basis": "Sippy presubmit ingestion is enabled for the development branch."
+        },
         "required": true,
         "always_run": true,
         "branches": [
@@ -14083,6 +14320,10 @@
       "presubmit": {
         "target_branch": "main",
         "target_release": "5.1",
+        "sippy_ingestion": {
+          "enabled": true,
+          "basis": "Sippy presubmit ingestion is enabled for the development branch."
+        },
         "required": true,
         "always_run": true,
         "branches": [
@@ -14113,6 +14354,10 @@
       "presubmit": {
         "target_branch": "main",
         "target_release": "5.1",
+        "sippy_ingestion": {
+          "enabled": true,
+          "basis": "Sippy presubmit ingestion is enabled for the development branch."
+        },
         "required": true,
         "always_run": true,
         "branches": [
@@ -14145,6 +14390,10 @@
       "presubmit": {
         "target_branch": "release-4.12",
         "target_release": "4.12",
+        "sippy_ingestion": {
+          "enabled": false,
+          "basis": "Sippy presubmit ingestion is not enabled for release branch 4.12 by registry policy."
+        },
         "required": true,
         "always_run": true,
         "branches": [
@@ -14180,6 +14429,10 @@
       "presubmit": {
         "target_branch": "release-4.12",
         "target_release": "4.12",
+        "sippy_ingestion": {
+          "enabled": false,
+          "basis": "Sippy presubmit ingestion is not enabled for release branch 4.12 by registry policy."
+        },
         "required": true,
         "always_run": true,
         "branches": [
@@ -14212,6 +14465,10 @@
       "presubmit": {
         "target_branch": "release-4.12",
         "target_release": "4.12",
+        "sippy_ingestion": {
+          "enabled": false,
+          "basis": "Sippy presubmit ingestion is not enabled for release branch 4.12 by registry policy."
+        },
         "required": true,
         "always_run": false,
         "branches": [
@@ -14245,6 +14502,10 @@
       "presubmit": {
         "target_branch": "release-4.12",
         "target_release": "4.12",
+        "sippy_ingestion": {
+          "enabled": false,
+          "basis": "Sippy presubmit ingestion is not enabled for release branch 4.12 by registry policy."
+        },
         "required": true,
         "always_run": false,
         "branches": [
@@ -14278,6 +14539,10 @@
       "presubmit": {
         "target_branch": "release-4.13",
         "target_release": "4.13",
+        "sippy_ingestion": {
+          "enabled": false,
+          "basis": "Sippy presubmit ingestion is not enabled for release branch 4.13 by registry policy."
+        },
         "required": true,
         "always_run": true,
         "branches": [
@@ -14313,6 +14578,10 @@
       "presubmit": {
         "target_branch": "release-4.13",
         "target_release": "4.13",
+        "sippy_ingestion": {
+          "enabled": false,
+          "basis": "Sippy presubmit ingestion is not enabled for release branch 4.13 by registry policy."
+        },
         "required": true,
         "always_run": true,
         "branches": [
@@ -14345,6 +14614,10 @@
       "presubmit": {
         "target_branch": "release-4.13",
         "target_release": "4.13",
+        "sippy_ingestion": {
+          "enabled": false,
+          "basis": "Sippy presubmit ingestion is not enabled for release branch 4.13 by registry policy."
+        },
         "required": true,
         "always_run": false,
         "branches": [
@@ -14378,6 +14651,10 @@
       "presubmit": {
         "target_branch": "release-4.13",
         "target_release": "4.13",
+        "sippy_ingestion": {
+          "enabled": false,
+          "basis": "Sippy presubmit ingestion is not enabled for release branch 4.13 by registry policy."
+        },
         "required": true,
         "always_run": false,
         "branches": [
@@ -14413,6 +14690,10 @@
       "presubmit": {
         "target_branch": "release-4.14",
         "target_release": "4.14",
+        "sippy_ingestion": {
+          "enabled": false,
+          "basis": "Sippy presubmit ingestion is not enabled for release branch 4.14 by registry policy."
+        },
         "required": true,
         "always_run": false,
         "branches": [
@@ -14456,6 +14737,10 @@
       "presubmit": {
         "target_branch": "release-4.14",
         "target_release": "4.14",
+        "sippy_ingestion": {
+          "enabled": false,
+          "basis": "Sippy presubmit ingestion is not enabled for release branch 4.14 by registry policy."
+        },
         "required": false,
         "always_run": false,
         "branches": [
@@ -14490,6 +14775,10 @@
       "presubmit": {
         "target_branch": "release-4.14",
         "target_release": "4.14",
+        "sippy_ingestion": {
+          "enabled": false,
+          "basis": "Sippy presubmit ingestion is not enabled for release branch 4.14 by registry policy."
+        },
         "required": false,
         "always_run": false,
         "branches": [
@@ -14525,6 +14814,10 @@
       "presubmit": {
         "target_branch": "release-4.14",
         "target_release": "4.14",
+        "sippy_ingestion": {
+          "enabled": false,
+          "basis": "Sippy presubmit ingestion is not enabled for release branch 4.14 by registry policy."
+        },
         "required": false,
         "always_run": false,
         "branches": [
@@ -14560,6 +14853,10 @@
       "presubmit": {
         "target_branch": "release-4.14",
         "target_release": "4.14",
+        "sippy_ingestion": {
+          "enabled": false,
+          "basis": "Sippy presubmit ingestion is not enabled for release branch 4.14 by registry policy."
+        },
         "required": true,
         "always_run": false,
         "branches": [
@@ -14593,6 +14890,10 @@
       "presubmit": {
         "target_branch": "release-4.14",
         "target_release": "4.14",
+        "sippy_ingestion": {
+          "enabled": false,
+          "basis": "Sippy presubmit ingestion is not enabled for release branch 4.14 by registry policy."
+        },
         "required": true,
         "always_run": true,
         "branches": [
@@ -14628,6 +14929,10 @@
       "presubmit": {
         "target_branch": "release-4.14",
         "target_release": "4.14",
+        "sippy_ingestion": {
+          "enabled": false,
+          "basis": "Sippy presubmit ingestion is not enabled for release branch 4.14 by registry policy."
+        },
         "required": true,
         "always_run": true,
         "branches": [
@@ -14660,6 +14965,10 @@
       "presubmit": {
         "target_branch": "release-4.14",
         "target_release": "4.14",
+        "sippy_ingestion": {
+          "enabled": false,
+          "basis": "Sippy presubmit ingestion is not enabled for release branch 4.14 by registry policy."
+        },
         "required": true,
         "always_run": false,
         "branches": [
@@ -14693,6 +15002,10 @@
       "presubmit": {
         "target_branch": "release-4.14",
         "target_release": "4.14",
+        "sippy_ingestion": {
+          "enabled": false,
+          "basis": "Sippy presubmit ingestion is not enabled for release branch 4.14 by registry policy."
+        },
         "required": true,
         "always_run": false,
         "branches": [
@@ -14726,6 +15039,10 @@
       "presubmit": {
         "target_branch": "release-4.14",
         "target_release": "4.14",
+        "sippy_ingestion": {
+          "enabled": false,
+          "basis": "Sippy presubmit ingestion is not enabled for release branch 4.14 by registry policy."
+        },
         "required": true,
         "always_run": false,
         "branches": [
@@ -14761,6 +15078,10 @@
       "presubmit": {
         "target_branch": "release-4.15",
         "target_release": "4.15",
+        "sippy_ingestion": {
+          "enabled": false,
+          "basis": "Sippy presubmit ingestion is not enabled for release branch 4.15 by registry policy."
+        },
         "required": true,
         "always_run": false,
         "branches": [
@@ -14804,6 +15125,10 @@
       "presubmit": {
         "target_branch": "release-4.15",
         "target_release": "4.15",
+        "sippy_ingestion": {
+          "enabled": false,
+          "basis": "Sippy presubmit ingestion is not enabled for release branch 4.15 by registry policy."
+        },
         "required": false,
         "always_run": false,
         "branches": [
@@ -14838,6 +15163,10 @@
       "presubmit": {
         "target_branch": "release-4.15",
         "target_release": "4.15",
+        "sippy_ingestion": {
+          "enabled": false,
+          "basis": "Sippy presubmit ingestion is not enabled for release branch 4.15 by registry policy."
+        },
         "required": false,
         "always_run": false,
         "branches": [
@@ -14873,6 +15202,10 @@
       "presubmit": {
         "target_branch": "release-4.15",
         "target_release": "4.15",
+        "sippy_ingestion": {
+          "enabled": false,
+          "basis": "Sippy presubmit ingestion is not enabled for release branch 4.15 by registry policy."
+        },
         "required": false,
         "always_run": false,
         "branches": [
@@ -14908,6 +15241,10 @@
       "presubmit": {
         "target_branch": "release-4.15",
         "target_release": "4.15",
+        "sippy_ingestion": {
+          "enabled": false,
+          "basis": "Sippy presubmit ingestion is not enabled for release branch 4.15 by registry policy."
+        },
         "required": true,
         "always_run": false,
         "branches": [
@@ -14916,7 +15253,15 @@
         ],
         "skip_branches": [],
         "skip_if_only_changed": "(^(\\.tekton|docs|examples|enhancements|contrib)/)|(^[A-Z]+\\.md$)|((^|/)OWNERS$)",
-        "periodic_counterparts": []
+        "periodic_counterparts": [
+          {
+            "job_id": "periodic-ci-openshift-hypershift-release-4.15-periodics-e2e-kubevirt-aws-ovn-csi",
+            "tested_release": "4.15",
+            "source": "registry-manual",
+            "verification": "human-verified",
+            "rationale": "A human reviewed the job definitions and verified that these jobs exercise corresponding test scenarios."
+          }
+        ]
       },
       "release_controller": [],
       "sippy_url": "https://sippy.dptools.openshift.org/sippy-ng/jobs/Presubmits/analysis?filters=%7B%22items%22%3A%5B%7B%22columnField%22%3A%22name%22%2C%22operatorValue%22%3A%22equals%22%2C%22value%22%3A%22pull-ci-openshift-hypershift-release-4.15-e2e-kubevirt-aws-ovn-reduced%22%7D%5D%7D",
@@ -14941,6 +15286,10 @@
       "presubmit": {
         "target_branch": "release-4.15",
         "target_release": "4.15",
+        "sippy_ingestion": {
+          "enabled": false,
+          "basis": "Sippy presubmit ingestion is not enabled for release branch 4.15 by registry policy."
+        },
         "required": true,
         "always_run": true,
         "branches": [
@@ -14976,6 +15325,10 @@
       "presubmit": {
         "target_branch": "release-4.15",
         "target_release": "4.15",
+        "sippy_ingestion": {
+          "enabled": false,
+          "basis": "Sippy presubmit ingestion is not enabled for release branch 4.15 by registry policy."
+        },
         "required": true,
         "always_run": true,
         "branches": [
@@ -15008,6 +15361,10 @@
       "presubmit": {
         "target_branch": "release-4.15",
         "target_release": "4.15",
+        "sippy_ingestion": {
+          "enabled": false,
+          "basis": "Sippy presubmit ingestion is not enabled for release branch 4.15 by registry policy."
+        },
         "required": true,
         "always_run": false,
         "branches": [
@@ -15041,6 +15398,10 @@
       "presubmit": {
         "target_branch": "release-4.15",
         "target_release": "4.15",
+        "sippy_ingestion": {
+          "enabled": false,
+          "basis": "Sippy presubmit ingestion is not enabled for release branch 4.15 by registry policy."
+        },
         "required": true,
         "always_run": false,
         "branches": [
@@ -15074,6 +15435,10 @@
       "presubmit": {
         "target_branch": "release-4.15",
         "target_release": "4.15",
+        "sippy_ingestion": {
+          "enabled": false,
+          "basis": "Sippy presubmit ingestion is not enabled for release branch 4.15 by registry policy."
+        },
         "required": true,
         "always_run": false,
         "branches": [
@@ -15109,6 +15474,10 @@
       "presubmit": {
         "target_branch": "release-4.16",
         "target_release": "4.16",
+        "sippy_ingestion": {
+          "enabled": false,
+          "basis": "Sippy presubmit ingestion is not enabled for release branch 4.16 by registry policy."
+        },
         "required": true,
         "always_run": false,
         "branches": [
@@ -15152,6 +15521,10 @@
       "presubmit": {
         "target_branch": "release-4.16",
         "target_release": "4.16",
+        "sippy_ingestion": {
+          "enabled": false,
+          "basis": "Sippy presubmit ingestion is not enabled for release branch 4.16 by registry policy."
+        },
         "required": false,
         "always_run": false,
         "branches": [
@@ -15186,6 +15559,10 @@
       "presubmit": {
         "target_branch": "release-4.16",
         "target_release": "4.16",
+        "sippy_ingestion": {
+          "enabled": false,
+          "basis": "Sippy presubmit ingestion is not enabled for release branch 4.16 by registry policy."
+        },
         "required": true,
         "always_run": false,
         "branches": [
@@ -15229,6 +15606,10 @@
       "presubmit": {
         "target_branch": "release-4.16",
         "target_release": "4.16",
+        "sippy_ingestion": {
+          "enabled": false,
+          "basis": "Sippy presubmit ingestion is not enabled for release branch 4.16 by registry policy."
+        },
         "required": false,
         "always_run": false,
         "branches": [
@@ -15264,6 +15645,10 @@
       "presubmit": {
         "target_branch": "release-4.16",
         "target_release": "4.16",
+        "sippy_ingestion": {
+          "enabled": false,
+          "basis": "Sippy presubmit ingestion is not enabled for release branch 4.16 by registry policy."
+        },
         "required": true,
         "always_run": false,
         "branches": [
@@ -15272,7 +15657,15 @@
         ],
         "skip_branches": [],
         "skip_if_only_changed": "(^(\\.tekton|docs|examples|enhancements|contrib)/)|(^[A-Z]+\\.md$)|((^|/)OWNERS$)",
-        "periodic_counterparts": []
+        "periodic_counterparts": [
+          {
+            "job_id": "periodic-ci-openshift-hypershift-release-4.16-periodics-e2e-kubevirt-aws-ovn-csi",
+            "tested_release": "4.16",
+            "source": "registry-manual",
+            "verification": "human-verified",
+            "rationale": "A human reviewed the job definitions and verified that these jobs exercise corresponding test scenarios."
+          }
+        ]
       },
       "release_controller": [],
       "sippy_url": "https://sippy.dptools.openshift.org/sippy-ng/jobs/Presubmits/analysis?filters=%7B%22items%22%3A%5B%7B%22columnField%22%3A%22name%22%2C%22operatorValue%22%3A%22equals%22%2C%22value%22%3A%22pull-ci-openshift-hypershift-release-4.16-e2e-kubevirt-aws-ovn-reduced%22%7D%5D%7D",
@@ -15300,6 +15693,10 @@
       "presubmit": {
         "target_branch": "release-4.16",
         "target_release": "4.16",
+        "sippy_ingestion": {
+          "enabled": false,
+          "basis": "Sippy presubmit ingestion is not enabled for release branch 4.16 by registry policy."
+        },
         "required": false,
         "always_run": false,
         "branches": [
@@ -15335,6 +15732,10 @@
       "presubmit": {
         "target_branch": "release-4.16",
         "target_release": "4.16",
+        "sippy_ingestion": {
+          "enabled": false,
+          "basis": "Sippy presubmit ingestion is not enabled for release branch 4.16 by registry policy."
+        },
         "required": false,
         "always_run": false,
         "branches": [
@@ -15367,6 +15768,10 @@
       "presubmit": {
         "target_branch": "release-4.16",
         "target_release": "4.16",
+        "sippy_ingestion": {
+          "enabled": false,
+          "basis": "Sippy presubmit ingestion is not enabled for release branch 4.16 by registry policy."
+        },
         "required": true,
         "always_run": true,
         "branches": [
@@ -15402,6 +15807,10 @@
       "presubmit": {
         "target_branch": "release-4.16",
         "target_release": "4.16",
+        "sippy_ingestion": {
+          "enabled": false,
+          "basis": "Sippy presubmit ingestion is not enabled for release branch 4.16 by registry policy."
+        },
         "required": true,
         "always_run": true,
         "branches": [
@@ -15434,6 +15843,10 @@
       "presubmit": {
         "target_branch": "release-4.16",
         "target_release": "4.16",
+        "sippy_ingestion": {
+          "enabled": false,
+          "basis": "Sippy presubmit ingestion is not enabled for release branch 4.16 by registry policy."
+        },
         "required": true,
         "always_run": false,
         "branches": [
@@ -15467,6 +15880,10 @@
       "presubmit": {
         "target_branch": "release-4.16",
         "target_release": "4.16",
+        "sippy_ingestion": {
+          "enabled": false,
+          "basis": "Sippy presubmit ingestion is not enabled for release branch 4.16 by registry policy."
+        },
         "required": true,
         "always_run": false,
         "branches": [
@@ -15500,6 +15917,10 @@
       "presubmit": {
         "target_branch": "release-4.16",
         "target_release": "4.16",
+        "sippy_ingestion": {
+          "enabled": false,
+          "basis": "Sippy presubmit ingestion is not enabled for release branch 4.16 by registry policy."
+        },
         "required": true,
         "always_run": false,
         "branches": [
@@ -15535,6 +15956,10 @@
       "presubmit": {
         "target_branch": "release-4.17",
         "target_release": "4.17",
+        "sippy_ingestion": {
+          "enabled": false,
+          "basis": "Sippy presubmit ingestion is not enabled for release branch 4.17 by registry policy."
+        },
         "required": true,
         "always_run": false,
         "branches": [
@@ -15578,6 +16003,10 @@
       "presubmit": {
         "target_branch": "release-4.17",
         "target_release": "4.17",
+        "sippy_ingestion": {
+          "enabled": false,
+          "basis": "Sippy presubmit ingestion is not enabled for release branch 4.17 by registry policy."
+        },
         "required": false,
         "always_run": false,
         "branches": [
@@ -15612,6 +16041,10 @@
       "presubmit": {
         "target_branch": "release-4.17",
         "target_release": "4.17",
+        "sippy_ingestion": {
+          "enabled": false,
+          "basis": "Sippy presubmit ingestion is not enabled for release branch 4.17 by registry policy."
+        },
         "required": true,
         "always_run": false,
         "branches": [
@@ -15655,6 +16088,10 @@
       "presubmit": {
         "target_branch": "release-4.17",
         "target_release": "4.17",
+        "sippy_ingestion": {
+          "enabled": false,
+          "basis": "Sippy presubmit ingestion is not enabled for release branch 4.17 by registry policy."
+        },
         "required": false,
         "always_run": false,
         "branches": [
@@ -15690,6 +16127,10 @@
       "presubmit": {
         "target_branch": "release-4.17",
         "target_release": "4.17",
+        "sippy_ingestion": {
+          "enabled": false,
+          "basis": "Sippy presubmit ingestion is not enabled for release branch 4.17 by registry policy."
+        },
         "required": true,
         "always_run": false,
         "branches": [
@@ -15698,7 +16139,15 @@
         ],
         "skip_branches": [],
         "skip_if_only_changed": "(^(\\.tekton|docs|examples|enhancements|contrib)/)|(^[A-Z]+\\.md$)|((^|/)OWNERS$)",
-        "periodic_counterparts": []
+        "periodic_counterparts": [
+          {
+            "job_id": "periodic-ci-openshift-hypershift-release-4.17-periodics-e2e-kubevirt-aws-ovn-csi",
+            "tested_release": "4.17",
+            "source": "registry-manual",
+            "verification": "human-verified",
+            "rationale": "A human reviewed the job definitions and verified that these jobs exercise corresponding test scenarios."
+          }
+        ]
       },
       "release_controller": [],
       "sippy_url": "https://sippy.dptools.openshift.org/sippy-ng/jobs/Presubmits/analysis?filters=%7B%22items%22%3A%5B%7B%22columnField%22%3A%22name%22%2C%22operatorValue%22%3A%22equals%22%2C%22value%22%3A%22pull-ci-openshift-hypershift-release-4.17-e2e-kubevirt-aws-ovn-reduced%22%7D%5D%7D",
@@ -15726,6 +16175,10 @@
       "presubmit": {
         "target_branch": "release-4.17",
         "target_release": "4.17",
+        "sippy_ingestion": {
+          "enabled": false,
+          "basis": "Sippy presubmit ingestion is not enabled for release branch 4.17 by registry policy."
+        },
         "required": false,
         "always_run": false,
         "branches": [
@@ -15761,6 +16214,10 @@
       "presubmit": {
         "target_branch": "release-4.17",
         "target_release": "4.17",
+        "sippy_ingestion": {
+          "enabled": false,
+          "basis": "Sippy presubmit ingestion is not enabled for release branch 4.17 by registry policy."
+        },
         "required": false,
         "always_run": false,
         "branches": [
@@ -15793,6 +16250,10 @@
       "presubmit": {
         "target_branch": "release-4.17",
         "target_release": "4.17",
+        "sippy_ingestion": {
+          "enabled": false,
+          "basis": "Sippy presubmit ingestion is not enabled for release branch 4.17 by registry policy."
+        },
         "required": true,
         "always_run": true,
         "branches": [
@@ -15828,6 +16289,10 @@
       "presubmit": {
         "target_branch": "release-4.17",
         "target_release": "4.17",
+        "sippy_ingestion": {
+          "enabled": false,
+          "basis": "Sippy presubmit ingestion is not enabled for release branch 4.17 by registry policy."
+        },
         "required": true,
         "always_run": true,
         "branches": [
@@ -15860,6 +16325,10 @@
       "presubmit": {
         "target_branch": "release-4.17",
         "target_release": "4.17",
+        "sippy_ingestion": {
+          "enabled": false,
+          "basis": "Sippy presubmit ingestion is not enabled for release branch 4.17 by registry policy."
+        },
         "required": true,
         "always_run": false,
         "branches": [
@@ -15893,6 +16362,10 @@
       "presubmit": {
         "target_branch": "release-4.17",
         "target_release": "4.17",
+        "sippy_ingestion": {
+          "enabled": false,
+          "basis": "Sippy presubmit ingestion is not enabled for release branch 4.17 by registry policy."
+        },
         "required": true,
         "always_run": false,
         "branches": [
@@ -15926,6 +16399,10 @@
       "presubmit": {
         "target_branch": "release-4.17",
         "target_release": "4.17",
+        "sippy_ingestion": {
+          "enabled": false,
+          "basis": "Sippy presubmit ingestion is not enabled for release branch 4.17 by registry policy."
+        },
         "required": true,
         "always_run": false,
         "branches": [
@@ -15961,6 +16438,10 @@
       "presubmit": {
         "target_branch": "release-4.18",
         "target_release": "4.18",
+        "sippy_ingestion": {
+          "enabled": false,
+          "basis": "Sippy presubmit ingestion is not enabled for release branch 4.18 by registry policy."
+        },
         "required": true,
         "always_run": false,
         "branches": [
@@ -16004,6 +16485,10 @@
       "presubmit": {
         "target_branch": "release-4.18",
         "target_release": "4.18",
+        "sippy_ingestion": {
+          "enabled": false,
+          "basis": "Sippy presubmit ingestion is not enabled for release branch 4.18 by registry policy."
+        },
         "required": false,
         "always_run": false,
         "branches": [
@@ -16038,6 +16523,10 @@
       "presubmit": {
         "target_branch": "release-4.18",
         "target_release": "4.18",
+        "sippy_ingestion": {
+          "enabled": false,
+          "basis": "Sippy presubmit ingestion is not enabled for release branch 4.18 by registry policy."
+        },
         "required": true,
         "always_run": false,
         "branches": [
@@ -16081,6 +16570,10 @@
       "presubmit": {
         "target_branch": "release-4.18",
         "target_release": "4.18",
+        "sippy_ingestion": {
+          "enabled": false,
+          "basis": "Sippy presubmit ingestion is not enabled for release branch 4.18 by registry policy."
+        },
         "required": false,
         "always_run": false,
         "branches": [
@@ -16116,6 +16609,10 @@
       "presubmit": {
         "target_branch": "release-4.18",
         "target_release": "4.18",
+        "sippy_ingestion": {
+          "enabled": false,
+          "basis": "Sippy presubmit ingestion is not enabled for release branch 4.18 by registry policy."
+        },
         "required": true,
         "always_run": false,
         "branches": [
@@ -16124,7 +16621,15 @@
         ],
         "skip_branches": [],
         "skip_if_only_changed": "(^(\\.tekton|docs|examples|enhancements|contrib)/)|(^[A-Z]+\\.md$)|((^|/)OWNERS$)",
-        "periodic_counterparts": []
+        "periodic_counterparts": [
+          {
+            "job_id": "periodic-ci-openshift-hypershift-release-4.18-periodics-e2e-kubevirt-aws-ovn-csi",
+            "tested_release": "4.18",
+            "source": "registry-manual",
+            "verification": "human-verified",
+            "rationale": "A human reviewed the job definitions and verified that these jobs exercise corresponding test scenarios."
+          }
+        ]
       },
       "release_controller": [],
       "sippy_url": "https://sippy.dptools.openshift.org/sippy-ng/jobs/Presubmits/analysis?filters=%7B%22items%22%3A%5B%7B%22columnField%22%3A%22name%22%2C%22operatorValue%22%3A%22equals%22%2C%22value%22%3A%22pull-ci-openshift-hypershift-release-4.18-e2e-kubevirt-aws-ovn-reduced%22%7D%5D%7D",
@@ -16152,6 +16657,10 @@
       "presubmit": {
         "target_branch": "release-4.18",
         "target_release": "4.18",
+        "sippy_ingestion": {
+          "enabled": false,
+          "basis": "Sippy presubmit ingestion is not enabled for release branch 4.18 by registry policy."
+        },
         "required": false,
         "always_run": false,
         "branches": [
@@ -16187,6 +16696,10 @@
       "presubmit": {
         "target_branch": "release-4.18",
         "target_release": "4.18",
+        "sippy_ingestion": {
+          "enabled": false,
+          "basis": "Sippy presubmit ingestion is not enabled for release branch 4.18 by registry policy."
+        },
         "required": false,
         "always_run": false,
         "branches": [
@@ -16219,6 +16732,10 @@
       "presubmit": {
         "target_branch": "release-4.18",
         "target_release": "4.18",
+        "sippy_ingestion": {
+          "enabled": false,
+          "basis": "Sippy presubmit ingestion is not enabled for release branch 4.18 by registry policy."
+        },
         "required": true,
         "always_run": true,
         "branches": [
@@ -16254,6 +16771,10 @@
       "presubmit": {
         "target_branch": "release-4.18",
         "target_release": "4.18",
+        "sippy_ingestion": {
+          "enabled": false,
+          "basis": "Sippy presubmit ingestion is not enabled for release branch 4.18 by registry policy."
+        },
         "required": true,
         "always_run": true,
         "branches": [
@@ -16286,6 +16807,10 @@
       "presubmit": {
         "target_branch": "release-4.18",
         "target_release": "4.18",
+        "sippy_ingestion": {
+          "enabled": false,
+          "basis": "Sippy presubmit ingestion is not enabled for release branch 4.18 by registry policy."
+        },
         "required": true,
         "always_run": false,
         "branches": [
@@ -16319,6 +16844,10 @@
       "presubmit": {
         "target_branch": "release-4.18",
         "target_release": "4.18",
+        "sippy_ingestion": {
+          "enabled": false,
+          "basis": "Sippy presubmit ingestion is not enabled for release branch 4.18 by registry policy."
+        },
         "required": true,
         "always_run": false,
         "branches": [
@@ -16352,6 +16881,10 @@
       "presubmit": {
         "target_branch": "release-4.18",
         "target_release": "4.18",
+        "sippy_ingestion": {
+          "enabled": false,
+          "basis": "Sippy presubmit ingestion is not enabled for release branch 4.18 by registry policy."
+        },
         "required": true,
         "always_run": false,
         "branches": [
@@ -16387,6 +16920,10 @@
       "presubmit": {
         "target_branch": "release-4.19",
         "target_release": "4.19",
+        "sippy_ingestion": {
+          "enabled": false,
+          "basis": "Sippy presubmit ingestion is not enabled for release branch 4.19 by registry policy."
+        },
         "required": true,
         "always_run": false,
         "branches": [
@@ -16430,6 +16967,10 @@
       "presubmit": {
         "target_branch": "release-4.19",
         "target_release": "4.19",
+        "sippy_ingestion": {
+          "enabled": false,
+          "basis": "Sippy presubmit ingestion is not enabled for release branch 4.19 by registry policy."
+        },
         "required": true,
         "always_run": false,
         "branches": [
@@ -16473,6 +17014,10 @@
       "presubmit": {
         "target_branch": "release-4.19",
         "target_release": "4.19",
+        "sippy_ingestion": {
+          "enabled": false,
+          "basis": "Sippy presubmit ingestion is not enabled for release branch 4.19 by registry policy."
+        },
         "required": false,
         "always_run": false,
         "branches": [
@@ -16507,6 +17052,10 @@
       "presubmit": {
         "target_branch": "release-4.19",
         "target_release": "4.19",
+        "sippy_ingestion": {
+          "enabled": false,
+          "basis": "Sippy presubmit ingestion is not enabled for release branch 4.19 by registry policy."
+        },
         "required": false,
         "always_run": false,
         "branches": [
@@ -16541,6 +17090,10 @@
       "presubmit": {
         "target_branch": "release-4.19",
         "target_release": "4.19",
+        "sippy_ingestion": {
+          "enabled": false,
+          "basis": "Sippy presubmit ingestion is not enabled for release branch 4.19 by registry policy."
+        },
         "required": false,
         "always_run": false,
         "branches": [
@@ -16575,6 +17128,10 @@
       "presubmit": {
         "target_branch": "release-4.19",
         "target_release": "4.19",
+        "sippy_ingestion": {
+          "enabled": false,
+          "basis": "Sippy presubmit ingestion is not enabled for release branch 4.19 by registry policy."
+        },
         "required": true,
         "always_run": false,
         "branches": [
@@ -16610,6 +17167,10 @@
       "presubmit": {
         "target_branch": "release-4.19",
         "target_release": "4.19",
+        "sippy_ingestion": {
+          "enabled": false,
+          "basis": "Sippy presubmit ingestion is not enabled for release branch 4.19 by registry policy."
+        },
         "required": true,
         "always_run": false,
         "branches": [
@@ -16644,6 +17205,10 @@
       "presubmit": {
         "target_branch": "release-4.19",
         "target_release": "4.19",
+        "sippy_ingestion": {
+          "enabled": false,
+          "basis": "Sippy presubmit ingestion is not enabled for release branch 4.19 by registry policy."
+        },
         "required": true,
         "always_run": false,
         "branches": [
@@ -16680,6 +17245,10 @@
       "presubmit": {
         "target_branch": "release-4.19",
         "target_release": "4.19",
+        "sippy_ingestion": {
+          "enabled": false,
+          "basis": "Sippy presubmit ingestion is not enabled for release branch 4.19 by registry policy."
+        },
         "required": false,
         "always_run": false,
         "branches": [
@@ -16714,6 +17283,10 @@
       "presubmit": {
         "target_branch": "release-4.19",
         "target_release": "4.19",
+        "sippy_ingestion": {
+          "enabled": false,
+          "basis": "Sippy presubmit ingestion is not enabled for release branch 4.19 by registry policy."
+        },
         "required": true,
         "always_run": false,
         "branches": [
@@ -16757,6 +17330,10 @@
       "presubmit": {
         "target_branch": "release-4.19",
         "target_release": "4.19",
+        "sippy_ingestion": {
+          "enabled": false,
+          "basis": "Sippy presubmit ingestion is not enabled for release branch 4.19 by registry policy."
+        },
         "required": false,
         "always_run": false,
         "branches": [
@@ -16792,6 +17369,10 @@
       "presubmit": {
         "target_branch": "release-4.19",
         "target_release": "4.19",
+        "sippy_ingestion": {
+          "enabled": false,
+          "basis": "Sippy presubmit ingestion is not enabled for release branch 4.19 by registry policy."
+        },
         "required": true,
         "always_run": false,
         "branches": [
@@ -16800,7 +17381,15 @@
         ],
         "skip_branches": [],
         "skip_if_only_changed": "(^(\\.tekton|\\.github|docs|examples|enhancements|contrib)/)|(^[A-Z]+\\.md$)|((^|/)OWNERS$)|(/overrides\\.yaml$)|(/\\.testcoverage\\.yml$)",
-        "periodic_counterparts": []
+        "periodic_counterparts": [
+          {
+            "job_id": "periodic-ci-openshift-hypershift-release-4.19-periodics-e2e-kubevirt-aws-ovn-csi",
+            "tested_release": "4.19",
+            "source": "registry-manual",
+            "verification": "human-verified",
+            "rationale": "A human reviewed the job definitions and verified that these jobs exercise corresponding test scenarios."
+          }
+        ]
       },
       "release_controller": [],
       "sippy_url": "https://sippy.dptools.openshift.org/sippy-ng/jobs/Presubmits/analysis?filters=%7B%22items%22%3A%5B%7B%22columnField%22%3A%22name%22%2C%22operatorValue%22%3A%22equals%22%2C%22value%22%3A%22pull-ci-openshift-hypershift-release-4.19-e2e-kubevirt-aws-ovn-reduced%22%7D%5D%7D",
@@ -16828,6 +17417,10 @@
       "presubmit": {
         "target_branch": "release-4.19",
         "target_release": "4.19",
+        "sippy_ingestion": {
+          "enabled": false,
+          "basis": "Sippy presubmit ingestion is not enabled for release branch 4.19 by registry policy."
+        },
         "required": false,
         "always_run": false,
         "branches": [
@@ -16863,6 +17456,10 @@
       "presubmit": {
         "target_branch": "release-4.19",
         "target_release": "4.19",
+        "sippy_ingestion": {
+          "enabled": false,
+          "basis": "Sippy presubmit ingestion is not enabled for release branch 4.19 by registry policy."
+        },
         "required": false,
         "always_run": false,
         "branches": [
@@ -16895,6 +17492,10 @@
       "presubmit": {
         "target_branch": "release-4.19",
         "target_release": "4.19",
+        "sippy_ingestion": {
+          "enabled": false,
+          "basis": "Sippy presubmit ingestion is not enabled for release branch 4.19 by registry policy."
+        },
         "required": true,
         "always_run": true,
         "branches": [
@@ -16930,6 +17531,10 @@
       "presubmit": {
         "target_branch": "release-4.19",
         "target_release": "4.19",
+        "sippy_ingestion": {
+          "enabled": false,
+          "basis": "Sippy presubmit ingestion is not enabled for release branch 4.19 by registry policy."
+        },
         "required": true,
         "always_run": true,
         "branches": [
@@ -16962,6 +17567,10 @@
       "presubmit": {
         "target_branch": "release-4.19",
         "target_release": "4.19",
+        "sippy_ingestion": {
+          "enabled": false,
+          "basis": "Sippy presubmit ingestion is not enabled for release branch 4.19 by registry policy."
+        },
         "required": true,
         "always_run": false,
         "branches": [
@@ -16995,6 +17604,10 @@
       "presubmit": {
         "target_branch": "release-4.19",
         "target_release": "4.19",
+        "sippy_ingestion": {
+          "enabled": false,
+          "basis": "Sippy presubmit ingestion is not enabled for release branch 4.19 by registry policy."
+        },
         "required": true,
         "always_run": false,
         "branches": [
@@ -17028,6 +17641,10 @@
       "presubmit": {
         "target_branch": "release-4.19",
         "target_release": "4.19",
+        "sippy_ingestion": {
+          "enabled": false,
+          "basis": "Sippy presubmit ingestion is not enabled for release branch 4.19 by registry policy."
+        },
         "required": true,
         "always_run": false,
         "branches": [
@@ -17061,6 +17678,10 @@
       "presubmit": {
         "target_branch": "release-4.19",
         "target_release": "4.19",
+        "sippy_ingestion": {
+          "enabled": false,
+          "basis": "Sippy presubmit ingestion is not enabled for release branch 4.19 by registry policy."
+        },
         "required": true,
         "always_run": true,
         "branches": [
@@ -17095,6 +17716,10 @@
       "presubmit": {
         "target_branch": "release-4.20",
         "target_release": "4.20",
+        "sippy_ingestion": {
+          "enabled": false,
+          "basis": "Sippy presubmit ingestion is not enabled for release branch 4.20 by registry policy."
+        },
         "required": true,
         "always_run": false,
         "branches": [
@@ -17138,6 +17763,10 @@
       "presubmit": {
         "target_branch": "release-4.20",
         "target_release": "4.20",
+        "sippy_ingestion": {
+          "enabled": false,
+          "basis": "Sippy presubmit ingestion is not enabled for release branch 4.20 by registry policy."
+        },
         "required": true,
         "always_run": false,
         "branches": [
@@ -17181,6 +17810,10 @@
       "presubmit": {
         "target_branch": "release-4.20",
         "target_release": "4.20",
+        "sippy_ingestion": {
+          "enabled": false,
+          "basis": "Sippy presubmit ingestion is not enabled for release branch 4.20 by registry policy."
+        },
         "required": false,
         "always_run": false,
         "branches": [
@@ -17215,6 +17848,10 @@
       "presubmit": {
         "target_branch": "release-4.20",
         "target_release": "4.20",
+        "sippy_ingestion": {
+          "enabled": false,
+          "basis": "Sippy presubmit ingestion is not enabled for release branch 4.20 by registry policy."
+        },
         "required": true,
         "always_run": true,
         "branches": [
@@ -17249,6 +17886,10 @@
       "presubmit": {
         "target_branch": "release-4.20",
         "target_release": "4.20",
+        "sippy_ingestion": {
+          "enabled": false,
+          "basis": "Sippy presubmit ingestion is not enabled for release branch 4.20 by registry policy."
+        },
         "required": false,
         "always_run": false,
         "branches": [
@@ -17283,6 +17924,10 @@
       "presubmit": {
         "target_branch": "release-4.20",
         "target_release": "4.20",
+        "sippy_ingestion": {
+          "enabled": false,
+          "basis": "Sippy presubmit ingestion is not enabled for release branch 4.20 by registry policy."
+        },
         "required": false,
         "always_run": false,
         "branches": [
@@ -17317,6 +17962,10 @@
       "presubmit": {
         "target_branch": "release-4.20",
         "target_release": "4.20",
+        "sippy_ingestion": {
+          "enabled": false,
+          "basis": "Sippy presubmit ingestion is not enabled for release branch 4.20 by registry policy."
+        },
         "required": true,
         "always_run": false,
         "branches": [
@@ -17352,6 +18001,10 @@
       "presubmit": {
         "target_branch": "release-4.20",
         "target_release": "4.20",
+        "sippy_ingestion": {
+          "enabled": false,
+          "basis": "Sippy presubmit ingestion is not enabled for release branch 4.20 by registry policy."
+        },
         "required": false,
         "always_run": false,
         "branches": [
@@ -17386,6 +18039,10 @@
       "presubmit": {
         "target_branch": "release-4.20",
         "target_release": "4.20",
+        "sippy_ingestion": {
+          "enabled": false,
+          "basis": "Sippy presubmit ingestion is not enabled for release branch 4.20 by registry policy."
+        },
         "required": true,
         "always_run": false,
         "branches": [
@@ -17422,6 +18079,10 @@
       "presubmit": {
         "target_branch": "release-4.20",
         "target_release": "4.20",
+        "sippy_ingestion": {
+          "enabled": false,
+          "basis": "Sippy presubmit ingestion is not enabled for release branch 4.20 by registry policy."
+        },
         "required": true,
         "always_run": true,
         "branches": [
@@ -17457,6 +18118,10 @@
       "presubmit": {
         "target_branch": "release-4.20",
         "target_release": "4.20",
+        "sippy_ingestion": {
+          "enabled": false,
+          "basis": "Sippy presubmit ingestion is not enabled for release branch 4.20 by registry policy."
+        },
         "required": false,
         "always_run": false,
         "branches": [
@@ -17491,6 +18156,10 @@
       "presubmit": {
         "target_branch": "release-4.20",
         "target_release": "4.20",
+        "sippy_ingestion": {
+          "enabled": false,
+          "basis": "Sippy presubmit ingestion is not enabled for release branch 4.20 by registry policy."
+        },
         "required": false,
         "always_run": false,
         "branches": [
@@ -17526,6 +18195,10 @@
       "presubmit": {
         "target_branch": "release-4.20",
         "target_release": "4.20",
+        "sippy_ingestion": {
+          "enabled": false,
+          "basis": "Sippy presubmit ingestion is not enabled for release branch 4.20 by registry policy."
+        },
         "required": false,
         "always_run": false,
         "branches": [
@@ -17561,6 +18234,10 @@
       "presubmit": {
         "target_branch": "release-4.20",
         "target_release": "4.20",
+        "sippy_ingestion": {
+          "enabled": false,
+          "basis": "Sippy presubmit ingestion is not enabled for release branch 4.20 by registry policy."
+        },
         "required": true,
         "always_run": false,
         "branches": [
@@ -17569,7 +18246,15 @@
         ],
         "skip_branches": [],
         "skip_if_only_changed": "(^(\\.tekton|\\.github|docs|examples|enhancements|contrib|\\.cursor)/)|(^[A-Z]+\\.md$)|((^|/)OWNERS$)|(/overrides\\.yaml$)|(^renovate\\.json$)|(/\\.testcoverage\\.yml$)|(^\\.gitlint$)|(^\\.gitignore$)",
-        "periodic_counterparts": []
+        "periodic_counterparts": [
+          {
+            "job_id": "periodic-ci-openshift-hypershift-release-4.20-periodics-e2e-kubevirt-aws-ovn-csi",
+            "tested_release": "4.20",
+            "source": "registry-manual",
+            "verification": "human-verified",
+            "rationale": "A human reviewed the job definitions and verified that these jobs exercise corresponding test scenarios."
+          }
+        ]
       },
       "release_controller": [],
       "sippy_url": "https://sippy.dptools.openshift.org/sippy-ng/jobs/Presubmits/analysis?filters=%7B%22items%22%3A%5B%7B%22columnField%22%3A%22name%22%2C%22operatorValue%22%3A%22equals%22%2C%22value%22%3A%22pull-ci-openshift-hypershift-release-4.20-e2e-kubevirt-aws-ovn-reduced%22%7D%5D%7D",
@@ -17597,6 +18282,10 @@
       "presubmit": {
         "target_branch": "release-4.20",
         "target_release": "4.20",
+        "sippy_ingestion": {
+          "enabled": false,
+          "basis": "Sippy presubmit ingestion is not enabled for release branch 4.20 by registry policy."
+        },
         "required": false,
         "always_run": false,
         "branches": [
@@ -17632,6 +18321,10 @@
       "presubmit": {
         "target_branch": "release-4.20",
         "target_release": "4.20",
+        "sippy_ingestion": {
+          "enabled": false,
+          "basis": "Sippy presubmit ingestion is not enabled for release branch 4.20 by registry policy."
+        },
         "required": false,
         "always_run": false,
         "branches": [
@@ -17664,6 +18357,10 @@
       "presubmit": {
         "target_branch": "release-4.20",
         "target_release": "4.20",
+        "sippy_ingestion": {
+          "enabled": false,
+          "basis": "Sippy presubmit ingestion is not enabled for release branch 4.20 by registry policy."
+        },
         "required": true,
         "always_run": true,
         "branches": [
@@ -17696,6 +18393,10 @@
       "presubmit": {
         "target_branch": "release-4.20",
         "target_release": "4.20",
+        "sippy_ingestion": {
+          "enabled": false,
+          "basis": "Sippy presubmit ingestion is not enabled for release branch 4.20 by registry policy."
+        },
         "required": true,
         "always_run": false,
         "branches": [
@@ -17729,6 +18430,10 @@
       "presubmit": {
         "target_branch": "release-4.20",
         "target_release": "4.20",
+        "sippy_ingestion": {
+          "enabled": false,
+          "basis": "Sippy presubmit ingestion is not enabled for release branch 4.20 by registry policy."
+        },
         "required": true,
         "always_run": false,
         "branches": [
@@ -17762,6 +18467,10 @@
       "presubmit": {
         "target_branch": "release-4.20",
         "target_release": "4.20",
+        "sippy_ingestion": {
+          "enabled": false,
+          "basis": "Sippy presubmit ingestion is not enabled for release branch 4.20 by registry policy."
+        },
         "required": true,
         "always_run": true,
         "branches": [
@@ -17794,6 +18503,10 @@
       "presubmit": {
         "target_branch": "release-4.20",
         "target_release": "4.20",
+        "sippy_ingestion": {
+          "enabled": false,
+          "basis": "Sippy presubmit ingestion is not enabled for release branch 4.20 by registry policy."
+        },
         "required": true,
         "always_run": true,
         "branches": [
@@ -17829,6 +18542,10 @@
       "presubmit": {
         "target_branch": "release-4.21",
         "target_release": "4.21",
+        "sippy_ingestion": {
+          "enabled": false,
+          "basis": "Sippy presubmit ingestion is not enabled for release branch 4.21 by registry policy."
+        },
         "required": false,
         "always_run": false,
         "branches": [
@@ -17863,6 +18580,10 @@
       "presubmit": {
         "target_branch": "release-4.21",
         "target_release": "4.21",
+        "sippy_ingestion": {
+          "enabled": false,
+          "basis": "Sippy presubmit ingestion is not enabled for release branch 4.21 by registry policy."
+        },
         "required": true,
         "always_run": false,
         "branches": [
@@ -17906,6 +18627,10 @@
       "presubmit": {
         "target_branch": "release-4.21",
         "target_release": "4.21",
+        "sippy_ingestion": {
+          "enabled": false,
+          "basis": "Sippy presubmit ingestion is not enabled for release branch 4.21 by registry policy."
+        },
         "required": true,
         "always_run": false,
         "branches": [
@@ -17941,6 +18666,10 @@
       "presubmit": {
         "target_branch": "release-4.21",
         "target_release": "4.21",
+        "sippy_ingestion": {
+          "enabled": false,
+          "basis": "Sippy presubmit ingestion is not enabled for release branch 4.21 by registry policy."
+        },
         "required": true,
         "always_run": false,
         "branches": [
@@ -17984,6 +18713,10 @@
       "presubmit": {
         "target_branch": "release-4.21",
         "target_release": "4.21",
+        "sippy_ingestion": {
+          "enabled": false,
+          "basis": "Sippy presubmit ingestion is not enabled for release branch 4.21 by registry policy."
+        },
         "required": false,
         "always_run": false,
         "branches": [
@@ -18018,6 +18751,10 @@
       "presubmit": {
         "target_branch": "release-4.21",
         "target_release": "4.21",
+        "sippy_ingestion": {
+          "enabled": false,
+          "basis": "Sippy presubmit ingestion is not enabled for release branch 4.21 by registry policy."
+        },
         "required": true,
         "always_run": true,
         "branches": [
@@ -18052,6 +18789,10 @@
       "presubmit": {
         "target_branch": "release-4.21",
         "target_release": "4.21",
+        "sippy_ingestion": {
+          "enabled": false,
+          "basis": "Sippy presubmit ingestion is not enabled for release branch 4.21 by registry policy."
+        },
         "required": false,
         "always_run": false,
         "branches": [
@@ -18086,6 +18827,10 @@
       "presubmit": {
         "target_branch": "release-4.21",
         "target_release": "4.21",
+        "sippy_ingestion": {
+          "enabled": false,
+          "basis": "Sippy presubmit ingestion is not enabled for release branch 4.21 by registry policy."
+        },
         "required": false,
         "always_run": false,
         "branches": [
@@ -18120,6 +18865,10 @@
       "presubmit": {
         "target_branch": "release-4.21",
         "target_release": "4.21",
+        "sippy_ingestion": {
+          "enabled": false,
+          "basis": "Sippy presubmit ingestion is not enabled for release branch 4.21 by registry policy."
+        },
         "required": true,
         "always_run": false,
         "branches": [
@@ -18155,6 +18904,10 @@
       "presubmit": {
         "target_branch": "release-4.21",
         "target_release": "4.21",
+        "sippy_ingestion": {
+          "enabled": false,
+          "basis": "Sippy presubmit ingestion is not enabled for release branch 4.21 by registry policy."
+        },
         "required": false,
         "always_run": false,
         "branches": [
@@ -18189,6 +18942,10 @@
       "presubmit": {
         "target_branch": "release-4.21",
         "target_release": "4.21",
+        "sippy_ingestion": {
+          "enabled": false,
+          "basis": "Sippy presubmit ingestion is not enabled for release branch 4.21 by registry policy."
+        },
         "required": true,
         "always_run": false,
         "branches": [
@@ -18225,6 +18982,10 @@
       "presubmit": {
         "target_branch": "release-4.21",
         "target_release": "4.21",
+        "sippy_ingestion": {
+          "enabled": false,
+          "basis": "Sippy presubmit ingestion is not enabled for release branch 4.21 by registry policy."
+        },
         "required": true,
         "always_run": true,
         "branches": [
@@ -18260,6 +19021,10 @@
       "presubmit": {
         "target_branch": "release-4.21",
         "target_release": "4.21",
+        "sippy_ingestion": {
+          "enabled": false,
+          "basis": "Sippy presubmit ingestion is not enabled for release branch 4.21 by registry policy."
+        },
         "required": false,
         "always_run": false,
         "branches": [
@@ -18294,6 +19059,10 @@
       "presubmit": {
         "target_branch": "release-4.21",
         "target_release": "4.21",
+        "sippy_ingestion": {
+          "enabled": false,
+          "basis": "Sippy presubmit ingestion is not enabled for release branch 4.21 by registry policy."
+        },
         "required": false,
         "always_run": false,
         "branches": [
@@ -18329,6 +19098,10 @@
       "presubmit": {
         "target_branch": "release-4.21",
         "target_release": "4.21",
+        "sippy_ingestion": {
+          "enabled": false,
+          "basis": "Sippy presubmit ingestion is not enabled for release branch 4.21 by registry policy."
+        },
         "required": false,
         "always_run": false,
         "branches": [
@@ -18364,6 +19137,10 @@
       "presubmit": {
         "target_branch": "release-4.21",
         "target_release": "4.21",
+        "sippy_ingestion": {
+          "enabled": false,
+          "basis": "Sippy presubmit ingestion is not enabled for release branch 4.21 by registry policy."
+        },
         "required": true,
         "always_run": false,
         "branches": [
@@ -18372,7 +19149,15 @@
         ],
         "skip_branches": [],
         "skip_if_only_changed": "(^(\\.tekton|\\.github|\\.claude|docs|examples|enhancements|contrib|\\.cursor)/)|(^[A-Z]+\\.md$)|((^|/)OWNERS$)|(/overrides\\.yaml$)|(^renovate\\.json$)|(/\\.testcoverage\\.yml$)|(^\\.gitlint$)|(^\\.gitignore$)",
-        "periodic_counterparts": []
+        "periodic_counterparts": [
+          {
+            "job_id": "periodic-ci-openshift-hypershift-release-4.21-periodics-e2e-kubevirt-aws-ovn-csi",
+            "tested_release": "4.21",
+            "source": "registry-manual",
+            "verification": "human-verified",
+            "rationale": "A human reviewed the job definitions and verified that these jobs exercise corresponding test scenarios."
+          }
+        ]
       },
       "release_controller": [],
       "sippy_url": "https://sippy.dptools.openshift.org/sippy-ng/jobs/Presubmits/analysis?filters=%7B%22items%22%3A%5B%7B%22columnField%22%3A%22name%22%2C%22operatorValue%22%3A%22equals%22%2C%22value%22%3A%22pull-ci-openshift-hypershift-release-4.21-e2e-kubevirt-aws-ovn-reduced%22%7D%5D%7D",
@@ -18400,6 +19185,10 @@
       "presubmit": {
         "target_branch": "release-4.21",
         "target_release": "4.21",
+        "sippy_ingestion": {
+          "enabled": false,
+          "basis": "Sippy presubmit ingestion is not enabled for release branch 4.21 by registry policy."
+        },
         "required": false,
         "always_run": false,
         "branches": [
@@ -18435,6 +19224,10 @@
       "presubmit": {
         "target_branch": "release-4.21",
         "target_release": "4.21",
+        "sippy_ingestion": {
+          "enabled": false,
+          "basis": "Sippy presubmit ingestion is not enabled for release branch 4.21 by registry policy."
+        },
         "required": false,
         "always_run": false,
         "branches": [
@@ -18470,6 +19263,10 @@
       "presubmit": {
         "target_branch": "release-4.21",
         "target_release": "4.21",
+        "sippy_ingestion": {
+          "enabled": false,
+          "basis": "Sippy presubmit ingestion is not enabled for release branch 4.21 by registry policy."
+        },
         "required": false,
         "always_run": false,
         "branches": [
@@ -18502,6 +19299,10 @@
       "presubmit": {
         "target_branch": "release-4.21",
         "target_release": "4.21",
+        "sippy_ingestion": {
+          "enabled": false,
+          "basis": "Sippy presubmit ingestion is not enabled for release branch 4.21 by registry policy."
+        },
         "required": true,
         "always_run": true,
         "branches": [
@@ -18537,6 +19338,10 @@
       "presubmit": {
         "target_branch": "release-4.21",
         "target_release": "4.21",
+        "sippy_ingestion": {
+          "enabled": false,
+          "basis": "Sippy presubmit ingestion is not enabled for release branch 4.21 by registry policy."
+        },
         "required": false,
         "always_run": false,
         "branches": [
@@ -18570,6 +19375,10 @@
       "presubmit": {
         "target_branch": "release-4.21",
         "target_release": "4.21",
+        "sippy_ingestion": {
+          "enabled": false,
+          "basis": "Sippy presubmit ingestion is not enabled for release branch 4.21 by registry policy."
+        },
         "required": true,
         "always_run": true,
         "branches": [
@@ -18604,6 +19413,10 @@
       "presubmit": {
         "target_branch": "release-4.21",
         "target_release": "4.21",
+        "sippy_ingestion": {
+          "enabled": false,
+          "basis": "Sippy presubmit ingestion is not enabled for release branch 4.21 by registry policy."
+        },
         "required": false,
         "always_run": false,
         "branches": [
@@ -18636,6 +19449,10 @@
       "presubmit": {
         "target_branch": "release-4.21",
         "target_release": "4.21",
+        "sippy_ingestion": {
+          "enabled": false,
+          "basis": "Sippy presubmit ingestion is not enabled for release branch 4.21 by registry policy."
+        },
         "required": true,
         "always_run": false,
         "branches": [
@@ -18669,6 +19486,10 @@
       "presubmit": {
         "target_branch": "release-4.21",
         "target_release": "4.21",
+        "sippy_ingestion": {
+          "enabled": false,
+          "basis": "Sippy presubmit ingestion is not enabled for release branch 4.21 by registry policy."
+        },
         "required": true,
         "always_run": false,
         "branches": [
@@ -18702,6 +19523,10 @@
       "presubmit": {
         "target_branch": "release-4.21",
         "target_release": "4.21",
+        "sippy_ingestion": {
+          "enabled": false,
+          "basis": "Sippy presubmit ingestion is not enabled for release branch 4.21 by registry policy."
+        },
         "required": true,
         "always_run": true,
         "branches": [
@@ -18734,6 +19559,10 @@
       "presubmit": {
         "target_branch": "release-4.21",
         "target_release": "4.21",
+        "sippy_ingestion": {
+          "enabled": false,
+          "basis": "Sippy presubmit ingestion is not enabled for release branch 4.21 by registry policy."
+        },
         "required": true,
         "always_run": false,
         "branches": [
@@ -18766,6 +19595,10 @@
       "presubmit": {
         "target_branch": "release-4.22",
         "target_release": "4.22",
+        "sippy_ingestion": {
+          "enabled": false,
+          "basis": "Sippy presubmit ingestion is not enabled for release branch 4.22 by registry policy."
+        },
         "required": false,
         "always_run": false,
         "branches": [
@@ -18801,6 +19634,10 @@
       "presubmit": {
         "target_branch": "release-4.22",
         "target_release": "4.22",
+        "sippy_ingestion": {
+          "enabled": false,
+          "basis": "Sippy presubmit ingestion is not enabled for release branch 4.22 by registry policy."
+        },
         "required": false,
         "always_run": false,
         "branches": [
@@ -18836,6 +19673,10 @@
       "presubmit": {
         "target_branch": "release-4.22",
         "target_release": "4.22",
+        "sippy_ingestion": {
+          "enabled": false,
+          "basis": "Sippy presubmit ingestion is not enabled for release branch 4.22 by registry policy."
+        },
         "required": false,
         "always_run": false,
         "branches": [
@@ -18870,6 +19711,10 @@
       "presubmit": {
         "target_branch": "release-4.22",
         "target_release": "4.22",
+        "sippy_ingestion": {
+          "enabled": false,
+          "basis": "Sippy presubmit ingestion is not enabled for release branch 4.22 by registry policy."
+        },
         "required": true,
         "always_run": false,
         "branches": [
@@ -18913,6 +19758,10 @@
       "presubmit": {
         "target_branch": "release-4.22",
         "target_release": "4.22",
+        "sippy_ingestion": {
+          "enabled": false,
+          "basis": "Sippy presubmit ingestion is not enabled for release branch 4.22 by registry policy."
+        },
         "required": true,
         "always_run": false,
         "branches": [
@@ -18947,6 +19796,10 @@
       "presubmit": {
         "target_branch": "release-4.22",
         "target_release": "4.22",
+        "sippy_ingestion": {
+          "enabled": false,
+          "basis": "Sippy presubmit ingestion is not enabled for release branch 4.22 by registry policy."
+        },
         "required": true,
         "always_run": false,
         "branches": [
@@ -18982,6 +19835,10 @@
       "presubmit": {
         "target_branch": "release-4.22",
         "target_release": "4.22",
+        "sippy_ingestion": {
+          "enabled": false,
+          "basis": "Sippy presubmit ingestion is not enabled for release branch 4.22 by registry policy."
+        },
         "required": true,
         "always_run": false,
         "branches": [
@@ -19025,6 +19882,10 @@
       "presubmit": {
         "target_branch": "release-4.22",
         "target_release": "4.22",
+        "sippy_ingestion": {
+          "enabled": false,
+          "basis": "Sippy presubmit ingestion is not enabled for release branch 4.22 by registry policy."
+        },
         "required": true,
         "always_run": false,
         "branches": [
@@ -19059,6 +19920,10 @@
       "presubmit": {
         "target_branch": "release-4.22",
         "target_release": "4.22",
+        "sippy_ingestion": {
+          "enabled": false,
+          "basis": "Sippy presubmit ingestion is not enabled for release branch 4.22 by registry policy."
+        },
         "required": false,
         "always_run": false,
         "branches": [
@@ -19093,6 +19958,10 @@
       "presubmit": {
         "target_branch": "release-4.22",
         "target_release": "4.22",
+        "sippy_ingestion": {
+          "enabled": false,
+          "basis": "Sippy presubmit ingestion is not enabled for release branch 4.22 by registry policy."
+        },
         "required": false,
         "always_run": false,
         "branches": [
@@ -19127,6 +19996,10 @@
       "presubmit": {
         "target_branch": "release-4.22",
         "target_release": "4.22",
+        "sippy_ingestion": {
+          "enabled": false,
+          "basis": "Sippy presubmit ingestion is not enabled for release branch 4.22 by registry policy."
+        },
         "required": false,
         "always_run": false,
         "branches": [
@@ -19161,6 +20034,10 @@
       "presubmit": {
         "target_branch": "release-4.22",
         "target_release": "4.22",
+        "sippy_ingestion": {
+          "enabled": false,
+          "basis": "Sippy presubmit ingestion is not enabled for release branch 4.22 by registry policy."
+        },
         "required": true,
         "always_run": false,
         "branches": [
@@ -19196,6 +20073,10 @@
       "presubmit": {
         "target_branch": "release-4.22",
         "target_release": "4.22",
+        "sippy_ingestion": {
+          "enabled": false,
+          "basis": "Sippy presubmit ingestion is not enabled for release branch 4.22 by registry policy."
+        },
         "required": false,
         "always_run": false,
         "branches": [
@@ -19230,6 +20111,10 @@
       "presubmit": {
         "target_branch": "release-4.22",
         "target_release": "4.22",
+        "sippy_ingestion": {
+          "enabled": false,
+          "basis": "Sippy presubmit ingestion is not enabled for release branch 4.22 by registry policy."
+        },
         "required": true,
         "always_run": false,
         "branches": [
@@ -19265,6 +20150,10 @@
       "presubmit": {
         "target_branch": "release-4.22",
         "target_release": "4.22",
+        "sippy_ingestion": {
+          "enabled": false,
+          "basis": "Sippy presubmit ingestion is not enabled for release branch 4.22 by registry policy."
+        },
         "required": true,
         "always_run": false,
         "branches": [
@@ -19300,6 +20189,10 @@
       "presubmit": {
         "target_branch": "release-4.22",
         "target_release": "4.22",
+        "sippy_ingestion": {
+          "enabled": false,
+          "basis": "Sippy presubmit ingestion is not enabled for release branch 4.22 by registry policy."
+        },
         "required": false,
         "always_run": false,
         "branches": [
@@ -19335,6 +20228,10 @@
       "presubmit": {
         "target_branch": "release-4.22",
         "target_release": "4.22",
+        "sippy_ingestion": {
+          "enabled": false,
+          "basis": "Sippy presubmit ingestion is not enabled for release branch 4.22 by registry policy."
+        },
         "required": false,
         "always_run": false,
         "branches": [
@@ -19370,6 +20267,10 @@
       "presubmit": {
         "target_branch": "release-4.22",
         "target_release": "4.22",
+        "sippy_ingestion": {
+          "enabled": false,
+          "basis": "Sippy presubmit ingestion is not enabled for release branch 4.22 by registry policy."
+        },
         "required": false,
         "always_run": false,
         "branches": [
@@ -19404,6 +20305,10 @@
       "presubmit": {
         "target_branch": "release-4.22",
         "target_release": "4.22",
+        "sippy_ingestion": {
+          "enabled": false,
+          "basis": "Sippy presubmit ingestion is not enabled for release branch 4.22 by registry policy."
+        },
         "required": true,
         "always_run": false,
         "branches": [
@@ -19438,6 +20343,10 @@
       "presubmit": {
         "target_branch": "release-4.22",
         "target_release": "4.22",
+        "sippy_ingestion": {
+          "enabled": false,
+          "basis": "Sippy presubmit ingestion is not enabled for release branch 4.22 by registry policy."
+        },
         "required": false,
         "always_run": false,
         "branches": [
@@ -19473,6 +20382,10 @@
       "presubmit": {
         "target_branch": "release-4.22",
         "target_release": "4.22",
+        "sippy_ingestion": {
+          "enabled": false,
+          "basis": "Sippy presubmit ingestion is not enabled for release branch 4.22 by registry policy."
+        },
         "required": false,
         "always_run": false,
         "branches": [
@@ -19508,6 +20421,10 @@
       "presubmit": {
         "target_branch": "release-4.22",
         "target_release": "4.22",
+        "sippy_ingestion": {
+          "enabled": false,
+          "basis": "Sippy presubmit ingestion is not enabled for release branch 4.22 by registry policy."
+        },
         "required": true,
         "always_run": false,
         "branches": [
@@ -19515,7 +20432,15 @@
           "^release-4\\.22-"
         ],
         "skip_branches": [],
-        "periodic_counterparts": []
+        "periodic_counterparts": [
+          {
+            "job_id": "periodic-ci-openshift-hypershift-release-4.22-periodics-e2e-kubevirt-aws-ovn-csi",
+            "tested_release": "4.22",
+            "source": "registry-manual",
+            "verification": "human-verified",
+            "rationale": "A human reviewed the job definitions and verified that these jobs exercise corresponding test scenarios."
+          }
+        ]
       },
       "release_controller": [],
       "sippy_url": "https://sippy.dptools.openshift.org/sippy-ng/jobs/Presubmits/analysis?filters=%7B%22items%22%3A%5B%7B%22columnField%22%3A%22name%22%2C%22operatorValue%22%3A%22equals%22%2C%22value%22%3A%22pull-ci-openshift-hypershift-release-4.22-e2e-kubevirt-aws-ovn-reduced%22%7D%5D%7D",
@@ -19543,6 +20468,10 @@
       "presubmit": {
         "target_branch": "release-4.22",
         "target_release": "4.22",
+        "sippy_ingestion": {
+          "enabled": false,
+          "basis": "Sippy presubmit ingestion is not enabled for release branch 4.22 by registry policy."
+        },
         "required": false,
         "always_run": false,
         "branches": [
@@ -19578,6 +20507,10 @@
       "presubmit": {
         "target_branch": "release-4.22",
         "target_release": "4.22",
+        "sippy_ingestion": {
+          "enabled": false,
+          "basis": "Sippy presubmit ingestion is not enabled for release branch 4.22 by registry policy."
+        },
         "required": false,
         "always_run": false,
         "branches": [
@@ -19612,6 +20545,10 @@
       "presubmit": {
         "target_branch": "release-4.22",
         "target_release": "4.22",
+        "sippy_ingestion": {
+          "enabled": false,
+          "basis": "Sippy presubmit ingestion is not enabled for release branch 4.22 by registry policy."
+        },
         "required": true,
         "always_run": false,
         "branches": [
@@ -19619,7 +20556,15 @@
           "^release-4\\.22-"
         ],
         "skip_branches": [],
-        "periodic_counterparts": []
+        "periodic_counterparts": [
+          {
+            "job_id": "periodic-ci-openshift-hypershift-release-4.22-periodics-e2e-v2-aws",
+            "tested_release": "4.22",
+            "source": "registry-manual",
+            "verification": "human-verified",
+            "rationale": "A human reviewed the job definitions and verified that these jobs exercise corresponding test scenarios."
+          }
+        ]
       },
       "release_controller": [],
       "sippy_url": "https://sippy.dptools.openshift.org/sippy-ng/jobs/Presubmits/analysis?filters=%7B%22items%22%3A%5B%7B%22columnField%22%3A%22name%22%2C%22operatorValue%22%3A%22equals%22%2C%22value%22%3A%22pull-ci-openshift-hypershift-release-4.22-e2e-v2-aws%22%7D%5D%7D",
@@ -19646,6 +20591,10 @@
       "presubmit": {
         "target_branch": "release-4.22",
         "target_release": "4.22",
+        "sippy_ingestion": {
+          "enabled": false,
+          "basis": "Sippy presubmit ingestion is not enabled for release branch 4.22 by registry policy."
+        },
         "required": false,
         "always_run": false,
         "branches": [
@@ -19678,6 +20627,10 @@
       "presubmit": {
         "target_branch": "release-4.22",
         "target_release": "4.22",
+        "sippy_ingestion": {
+          "enabled": false,
+          "basis": "Sippy presubmit ingestion is not enabled for release branch 4.22 by registry policy."
+        },
         "required": true,
         "always_run": true,
         "branches": [
@@ -19713,6 +20666,10 @@
       "presubmit": {
         "target_branch": "release-4.22",
         "target_release": "4.22",
+        "sippy_ingestion": {
+          "enabled": false,
+          "basis": "Sippy presubmit ingestion is not enabled for release branch 4.22 by registry policy."
+        },
         "required": false,
         "always_run": false,
         "branches": [
@@ -19746,6 +20703,10 @@
       "presubmit": {
         "target_branch": "release-4.22",
         "target_release": "4.22",
+        "sippy_ingestion": {
+          "enabled": false,
+          "basis": "Sippy presubmit ingestion is not enabled for release branch 4.22 by registry policy."
+        },
         "required": true,
         "always_run": true,
         "branches": [
@@ -19780,6 +20741,10 @@
       "presubmit": {
         "target_branch": "release-4.22",
         "target_release": "4.22",
+        "sippy_ingestion": {
+          "enabled": false,
+          "basis": "Sippy presubmit ingestion is not enabled for release branch 4.22 by registry policy."
+        },
         "required": false,
         "always_run": false,
         "branches": [
@@ -19812,6 +20777,10 @@
       "presubmit": {
         "target_branch": "release-4.22",
         "target_release": "4.22",
+        "sippy_ingestion": {
+          "enabled": false,
+          "basis": "Sippy presubmit ingestion is not enabled for release branch 4.22 by registry policy."
+        },
         "required": true,
         "always_run": false,
         "branches": [
@@ -19845,6 +20814,10 @@
       "presubmit": {
         "target_branch": "release-4.22",
         "target_release": "4.22",
+        "sippy_ingestion": {
+          "enabled": false,
+          "basis": "Sippy presubmit ingestion is not enabled for release branch 4.22 by registry policy."
+        },
         "required": true,
         "always_run": true,
         "branches": [
@@ -19879,6 +20852,10 @@
       "presubmit": {
         "target_branch": "release-5.0",
         "target_release": "5.0",
+        "sippy_ingestion": {
+          "enabled": false,
+          "basis": "Sippy presubmit ingestion is not enabled for release branch 5.0 by registry policy."
+        },
         "required": false,
         "always_run": false,
         "branches": [
@@ -19916,6 +20893,10 @@
       "presubmit": {
         "target_branch": "release-5.0",
         "target_release": "5.0",
+        "sippy_ingestion": {
+          "enabled": false,
+          "basis": "Sippy presubmit ingestion is not enabled for release branch 5.0 by registry policy."
+        },
         "required": false,
         "always_run": false,
         "branches": [
@@ -19953,6 +20934,10 @@
       "presubmit": {
         "target_branch": "release-5.0",
         "target_release": "5.0",
+        "sippy_ingestion": {
+          "enabled": false,
+          "basis": "Sippy presubmit ingestion is not enabled for release branch 5.0 by registry policy."
+        },
         "required": false,
         "always_run": false,
         "branches": [
@@ -19989,6 +20974,10 @@
       "presubmit": {
         "target_branch": "release-5.0",
         "target_release": "5.0",
+        "sippy_ingestion": {
+          "enabled": false,
+          "basis": "Sippy presubmit ingestion is not enabled for release branch 5.0 by registry policy."
+        },
         "required": true,
         "always_run": false,
         "branches": [
@@ -20026,6 +21015,10 @@
       "presubmit": {
         "target_branch": "release-5.0",
         "target_release": "5.0",
+        "sippy_ingestion": {
+          "enabled": false,
+          "basis": "Sippy presubmit ingestion is not enabled for release branch 5.0 by registry policy."
+        },
         "required": true,
         "always_run": false,
         "branches": [
@@ -20062,6 +21055,10 @@
       "presubmit": {
         "target_branch": "release-5.0",
         "target_release": "5.0",
+        "sippy_ingestion": {
+          "enabled": false,
+          "basis": "Sippy presubmit ingestion is not enabled for release branch 5.0 by registry policy."
+        },
         "required": false,
         "always_run": false,
         "branches": [
@@ -20098,6 +21095,10 @@
       "presubmit": {
         "target_branch": "release-5.0",
         "target_release": "5.0",
+        "sippy_ingestion": {
+          "enabled": false,
+          "basis": "Sippy presubmit ingestion is not enabled for release branch 5.0 by registry policy."
+        },
         "required": true,
         "always_run": false,
         "branches": [
@@ -20135,6 +21136,10 @@
       "presubmit": {
         "target_branch": "release-5.0",
         "target_release": "5.0",
+        "sippy_ingestion": {
+          "enabled": false,
+          "basis": "Sippy presubmit ingestion is not enabled for release branch 5.0 by registry policy."
+        },
         "required": false,
         "always_run": false,
         "branches": [
@@ -20171,6 +21176,10 @@
       "presubmit": {
         "target_branch": "release-5.0",
         "target_release": "5.0",
+        "sippy_ingestion": {
+          "enabled": false,
+          "basis": "Sippy presubmit ingestion is not enabled for release branch 5.0 by registry policy."
+        },
         "required": true,
         "always_run": false,
         "branches": [
@@ -20208,6 +21217,10 @@
       "presubmit": {
         "target_branch": "release-5.0",
         "target_release": "5.0",
+        "sippy_ingestion": {
+          "enabled": false,
+          "basis": "Sippy presubmit ingestion is not enabled for release branch 5.0 by registry policy."
+        },
         "required": true,
         "always_run": false,
         "branches": [
@@ -20244,6 +21257,10 @@
       "presubmit": {
         "target_branch": "release-5.0",
         "target_release": "5.0",
+        "sippy_ingestion": {
+          "enabled": false,
+          "basis": "Sippy presubmit ingestion is not enabled for release branch 5.0 by registry policy."
+        },
         "required": false,
         "always_run": false,
         "branches": [
@@ -20280,6 +21297,10 @@
       "presubmit": {
         "target_branch": "release-5.0",
         "target_release": "5.0",
+        "sippy_ingestion": {
+          "enabled": false,
+          "basis": "Sippy presubmit ingestion is not enabled for release branch 5.0 by registry policy."
+        },
         "required": false,
         "always_run": false,
         "branches": [
@@ -20316,6 +21337,10 @@
       "presubmit": {
         "target_branch": "release-5.0",
         "target_release": "5.0",
+        "sippy_ingestion": {
+          "enabled": false,
+          "basis": "Sippy presubmit ingestion is not enabled for release branch 5.0 by registry policy."
+        },
         "required": false,
         "always_run": false,
         "branches": [
@@ -20352,6 +21377,10 @@
       "presubmit": {
         "target_branch": "release-5.0",
         "target_release": "5.0",
+        "sippy_ingestion": {
+          "enabled": false,
+          "basis": "Sippy presubmit ingestion is not enabled for release branch 5.0 by registry policy."
+        },
         "required": false,
         "always_run": false,
         "branches": [
@@ -20388,6 +21417,10 @@
       "presubmit": {
         "target_branch": "release-5.0",
         "target_release": "5.0",
+        "sippy_ingestion": {
+          "enabled": false,
+          "basis": "Sippy presubmit ingestion is not enabled for release branch 5.0 by registry policy."
+        },
         "required": false,
         "always_run": false,
         "branches": [
@@ -20424,6 +21457,10 @@
       "presubmit": {
         "target_branch": "release-5.0",
         "target_release": "5.0",
+        "sippy_ingestion": {
+          "enabled": false,
+          "basis": "Sippy presubmit ingestion is not enabled for release branch 5.0 by registry policy."
+        },
         "required": true,
         "always_run": false,
         "branches": [
@@ -20461,6 +21498,10 @@
       "presubmit": {
         "target_branch": "release-5.0",
         "target_release": "5.0",
+        "sippy_ingestion": {
+          "enabled": false,
+          "basis": "Sippy presubmit ingestion is not enabled for release branch 5.0 by registry policy."
+        },
         "required": false,
         "always_run": false,
         "branches": [
@@ -20497,6 +21538,10 @@
       "presubmit": {
         "target_branch": "release-5.0",
         "target_release": "5.0",
+        "sippy_ingestion": {
+          "enabled": false,
+          "basis": "Sippy presubmit ingestion is not enabled for release branch 5.0 by registry policy."
+        },
         "required": false,
         "always_run": false,
         "branches": [
@@ -20533,6 +21578,10 @@
       "presubmit": {
         "target_branch": "release-5.0",
         "target_release": "5.0",
+        "sippy_ingestion": {
+          "enabled": false,
+          "basis": "Sippy presubmit ingestion is not enabled for release branch 5.0 by registry policy."
+        },
         "required": false,
         "always_run": false,
         "branches": [
@@ -20569,6 +21618,10 @@
       "presubmit": {
         "target_branch": "release-5.0",
         "target_release": "5.0",
+        "sippy_ingestion": {
+          "enabled": false,
+          "basis": "Sippy presubmit ingestion is not enabled for release branch 5.0 by registry policy."
+        },
         "required": true,
         "always_run": false,
         "branches": [
@@ -20606,6 +21659,10 @@
       "presubmit": {
         "target_branch": "release-5.0",
         "target_release": "5.0",
+        "sippy_ingestion": {
+          "enabled": false,
+          "basis": "Sippy presubmit ingestion is not enabled for release branch 5.0 by registry policy."
+        },
         "required": false,
         "always_run": false,
         "branches": [
@@ -20643,6 +21700,10 @@
       "presubmit": {
         "target_branch": "release-5.0",
         "target_release": "5.0",
+        "sippy_ingestion": {
+          "enabled": false,
+          "basis": "Sippy presubmit ingestion is not enabled for release branch 5.0 by registry policy."
+        },
         "required": false,
         "always_run": false,
         "branches": [
@@ -20680,6 +21741,10 @@
       "presubmit": {
         "target_branch": "release-5.0",
         "target_release": "5.0",
+        "sippy_ingestion": {
+          "enabled": false,
+          "basis": "Sippy presubmit ingestion is not enabled for release branch 5.0 by registry policy."
+        },
         "required": false,
         "always_run": false,
         "branches": [
@@ -20717,6 +21782,10 @@
       "presubmit": {
         "target_branch": "release-5.0",
         "target_release": "5.0",
+        "sippy_ingestion": {
+          "enabled": false,
+          "basis": "Sippy presubmit ingestion is not enabled for release branch 5.0 by registry policy."
+        },
         "required": false,
         "always_run": false,
         "branches": [
@@ -20753,6 +21822,10 @@
       "presubmit": {
         "target_branch": "release-5.0",
         "target_release": "5.0",
+        "sippy_ingestion": {
+          "enabled": false,
+          "basis": "Sippy presubmit ingestion is not enabled for release branch 5.0 by registry policy."
+        },
         "required": false,
         "always_run": false,
         "branches": [
@@ -20789,6 +21862,10 @@
       "presubmit": {
         "target_branch": "release-5.0",
         "target_release": "5.0",
+        "sippy_ingestion": {
+          "enabled": false,
+          "basis": "Sippy presubmit ingestion is not enabled for release branch 5.0 by registry policy."
+        },
         "required": false,
         "always_run": false,
         "branches": [
@@ -20826,6 +21903,10 @@
       "presubmit": {
         "target_branch": "release-5.0",
         "target_release": "5.0",
+        "sippy_ingestion": {
+          "enabled": false,
+          "basis": "Sippy presubmit ingestion is not enabled for release branch 5.0 by registry policy."
+        },
         "required": false,
         "always_run": false,
         "branches": [
@@ -20863,6 +21944,10 @@
       "presubmit": {
         "target_branch": "release-5.0",
         "target_release": "5.0",
+        "sippy_ingestion": {
+          "enabled": false,
+          "basis": "Sippy presubmit ingestion is not enabled for release branch 5.0 by registry policy."
+        },
         "required": true,
         "always_run": false,
         "branches": [
@@ -20900,6 +21985,10 @@
       "presubmit": {
         "target_branch": "release-5.0",
         "target_release": "5.0",
+        "sippy_ingestion": {
+          "enabled": false,
+          "basis": "Sippy presubmit ingestion is not enabled for release branch 5.0 by registry policy."
+        },
         "required": false,
         "always_run": false,
         "branches": [
@@ -20937,6 +22026,10 @@
       "presubmit": {
         "target_branch": "release-5.0",
         "target_release": "5.0",
+        "sippy_ingestion": {
+          "enabled": false,
+          "basis": "Sippy presubmit ingestion is not enabled for release branch 5.0 by registry policy."
+        },
         "required": false,
         "always_run": false,
         "branches": [
@@ -20974,6 +22067,10 @@
       "presubmit": {
         "target_branch": "release-5.0",
         "target_release": "5.0",
+        "sippy_ingestion": {
+          "enabled": false,
+          "basis": "Sippy presubmit ingestion is not enabled for release branch 5.0 by registry policy."
+        },
         "required": false,
         "always_run": false,
         "branches": [
@@ -21011,6 +22108,10 @@
       "presubmit": {
         "target_branch": "release-5.0",
         "target_release": "5.0",
+        "sippy_ingestion": {
+          "enabled": false,
+          "basis": "Sippy presubmit ingestion is not enabled for release branch 5.0 by registry policy."
+        },
         "required": false,
         "always_run": false,
         "branches": [
@@ -21048,6 +22149,10 @@
       "presubmit": {
         "target_branch": "release-5.0",
         "target_release": "5.0",
+        "sippy_ingestion": {
+          "enabled": false,
+          "basis": "Sippy presubmit ingestion is not enabled for release branch 5.0 by registry policy."
+        },
         "required": false,
         "always_run": false,
         "branches": [
@@ -21085,6 +22190,10 @@
       "presubmit": {
         "target_branch": "release-5.0",
         "target_release": "5.0",
+        "sippy_ingestion": {
+          "enabled": false,
+          "basis": "Sippy presubmit ingestion is not enabled for release branch 5.0 by registry policy."
+        },
         "required": false,
         "always_run": false,
         "branches": [
@@ -21122,6 +22231,10 @@
       "presubmit": {
         "target_branch": "release-5.0",
         "target_release": "5.0",
+        "sippy_ingestion": {
+          "enabled": false,
+          "basis": "Sippy presubmit ingestion is not enabled for release branch 5.0 by registry policy."
+        },
         "required": false,
         "always_run": false,
         "branches": [
@@ -21158,6 +22271,10 @@
       "presubmit": {
         "target_branch": "release-5.0",
         "target_release": "5.0",
+        "sippy_ingestion": {
+          "enabled": false,
+          "basis": "Sippy presubmit ingestion is not enabled for release branch 5.0 by registry policy."
+        },
         "required": true,
         "always_run": false,
         "branches": [
@@ -21194,6 +22311,10 @@
       "presubmit": {
         "target_branch": "release-5.0",
         "target_release": "5.0",
+        "sippy_ingestion": {
+          "enabled": false,
+          "basis": "Sippy presubmit ingestion is not enabled for release branch 5.0 by registry policy."
+        },
         "required": false,
         "always_run": false,
         "branches": [
@@ -21230,6 +22351,10 @@
       "presubmit": {
         "target_branch": "release-5.0",
         "target_release": "5.0",
+        "sippy_ingestion": {
+          "enabled": false,
+          "basis": "Sippy presubmit ingestion is not enabled for release branch 5.0 by registry policy."
+        },
         "required": false,
         "always_run": false,
         "branches": [
@@ -21266,6 +22391,10 @@
       "presubmit": {
         "target_branch": "release-5.0",
         "target_release": "5.0",
+        "sippy_ingestion": {
+          "enabled": false,
+          "basis": "Sippy presubmit ingestion is not enabled for release branch 5.0 by registry policy."
+        },
         "required": true,
         "always_run": false,
         "branches": [
@@ -21302,6 +22431,10 @@
       "presubmit": {
         "target_branch": "release-5.0",
         "target_release": "5.0",
+        "sippy_ingestion": {
+          "enabled": false,
+          "basis": "Sippy presubmit ingestion is not enabled for release branch 5.0 by registry policy."
+        },
         "required": true,
         "always_run": false,
         "branches": [
@@ -21336,6 +22469,10 @@
       "presubmit": {
         "target_branch": "release-5.0",
         "target_release": "5.0",
+        "sippy_ingestion": {
+          "enabled": false,
+          "basis": "Sippy presubmit ingestion is not enabled for release branch 5.0 by registry policy."
+        },
         "required": true,
         "always_run": true,
         "branches": [
@@ -21372,6 +22509,10 @@
       "presubmit": {
         "target_branch": "release-5.0",
         "target_release": "5.0",
+        "sippy_ingestion": {
+          "enabled": false,
+          "basis": "Sippy presubmit ingestion is not enabled for release branch 5.0 by registry policy."
+        },
         "required": false,
         "always_run": false,
         "branches": [
@@ -21406,6 +22547,10 @@
       "presubmit": {
         "target_branch": "release-5.0",
         "target_release": "5.0",
+        "sippy_ingestion": {
+          "enabled": false,
+          "basis": "Sippy presubmit ingestion is not enabled for release branch 5.0 by registry policy."
+        },
         "required": true,
         "always_run": false,
         "branches": [
@@ -21441,6 +22586,10 @@
       "presubmit": {
         "target_branch": "release-5.0",
         "target_release": "5.0",
+        "sippy_ingestion": {
+          "enabled": false,
+          "basis": "Sippy presubmit ingestion is not enabled for release branch 5.0 by registry policy."
+        },
         "required": true,
         "always_run": true,
         "branches": [
@@ -21475,6 +22624,10 @@
       "presubmit": {
         "target_branch": "release-5.0",
         "target_release": "5.0",
+        "sippy_ingestion": {
+          "enabled": false,
+          "basis": "Sippy presubmit ingestion is not enabled for release branch 5.0 by registry policy."
+        },
         "required": true,
         "always_run": true,
         "branches": [
@@ -21509,6 +22662,10 @@
       "presubmit": {
         "target_branch": "release-5.0",
         "target_release": "5.0",
+        "sippy_ingestion": {
+          "enabled": false,
+          "basis": "Sippy presubmit ingestion is not enabled for release branch 5.0 by registry policy."
+        },
         "required": true,
         "always_run": true,
         "branches": [
@@ -21541,6 +22698,10 @@
       "presubmit": {
         "target_branch": "release-5.0",
         "target_release": "5.0",
+        "sippy_ingestion": {
+          "enabled": false,
+          "basis": "Sippy presubmit ingestion is not enabled for release branch 5.0 by registry policy."
+        },
         "required": false,
         "always_run": false,
         "branches": [
@@ -21576,6 +22737,10 @@
       "presubmit": {
         "target_branch": "release-5.0",
         "target_release": "5.0",
+        "sippy_ingestion": {
+          "enabled": false,
+          "basis": "Sippy presubmit ingestion is not enabled for release branch 5.0 by registry policy."
+        },
         "required": false,
         "always_run": false,
         "branches": [
@@ -21611,6 +22776,10 @@
       "presubmit": {
         "target_branch": "release-5.0",
         "target_release": "5.0",
+        "sippy_ingestion": {
+          "enabled": false,
+          "basis": "Sippy presubmit ingestion is not enabled for release branch 5.0 by registry policy."
+        },
         "required": false,
         "always_run": false,
         "branches": [
@@ -21645,6 +22814,10 @@
       "presubmit": {
         "target_branch": "release-5.0",
         "target_release": "5.0",
+        "sippy_ingestion": {
+          "enabled": false,
+          "basis": "Sippy presubmit ingestion is not enabled for release branch 5.0 by registry policy."
+        },
         "required": true,
         "always_run": false,
         "branches": [
@@ -21652,7 +22825,15 @@
           "^release-5\\.0-"
         ],
         "skip_branches": [],
-        "periodic_counterparts": []
+        "periodic_counterparts": [
+          {
+            "job_id": "periodic-ci-openshift-hypershift-release-5.0-periodics-e2e-aks",
+            "tested_release": "5.0",
+            "source": "registry-manual",
+            "verification": "human-verified",
+            "rationale": "A human reviewed the job definitions and verified that these jobs exercise corresponding test scenarios."
+          }
+        ]
       },
       "release_controller": [],
       "sippy_url": "https://sippy.dptools.openshift.org/sippy-ng/jobs/Presubmits/analysis?filters=%7B%22items%22%3A%5B%7B%22columnField%22%3A%22name%22%2C%22operatorValue%22%3A%22equals%22%2C%22value%22%3A%22pull-ci-openshift-hypershift-release-5.0-e2e-aks%22%7D%5D%7D",
@@ -21680,6 +22861,10 @@
       "presubmit": {
         "target_branch": "release-5.0",
         "target_release": "5.0",
+        "sippy_ingestion": {
+          "enabled": false,
+          "basis": "Sippy presubmit ingestion is not enabled for release branch 5.0 by registry policy."
+        },
         "required": true,
         "always_run": false,
         "branches": [
@@ -21714,6 +22899,10 @@
       "presubmit": {
         "target_branch": "release-5.0",
         "target_release": "5.0",
+        "sippy_ingestion": {
+          "enabled": false,
+          "basis": "Sippy presubmit ingestion is not enabled for release branch 5.0 by registry policy."
+        },
         "required": false,
         "always_run": false,
         "branches": [
@@ -21748,6 +22937,10 @@
       "presubmit": {
         "target_branch": "release-5.0",
         "target_release": "5.0",
+        "sippy_ingestion": {
+          "enabled": false,
+          "basis": "Sippy presubmit ingestion is not enabled for release branch 5.0 by registry policy."
+        },
         "required": true,
         "always_run": false,
         "branches": [
@@ -21783,6 +22976,10 @@
       "presubmit": {
         "target_branch": "release-5.0",
         "target_release": "5.0",
+        "sippy_ingestion": {
+          "enabled": false,
+          "basis": "Sippy presubmit ingestion is not enabled for release branch 5.0 by registry policy."
+        },
         "required": false,
         "always_run": false,
         "branches": [
@@ -21817,6 +23014,10 @@
       "presubmit": {
         "target_branch": "release-5.0",
         "target_release": "5.0",
+        "sippy_ingestion": {
+          "enabled": false,
+          "basis": "Sippy presubmit ingestion is not enabled for release branch 5.0 by registry policy."
+        },
         "required": true,
         "always_run": false,
         "branches": [
@@ -21824,7 +23025,15 @@
           "^release-5\\.0-"
         ],
         "skip_branches": [],
-        "periodic_counterparts": []
+        "periodic_counterparts": [
+          {
+            "job_id": "periodic-ci-openshift-hypershift-release-5.0-periodics-e2e-aws-ovn",
+            "tested_release": "5.0",
+            "source": "registry-manual",
+            "verification": "human-verified",
+            "rationale": "A human reviewed the job definitions and verified that these jobs exercise corresponding test scenarios."
+          }
+        ]
       },
       "release_controller": [],
       "sippy_url": "https://sippy.dptools.openshift.org/sippy-ng/jobs/Presubmits/analysis?filters=%7B%22items%22%3A%5B%7B%22columnField%22%3A%22name%22%2C%22operatorValue%22%3A%22equals%22%2C%22value%22%3A%22pull-ci-openshift-hypershift-release-5.0-e2e-aws%22%7D%5D%7D",
@@ -21852,6 +23061,10 @@
       "presubmit": {
         "target_branch": "release-5.0",
         "target_release": "5.0",
+        "sippy_ingestion": {
+          "enabled": false,
+          "basis": "Sippy presubmit ingestion is not enabled for release branch 5.0 by registry policy."
+        },
         "required": true,
         "always_run": false,
         "branches": [
@@ -21886,6 +23099,10 @@
       "presubmit": {
         "target_branch": "release-5.0",
         "target_release": "5.0",
+        "sippy_ingestion": {
+          "enabled": false,
+          "basis": "Sippy presubmit ingestion is not enabled for release branch 5.0 by registry policy."
+        },
         "required": false,
         "always_run": false,
         "branches": [
@@ -21920,6 +23137,10 @@
       "presubmit": {
         "target_branch": "release-5.0",
         "target_release": "5.0",
+        "sippy_ingestion": {
+          "enabled": false,
+          "basis": "Sippy presubmit ingestion is not enabled for release branch 5.0 by registry policy."
+        },
         "required": false,
         "always_run": false,
         "branches": [
@@ -21954,6 +23175,10 @@
       "presubmit": {
         "target_branch": "release-5.0",
         "target_release": "5.0",
+        "sippy_ingestion": {
+          "enabled": false,
+          "basis": "Sippy presubmit ingestion is not enabled for release branch 5.0 by registry policy."
+        },
         "required": false,
         "always_run": false,
         "branches": [
@@ -21988,6 +23213,10 @@
       "presubmit": {
         "target_branch": "release-5.0",
         "target_release": "5.0",
+        "sippy_ingestion": {
+          "enabled": false,
+          "basis": "Sippy presubmit ingestion is not enabled for release branch 5.0 by registry policy."
+        },
         "required": false,
         "always_run": false,
         "branches": [
@@ -22022,6 +23251,10 @@
       "presubmit": {
         "target_branch": "release-5.0",
         "target_release": "5.0",
+        "sippy_ingestion": {
+          "enabled": false,
+          "basis": "Sippy presubmit ingestion is not enabled for release branch 5.0 by registry policy."
+        },
         "required": false,
         "always_run": false,
         "branches": [
@@ -22056,6 +23289,10 @@
       "presubmit": {
         "target_branch": "release-5.0",
         "target_release": "5.0",
+        "sippy_ingestion": {
+          "enabled": false,
+          "basis": "Sippy presubmit ingestion is not enabled for release branch 5.0 by registry policy."
+        },
         "required": true,
         "always_run": false,
         "branches": [
@@ -22091,6 +23328,10 @@
       "presubmit": {
         "target_branch": "release-5.0",
         "target_release": "5.0",
+        "sippy_ingestion": {
+          "enabled": false,
+          "basis": "Sippy presubmit ingestion is not enabled for release branch 5.0 by registry policy."
+        },
         "required": false,
         "always_run": false,
         "branches": [
@@ -22125,6 +23366,10 @@
       "presubmit": {
         "target_branch": "release-5.0",
         "target_release": "5.0",
+        "sippy_ingestion": {
+          "enabled": false,
+          "basis": "Sippy presubmit ingestion is not enabled for release branch 5.0 by registry policy."
+        },
         "required": false,
         "always_run": false,
         "branches": [
@@ -22159,6 +23404,10 @@
       "presubmit": {
         "target_branch": "release-5.0",
         "target_release": "5.0",
+        "sippy_ingestion": {
+          "enabled": false,
+          "basis": "Sippy presubmit ingestion is not enabled for release branch 5.0 by registry policy."
+        },
         "required": false,
         "always_run": false,
         "branches": [
@@ -22193,6 +23442,10 @@
       "presubmit": {
         "target_branch": "release-5.0",
         "target_release": "5.0",
+        "sippy_ingestion": {
+          "enabled": false,
+          "basis": "Sippy presubmit ingestion is not enabled for release branch 5.0 by registry policy."
+        },
         "required": true,
         "always_run": false,
         "branches": [
@@ -22228,6 +23481,10 @@
       "presubmit": {
         "target_branch": "release-5.0",
         "target_release": "5.0",
+        "sippy_ingestion": {
+          "enabled": false,
+          "basis": "Sippy presubmit ingestion is not enabled for release branch 5.0 by registry policy."
+        },
         "required": true,
         "always_run": false,
         "branches": [
@@ -22263,6 +23520,10 @@
       "presubmit": {
         "target_branch": "release-5.0",
         "target_release": "5.0",
+        "sippy_ingestion": {
+          "enabled": false,
+          "basis": "Sippy presubmit ingestion is not enabled for release branch 5.0 by registry policy."
+        },
         "required": false,
         "always_run": false,
         "branches": [
@@ -22298,6 +23559,10 @@
       "presubmit": {
         "target_branch": "release-5.0",
         "target_release": "5.0",
+        "sippy_ingestion": {
+          "enabled": false,
+          "basis": "Sippy presubmit ingestion is not enabled for release branch 5.0 by registry policy."
+        },
         "required": false,
         "always_run": false,
         "branches": [
@@ -22333,6 +23598,10 @@
       "presubmit": {
         "target_branch": "release-5.0",
         "target_release": "5.0",
+        "sippy_ingestion": {
+          "enabled": false,
+          "basis": "Sippy presubmit ingestion is not enabled for release branch 5.0 by registry policy."
+        },
         "required": false,
         "always_run": false,
         "branches": [
@@ -22368,6 +23637,10 @@
       "presubmit": {
         "target_branch": "release-5.0",
         "target_release": "5.0",
+        "sippy_ingestion": {
+          "enabled": false,
+          "basis": "Sippy presubmit ingestion is not enabled for release branch 5.0 by registry policy."
+        },
         "required": false,
         "always_run": false,
         "branches": [
@@ -22402,6 +23675,10 @@
       "presubmit": {
         "target_branch": "release-5.0",
         "target_release": "5.0",
+        "sippy_ingestion": {
+          "enabled": false,
+          "basis": "Sippy presubmit ingestion is not enabled for release branch 5.0 by registry policy."
+        },
         "required": false,
         "always_run": false,
         "branches": [
@@ -22436,6 +23713,10 @@
       "presubmit": {
         "target_branch": "release-5.0",
         "target_release": "5.0",
+        "sippy_ingestion": {
+          "enabled": false,
+          "basis": "Sippy presubmit ingestion is not enabled for release branch 5.0 by registry policy."
+        },
         "required": false,
         "always_run": false,
         "branches": [
@@ -22471,6 +23752,10 @@
       "presubmit": {
         "target_branch": "release-5.0",
         "target_release": "5.0",
+        "sippy_ingestion": {
+          "enabled": false,
+          "basis": "Sippy presubmit ingestion is not enabled for release branch 5.0 by registry policy."
+        },
         "required": false,
         "always_run": false,
         "branches": [
@@ -22506,6 +23791,10 @@
       "presubmit": {
         "target_branch": "release-5.0",
         "target_release": "5.0",
+        "sippy_ingestion": {
+          "enabled": false,
+          "basis": "Sippy presubmit ingestion is not enabled for release branch 5.0 by registry policy."
+        },
         "required": true,
         "always_run": false,
         "branches": [
@@ -22513,7 +23802,15 @@
           "^release-5\\.0-"
         ],
         "skip_branches": [],
-        "periodic_counterparts": []
+        "periodic_counterparts": [
+          {
+            "job_id": "periodic-ci-openshift-hypershift-release-5.0-periodics-e2e-kubevirt-aws-ovn-csi",
+            "tested_release": "5.0",
+            "source": "registry-manual",
+            "verification": "human-verified",
+            "rationale": "A human reviewed the job definitions and verified that these jobs exercise corresponding test scenarios."
+          }
+        ]
       },
       "release_controller": [],
       "sippy_url": "https://sippy.dptools.openshift.org/sippy-ng/jobs/Presubmits/analysis?filters=%7B%22items%22%3A%5B%7B%22columnField%22%3A%22name%22%2C%22operatorValue%22%3A%22equals%22%2C%22value%22%3A%22pull-ci-openshift-hypershift-release-5.0-e2e-kubevirt-aws-ovn-reduced%22%7D%5D%7D",
@@ -22541,6 +23838,10 @@
       "presubmit": {
         "target_branch": "release-5.0",
         "target_release": "5.0",
+        "sippy_ingestion": {
+          "enabled": false,
+          "basis": "Sippy presubmit ingestion is not enabled for release branch 5.0 by registry policy."
+        },
         "required": false,
         "always_run": false,
         "branches": [
@@ -22576,6 +23877,10 @@
       "presubmit": {
         "target_branch": "release-5.0",
         "target_release": "5.0",
+        "sippy_ingestion": {
+          "enabled": false,
+          "basis": "Sippy presubmit ingestion is not enabled for release branch 5.0 by registry policy."
+        },
         "required": false,
         "always_run": false,
         "branches": [
@@ -22611,6 +23916,10 @@
       "presubmit": {
         "target_branch": "release-5.0",
         "target_release": "5.0",
+        "sippy_ingestion": {
+          "enabled": false,
+          "basis": "Sippy presubmit ingestion is not enabled for release branch 5.0 by registry policy."
+        },
         "required": false,
         "always_run": false,
         "branches": [
@@ -22646,6 +23955,10 @@
       "presubmit": {
         "target_branch": "release-5.0",
         "target_release": "5.0",
+        "sippy_ingestion": {
+          "enabled": false,
+          "basis": "Sippy presubmit ingestion is not enabled for release branch 5.0 by registry policy."
+        },
         "required": false,
         "always_run": false,
         "branches": [
@@ -22681,6 +23994,10 @@
       "presubmit": {
         "target_branch": "release-5.0",
         "target_release": "5.0",
+        "sippy_ingestion": {
+          "enabled": false,
+          "basis": "Sippy presubmit ingestion is not enabled for release branch 5.0 by registry policy."
+        },
         "required": false,
         "always_run": false,
         "branches": [
@@ -22716,6 +24033,10 @@
       "presubmit": {
         "target_branch": "release-5.0",
         "target_release": "5.0",
+        "sippy_ingestion": {
+          "enabled": false,
+          "basis": "Sippy presubmit ingestion is not enabled for release branch 5.0 by registry policy."
+        },
         "required": false,
         "always_run": false,
         "branches": [
@@ -22751,6 +24072,10 @@
       "presubmit": {
         "target_branch": "release-5.0",
         "target_release": "5.0",
+        "sippy_ingestion": {
+          "enabled": false,
+          "basis": "Sippy presubmit ingestion is not enabled for release branch 5.0 by registry policy."
+        },
         "required": false,
         "always_run": false,
         "branches": [
@@ -22785,6 +24110,10 @@
       "presubmit": {
         "target_branch": "release-5.0",
         "target_release": "5.0",
+        "sippy_ingestion": {
+          "enabled": false,
+          "basis": "Sippy presubmit ingestion is not enabled for release branch 5.0 by registry policy."
+        },
         "required": true,
         "always_run": false,
         "branches": [
@@ -22792,7 +24121,15 @@
           "^release-5\\.0-"
         ],
         "skip_branches": [],
-        "periodic_counterparts": []
+        "periodic_counterparts": [
+          {
+            "job_id": "periodic-ci-openshift-hypershift-release-5.0-periodics-e2e-v2-aws",
+            "tested_release": "5.0",
+            "source": "registry-manual",
+            "verification": "human-verified",
+            "rationale": "A human reviewed the job definitions and verified that these jobs exercise corresponding test scenarios."
+          }
+        ]
       },
       "release_controller": [],
       "sippy_url": "https://sippy.dptools.openshift.org/sippy-ng/jobs/Presubmits/analysis?filters=%7B%22items%22%3A%5B%7B%22columnField%22%3A%22name%22%2C%22operatorValue%22%3A%22equals%22%2C%22value%22%3A%22pull-ci-openshift-hypershift-release-5.0-e2e-v2-aws%22%7D%5D%7D",
@@ -22819,6 +24156,10 @@
       "presubmit": {
         "target_branch": "release-5.0",
         "target_release": "5.0",
+        "sippy_ingestion": {
+          "enabled": false,
+          "basis": "Sippy presubmit ingestion is not enabled for release branch 5.0 by registry policy."
+        },
         "required": false,
         "always_run": false,
         "branches": [
@@ -22853,6 +24194,10 @@
       "presubmit": {
         "target_branch": "release-5.0",
         "target_release": "5.0",
+        "sippy_ingestion": {
+          "enabled": false,
+          "basis": "Sippy presubmit ingestion is not enabled for release branch 5.0 by registry policy."
+        },
         "required": false,
         "always_run": false,
         "branches": [
@@ -22887,6 +24232,10 @@
       "presubmit": {
         "target_branch": "release-5.0",
         "target_release": "5.0",
+        "sippy_ingestion": {
+          "enabled": false,
+          "basis": "Sippy presubmit ingestion is not enabled for release branch 5.0 by registry policy."
+        },
         "required": true,
         "always_run": false,
         "branches": [
@@ -22894,7 +24243,15 @@
           "^release-5\\.0-"
         ],
         "skip_branches": [],
-        "periodic_counterparts": []
+        "periodic_counterparts": [
+          {
+            "job_id": "periodic-ci-openshift-hypershift-release-5.0-periodics-e2e-v2-azure-self-managed",
+            "tested_release": "5.0",
+            "source": "registry-manual",
+            "verification": "human-verified",
+            "rationale": "A human reviewed the job definitions and verified that these jobs exercise corresponding test scenarios."
+          }
+        ]
       },
       "release_controller": [],
       "sippy_url": "https://sippy.dptools.openshift.org/sippy-ng/jobs/Presubmits/analysis?filters=%7B%22items%22%3A%5B%7B%22columnField%22%3A%22name%22%2C%22operatorValue%22%3A%22equals%22%2C%22value%22%3A%22pull-ci-openshift-hypershift-release-5.0-e2e-v2-azure-self-managed%22%7D%5D%7D",
@@ -22921,6 +24278,10 @@
       "presubmit": {
         "target_branch": "release-5.0",
         "target_release": "5.0",
+        "sippy_ingestion": {
+          "enabled": false,
+          "basis": "Sippy presubmit ingestion is not enabled for release branch 5.0 by registry policy."
+        },
         "required": true,
         "always_run": false,
         "branches": [
@@ -22928,7 +24289,15 @@
           "^release-5\\.0-"
         ],
         "skip_branches": [],
-        "periodic_counterparts": []
+        "periodic_counterparts": [
+          {
+            "job_id": "periodic-ci-openshift-hypershift-release-5.0-periodics-e2e-v2-gke",
+            "tested_release": "5.0",
+            "source": "registry-manual",
+            "verification": "human-verified",
+            "rationale": "A human reviewed the job definitions and verified that these jobs exercise corresponding test scenarios."
+          }
+        ]
       },
       "release_controller": [],
       "sippy_url": "https://sippy.dptools.openshift.org/sippy-ng/jobs/Presubmits/analysis?filters=%7B%22items%22%3A%5B%7B%22columnField%22%3A%22name%22%2C%22operatorValue%22%3A%22equals%22%2C%22value%22%3A%22pull-ci-openshift-hypershift-release-5.0-e2e-v2-gke%22%7D%5D%7D",
@@ -22953,6 +24322,10 @@
       "presubmit": {
         "target_branch": "release-5.0",
         "target_release": "5.0",
+        "sippy_ingestion": {
+          "enabled": false,
+          "basis": "Sippy presubmit ingestion is not enabled for release branch 5.0 by registry policy."
+        },
         "required": true,
         "always_run": true,
         "branches": [
@@ -22986,6 +24359,10 @@
       "presubmit": {
         "target_branch": "release-5.0",
         "target_release": "5.0",
+        "sippy_ingestion": {
+          "enabled": false,
+          "basis": "Sippy presubmit ingestion is not enabled for release branch 5.0 by registry policy."
+        },
         "required": true,
         "always_run": true,
         "branches": [
@@ -23020,6 +24397,10 @@
       "presubmit": {
         "target_branch": "release-5.0",
         "target_release": "5.0",
+        "sippy_ingestion": {
+          "enabled": false,
+          "basis": "Sippy presubmit ingestion is not enabled for release branch 5.0 by registry policy."
+        },
         "required": false,
         "always_run": false,
         "branches": [
@@ -23052,6 +24433,10 @@
       "presubmit": {
         "target_branch": "release-5.0",
         "target_release": "5.0",
+        "sippy_ingestion": {
+          "enabled": false,
+          "basis": "Sippy presubmit ingestion is not enabled for release branch 5.0 by registry policy."
+        },
         "required": true,
         "always_run": false,
         "branches": [
@@ -23085,6 +24470,10 @@
       "presubmit": {
         "target_branch": "release-5.0",
         "target_release": "5.0",
+        "sippy_ingestion": {
+          "enabled": false,
+          "basis": "Sippy presubmit ingestion is not enabled for release branch 5.0 by registry policy."
+        },
         "required": true,
         "always_run": true,
         "branches": [
@@ -23117,6 +24506,10 @@
       "presubmit": {
         "target_branch": "release-5.0",
         "target_release": "5.0",
+        "sippy_ingestion": {
+          "enabled": false,
+          "basis": "Sippy presubmit ingestion is not enabled for release branch 5.0 by registry policy."
+        },
         "required": true,
         "always_run": true,
         "branches": [
@@ -23149,6 +24542,10 @@
       "presubmit": {
         "target_branch": "release-5.0",
         "target_release": "5.0",
+        "sippy_ingestion": {
+          "enabled": false,
+          "basis": "Sippy presubmit ingestion is not enabled for release branch 5.0 by registry policy."
+        },
         "required": true,
         "always_run": true,
         "branches": [
@@ -23181,6 +24578,10 @@
       "presubmit": {
         "target_branch": "release-5.1",
         "target_release": "5.1",
+        "sippy_ingestion": {
+          "enabled": false,
+          "basis": "Sippy presubmit ingestion is not enabled for release branch 5.1 by registry policy."
+        },
         "required": false,
         "always_run": false,
         "branches": [
@@ -23216,6 +24617,10 @@
       "presubmit": {
         "target_branch": "release-5.1",
         "target_release": "5.1",
+        "sippy_ingestion": {
+          "enabled": false,
+          "basis": "Sippy presubmit ingestion is not enabled for release branch 5.1 by registry policy."
+        },
         "required": false,
         "always_run": false,
         "branches": [
@@ -23251,6 +24656,10 @@
       "presubmit": {
         "target_branch": "release-5.1",
         "target_release": "5.1",
+        "sippy_ingestion": {
+          "enabled": false,
+          "basis": "Sippy presubmit ingestion is not enabled for release branch 5.1 by registry policy."
+        },
         "required": false,
         "always_run": false,
         "branches": [
@@ -23285,6 +24694,10 @@
       "presubmit": {
         "target_branch": "release-5.1",
         "target_release": "5.1",
+        "sippy_ingestion": {
+          "enabled": false,
+          "basis": "Sippy presubmit ingestion is not enabled for release branch 5.1 by registry policy."
+        },
         "required": true,
         "always_run": false,
         "branches": [
@@ -23320,6 +24733,10 @@
       "presubmit": {
         "target_branch": "release-5.1",
         "target_release": "5.1",
+        "sippy_ingestion": {
+          "enabled": false,
+          "basis": "Sippy presubmit ingestion is not enabled for release branch 5.1 by registry policy."
+        },
         "required": true,
         "always_run": false,
         "branches": [
@@ -23354,6 +24771,10 @@
       "presubmit": {
         "target_branch": "release-5.1",
         "target_release": "5.1",
+        "sippy_ingestion": {
+          "enabled": false,
+          "basis": "Sippy presubmit ingestion is not enabled for release branch 5.1 by registry policy."
+        },
         "required": false,
         "always_run": false,
         "branches": [
@@ -23388,6 +24809,10 @@
       "presubmit": {
         "target_branch": "release-5.1",
         "target_release": "5.1",
+        "sippy_ingestion": {
+          "enabled": false,
+          "basis": "Sippy presubmit ingestion is not enabled for release branch 5.1 by registry policy."
+        },
         "required": true,
         "always_run": false,
         "branches": [
@@ -23423,6 +24848,10 @@
       "presubmit": {
         "target_branch": "release-5.1",
         "target_release": "5.1",
+        "sippy_ingestion": {
+          "enabled": false,
+          "basis": "Sippy presubmit ingestion is not enabled for release branch 5.1 by registry policy."
+        },
         "required": false,
         "always_run": false,
         "branches": [
@@ -23457,6 +24886,10 @@
       "presubmit": {
         "target_branch": "release-5.1",
         "target_release": "5.1",
+        "sippy_ingestion": {
+          "enabled": false,
+          "basis": "Sippy presubmit ingestion is not enabled for release branch 5.1 by registry policy."
+        },
         "required": true,
         "always_run": false,
         "branches": [
@@ -23492,6 +24925,10 @@
       "presubmit": {
         "target_branch": "release-5.1",
         "target_release": "5.1",
+        "sippy_ingestion": {
+          "enabled": false,
+          "basis": "Sippy presubmit ingestion is not enabled for release branch 5.1 by registry policy."
+        },
         "required": true,
         "always_run": false,
         "branches": [
@@ -23526,6 +24963,10 @@
       "presubmit": {
         "target_branch": "release-5.1",
         "target_release": "5.1",
+        "sippy_ingestion": {
+          "enabled": false,
+          "basis": "Sippy presubmit ingestion is not enabled for release branch 5.1 by registry policy."
+        },
         "required": false,
         "always_run": false,
         "branches": [
@@ -23560,6 +25001,10 @@
       "presubmit": {
         "target_branch": "release-5.1",
         "target_release": "5.1",
+        "sippy_ingestion": {
+          "enabled": false,
+          "basis": "Sippy presubmit ingestion is not enabled for release branch 5.1 by registry policy."
+        },
         "required": false,
         "always_run": false,
         "branches": [
@@ -23594,6 +25039,10 @@
       "presubmit": {
         "target_branch": "release-5.1",
         "target_release": "5.1",
+        "sippy_ingestion": {
+          "enabled": false,
+          "basis": "Sippy presubmit ingestion is not enabled for release branch 5.1 by registry policy."
+        },
         "required": false,
         "always_run": false,
         "branches": [
@@ -23628,6 +25077,10 @@
       "presubmit": {
         "target_branch": "release-5.1",
         "target_release": "5.1",
+        "sippy_ingestion": {
+          "enabled": false,
+          "basis": "Sippy presubmit ingestion is not enabled for release branch 5.1 by registry policy."
+        },
         "required": false,
         "always_run": false,
         "branches": [
@@ -23662,6 +25115,10 @@
       "presubmit": {
         "target_branch": "release-5.1",
         "target_release": "5.1",
+        "sippy_ingestion": {
+          "enabled": false,
+          "basis": "Sippy presubmit ingestion is not enabled for release branch 5.1 by registry policy."
+        },
         "required": false,
         "always_run": false,
         "branches": [
@@ -23696,6 +25153,10 @@
       "presubmit": {
         "target_branch": "release-5.1",
         "target_release": "5.1",
+        "sippy_ingestion": {
+          "enabled": false,
+          "basis": "Sippy presubmit ingestion is not enabled for release branch 5.1 by registry policy."
+        },
         "required": false,
         "always_run": false,
         "branches": [
@@ -23730,6 +25191,10 @@
       "presubmit": {
         "target_branch": "release-5.1",
         "target_release": "5.1",
+        "sippy_ingestion": {
+          "enabled": false,
+          "basis": "Sippy presubmit ingestion is not enabled for release branch 5.1 by registry policy."
+        },
         "required": true,
         "always_run": false,
         "branches": [
@@ -23765,6 +25230,10 @@
       "presubmit": {
         "target_branch": "release-5.1",
         "target_release": "5.1",
+        "sippy_ingestion": {
+          "enabled": false,
+          "basis": "Sippy presubmit ingestion is not enabled for release branch 5.1 by registry policy."
+        },
         "required": false,
         "always_run": false,
         "branches": [
@@ -23799,6 +25268,10 @@
       "presubmit": {
         "target_branch": "release-5.1",
         "target_release": "5.1",
+        "sippy_ingestion": {
+          "enabled": false,
+          "basis": "Sippy presubmit ingestion is not enabled for release branch 5.1 by registry policy."
+        },
         "required": false,
         "always_run": false,
         "branches": [
@@ -23833,6 +25306,10 @@
       "presubmit": {
         "target_branch": "release-5.1",
         "target_release": "5.1",
+        "sippy_ingestion": {
+          "enabled": false,
+          "basis": "Sippy presubmit ingestion is not enabled for release branch 5.1 by registry policy."
+        },
         "required": false,
         "always_run": false,
         "branches": [
@@ -23867,6 +25344,10 @@
       "presubmit": {
         "target_branch": "release-5.1",
         "target_release": "5.1",
+        "sippy_ingestion": {
+          "enabled": false,
+          "basis": "Sippy presubmit ingestion is not enabled for release branch 5.1 by registry policy."
+        },
         "required": true,
         "always_run": false,
         "branches": [
@@ -23902,6 +25383,10 @@
       "presubmit": {
         "target_branch": "release-5.1",
         "target_release": "5.1",
+        "sippy_ingestion": {
+          "enabled": false,
+          "basis": "Sippy presubmit ingestion is not enabled for release branch 5.1 by registry policy."
+        },
         "required": false,
         "always_run": false,
         "branches": [
@@ -23937,6 +25422,10 @@
       "presubmit": {
         "target_branch": "release-5.1",
         "target_release": "5.1",
+        "sippy_ingestion": {
+          "enabled": false,
+          "basis": "Sippy presubmit ingestion is not enabled for release branch 5.1 by registry policy."
+        },
         "required": false,
         "always_run": false,
         "branches": [
@@ -23972,6 +25461,10 @@
       "presubmit": {
         "target_branch": "release-5.1",
         "target_release": "5.1",
+        "sippy_ingestion": {
+          "enabled": false,
+          "basis": "Sippy presubmit ingestion is not enabled for release branch 5.1 by registry policy."
+        },
         "required": false,
         "always_run": false,
         "branches": [
@@ -24007,6 +25500,10 @@
       "presubmit": {
         "target_branch": "release-5.1",
         "target_release": "5.1",
+        "sippy_ingestion": {
+          "enabled": false,
+          "basis": "Sippy presubmit ingestion is not enabled for release branch 5.1 by registry policy."
+        },
         "required": false,
         "always_run": false,
         "branches": [
@@ -24041,6 +25538,10 @@
       "presubmit": {
         "target_branch": "release-5.1",
         "target_release": "5.1",
+        "sippy_ingestion": {
+          "enabled": false,
+          "basis": "Sippy presubmit ingestion is not enabled for release branch 5.1 by registry policy."
+        },
         "required": false,
         "always_run": false,
         "branches": [
@@ -24075,6 +25576,10 @@
       "presubmit": {
         "target_branch": "release-5.1",
         "target_release": "5.1",
+        "sippy_ingestion": {
+          "enabled": false,
+          "basis": "Sippy presubmit ingestion is not enabled for release branch 5.1 by registry policy."
+        },
         "required": false,
         "always_run": false,
         "branches": [
@@ -24110,6 +25615,10 @@
       "presubmit": {
         "target_branch": "release-5.1",
         "target_release": "5.1",
+        "sippy_ingestion": {
+          "enabled": false,
+          "basis": "Sippy presubmit ingestion is not enabled for release branch 5.1 by registry policy."
+        },
         "required": false,
         "always_run": false,
         "branches": [
@@ -24145,6 +25654,10 @@
       "presubmit": {
         "target_branch": "release-5.1",
         "target_release": "5.1",
+        "sippy_ingestion": {
+          "enabled": false,
+          "basis": "Sippy presubmit ingestion is not enabled for release branch 5.1 by registry policy."
+        },
         "required": true,
         "always_run": false,
         "branches": [
@@ -24180,6 +25693,10 @@
       "presubmit": {
         "target_branch": "release-5.1",
         "target_release": "5.1",
+        "sippy_ingestion": {
+          "enabled": false,
+          "basis": "Sippy presubmit ingestion is not enabled for release branch 5.1 by registry policy."
+        },
         "required": false,
         "always_run": false,
         "branches": [
@@ -24215,6 +25732,10 @@
       "presubmit": {
         "target_branch": "release-5.1",
         "target_release": "5.1",
+        "sippy_ingestion": {
+          "enabled": false,
+          "basis": "Sippy presubmit ingestion is not enabled for release branch 5.1 by registry policy."
+        },
         "required": false,
         "always_run": false,
         "branches": [
@@ -24250,6 +25771,10 @@
       "presubmit": {
         "target_branch": "release-5.1",
         "target_release": "5.1",
+        "sippy_ingestion": {
+          "enabled": false,
+          "basis": "Sippy presubmit ingestion is not enabled for release branch 5.1 by registry policy."
+        },
         "required": false,
         "always_run": false,
         "branches": [
@@ -24285,6 +25810,10 @@
       "presubmit": {
         "target_branch": "release-5.1",
         "target_release": "5.1",
+        "sippy_ingestion": {
+          "enabled": false,
+          "basis": "Sippy presubmit ingestion is not enabled for release branch 5.1 by registry policy."
+        },
         "required": false,
         "always_run": false,
         "branches": [
@@ -24320,6 +25849,10 @@
       "presubmit": {
         "target_branch": "release-5.1",
         "target_release": "5.1",
+        "sippy_ingestion": {
+          "enabled": false,
+          "basis": "Sippy presubmit ingestion is not enabled for release branch 5.1 by registry policy."
+        },
         "required": false,
         "always_run": false,
         "branches": [
@@ -24355,6 +25888,10 @@
       "presubmit": {
         "target_branch": "release-5.1",
         "target_release": "5.1",
+        "sippy_ingestion": {
+          "enabled": false,
+          "basis": "Sippy presubmit ingestion is not enabled for release branch 5.1 by registry policy."
+        },
         "required": false,
         "always_run": false,
         "branches": [
@@ -24390,6 +25927,10 @@
       "presubmit": {
         "target_branch": "release-5.1",
         "target_release": "5.1",
+        "sippy_ingestion": {
+          "enabled": false,
+          "basis": "Sippy presubmit ingestion is not enabled for release branch 5.1 by registry policy."
+        },
         "required": false,
         "always_run": false,
         "branches": [
@@ -24424,6 +25965,10 @@
       "presubmit": {
         "target_branch": "release-5.1",
         "target_release": "5.1",
+        "sippy_ingestion": {
+          "enabled": false,
+          "basis": "Sippy presubmit ingestion is not enabled for release branch 5.1 by registry policy."
+        },
         "required": true,
         "always_run": false,
         "branches": [
@@ -24458,6 +26003,10 @@
       "presubmit": {
         "target_branch": "release-5.1",
         "target_release": "5.1",
+        "sippy_ingestion": {
+          "enabled": false,
+          "basis": "Sippy presubmit ingestion is not enabled for release branch 5.1 by registry policy."
+        },
         "required": false,
         "always_run": false,
         "branches": [
@@ -24492,6 +26041,10 @@
       "presubmit": {
         "target_branch": "release-5.1",
         "target_release": "5.1",
+        "sippy_ingestion": {
+          "enabled": false,
+          "basis": "Sippy presubmit ingestion is not enabled for release branch 5.1 by registry policy."
+        },
         "required": false,
         "always_run": false,
         "branches": [
@@ -24526,6 +26079,10 @@
       "presubmit": {
         "target_branch": "release-5.1",
         "target_release": "5.1",
+        "sippy_ingestion": {
+          "enabled": false,
+          "basis": "Sippy presubmit ingestion is not enabled for release branch 5.1 by registry policy."
+        },
         "required": true,
         "always_run": false,
         "branches": [
@@ -24560,6 +26117,10 @@
       "presubmit": {
         "target_branch": "release-5.1",
         "target_release": "5.1",
+        "sippy_ingestion": {
+          "enabled": false,
+          "basis": "Sippy presubmit ingestion is not enabled for release branch 5.1 by registry policy."
+        },
         "required": true,
         "always_run": false,
         "branches": [
@@ -24592,6 +26153,10 @@
       "presubmit": {
         "target_branch": "release-5.1",
         "target_release": "5.1",
+        "sippy_ingestion": {
+          "enabled": false,
+          "basis": "Sippy presubmit ingestion is not enabled for release branch 5.1 by registry policy."
+        },
         "required": true,
         "always_run": true,
         "branches": [
@@ -24626,6 +26191,10 @@
       "presubmit": {
         "target_branch": "release-5.1",
         "target_release": "5.1",
+        "sippy_ingestion": {
+          "enabled": false,
+          "basis": "Sippy presubmit ingestion is not enabled for release branch 5.1 by registry policy."
+        },
         "required": false,
         "always_run": false,
         "branches": [
@@ -24658,6 +26227,10 @@
       "presubmit": {
         "target_branch": "release-5.1",
         "target_release": "5.1",
+        "sippy_ingestion": {
+          "enabled": false,
+          "basis": "Sippy presubmit ingestion is not enabled for release branch 5.1 by registry policy."
+        },
         "required": true,
         "always_run": false,
         "branches": [
@@ -24691,6 +26264,10 @@
       "presubmit": {
         "target_branch": "release-5.1",
         "target_release": "5.1",
+        "sippy_ingestion": {
+          "enabled": false,
+          "basis": "Sippy presubmit ingestion is not enabled for release branch 5.1 by registry policy."
+        },
         "required": true,
         "always_run": true,
         "branches": [
@@ -24723,6 +26300,10 @@
       "presubmit": {
         "target_branch": "release-5.1",
         "target_release": "5.1",
+        "sippy_ingestion": {
+          "enabled": false,
+          "basis": "Sippy presubmit ingestion is not enabled for release branch 5.1 by registry policy."
+        },
         "required": true,
         "always_run": true,
         "branches": [
@@ -24755,6 +26336,10 @@
       "presubmit": {
         "target_branch": "release-5.1",
         "target_release": "5.1",
+        "sippy_ingestion": {
+          "enabled": false,
+          "basis": "Sippy presubmit ingestion is not enabled for release branch 5.1 by registry policy."
+        },
         "required": true,
         "always_run": true,
         "branches": [
@@ -24787,6 +26372,10 @@
       "presubmit": {
         "target_branch": "release-5.2",
         "target_release": "5.2",
+        "sippy_ingestion": {
+          "enabled": false,
+          "basis": "Sippy presubmit ingestion is not enabled for release branch 5.2 by registry policy."
+        },
         "required": false,
         "always_run": false,
         "branches": [
@@ -24822,6 +26411,10 @@
       "presubmit": {
         "target_branch": "release-5.2",
         "target_release": "5.2",
+        "sippy_ingestion": {
+          "enabled": false,
+          "basis": "Sippy presubmit ingestion is not enabled for release branch 5.2 by registry policy."
+        },
         "required": false,
         "always_run": false,
         "branches": [
@@ -24857,6 +26450,10 @@
       "presubmit": {
         "target_branch": "release-5.2",
         "target_release": "5.2",
+        "sippy_ingestion": {
+          "enabled": false,
+          "basis": "Sippy presubmit ingestion is not enabled for release branch 5.2 by registry policy."
+        },
         "required": false,
         "always_run": false,
         "branches": [
@@ -24891,6 +26488,10 @@
       "presubmit": {
         "target_branch": "release-5.2",
         "target_release": "5.2",
+        "sippy_ingestion": {
+          "enabled": false,
+          "basis": "Sippy presubmit ingestion is not enabled for release branch 5.2 by registry policy."
+        },
         "required": true,
         "always_run": false,
         "branches": [
@@ -24926,6 +26527,10 @@
       "presubmit": {
         "target_branch": "release-5.2",
         "target_release": "5.2",
+        "sippy_ingestion": {
+          "enabled": false,
+          "basis": "Sippy presubmit ingestion is not enabled for release branch 5.2 by registry policy."
+        },
         "required": true,
         "always_run": false,
         "branches": [
@@ -24960,6 +26565,10 @@
       "presubmit": {
         "target_branch": "release-5.2",
         "target_release": "5.2",
+        "sippy_ingestion": {
+          "enabled": false,
+          "basis": "Sippy presubmit ingestion is not enabled for release branch 5.2 by registry policy."
+        },
         "required": false,
         "always_run": false,
         "branches": [
@@ -24994,6 +26603,10 @@
       "presubmit": {
         "target_branch": "release-5.2",
         "target_release": "5.2",
+        "sippy_ingestion": {
+          "enabled": false,
+          "basis": "Sippy presubmit ingestion is not enabled for release branch 5.2 by registry policy."
+        },
         "required": true,
         "always_run": false,
         "branches": [
@@ -25029,6 +26642,10 @@
       "presubmit": {
         "target_branch": "release-5.2",
         "target_release": "5.2",
+        "sippy_ingestion": {
+          "enabled": false,
+          "basis": "Sippy presubmit ingestion is not enabled for release branch 5.2 by registry policy."
+        },
         "required": false,
         "always_run": false,
         "branches": [
@@ -25063,6 +26680,10 @@
       "presubmit": {
         "target_branch": "release-5.2",
         "target_release": "5.2",
+        "sippy_ingestion": {
+          "enabled": false,
+          "basis": "Sippy presubmit ingestion is not enabled for release branch 5.2 by registry policy."
+        },
         "required": true,
         "always_run": false,
         "branches": [
@@ -25098,6 +26719,10 @@
       "presubmit": {
         "target_branch": "release-5.2",
         "target_release": "5.2",
+        "sippy_ingestion": {
+          "enabled": false,
+          "basis": "Sippy presubmit ingestion is not enabled for release branch 5.2 by registry policy."
+        },
         "required": true,
         "always_run": false,
         "branches": [
@@ -25132,6 +26757,10 @@
       "presubmit": {
         "target_branch": "release-5.2",
         "target_release": "5.2",
+        "sippy_ingestion": {
+          "enabled": false,
+          "basis": "Sippy presubmit ingestion is not enabled for release branch 5.2 by registry policy."
+        },
         "required": false,
         "always_run": false,
         "branches": [
@@ -25166,6 +26795,10 @@
       "presubmit": {
         "target_branch": "release-5.2",
         "target_release": "5.2",
+        "sippy_ingestion": {
+          "enabled": false,
+          "basis": "Sippy presubmit ingestion is not enabled for release branch 5.2 by registry policy."
+        },
         "required": false,
         "always_run": false,
         "branches": [
@@ -25200,6 +26833,10 @@
       "presubmit": {
         "target_branch": "release-5.2",
         "target_release": "5.2",
+        "sippy_ingestion": {
+          "enabled": false,
+          "basis": "Sippy presubmit ingestion is not enabled for release branch 5.2 by registry policy."
+        },
         "required": false,
         "always_run": false,
         "branches": [
@@ -25234,6 +26871,10 @@
       "presubmit": {
         "target_branch": "release-5.2",
         "target_release": "5.2",
+        "sippy_ingestion": {
+          "enabled": false,
+          "basis": "Sippy presubmit ingestion is not enabled for release branch 5.2 by registry policy."
+        },
         "required": false,
         "always_run": false,
         "branches": [
@@ -25268,6 +26909,10 @@
       "presubmit": {
         "target_branch": "release-5.2",
         "target_release": "5.2",
+        "sippy_ingestion": {
+          "enabled": false,
+          "basis": "Sippy presubmit ingestion is not enabled for release branch 5.2 by registry policy."
+        },
         "required": false,
         "always_run": false,
         "branches": [
@@ -25302,6 +26947,10 @@
       "presubmit": {
         "target_branch": "release-5.2",
         "target_release": "5.2",
+        "sippy_ingestion": {
+          "enabled": false,
+          "basis": "Sippy presubmit ingestion is not enabled for release branch 5.2 by registry policy."
+        },
         "required": false,
         "always_run": false,
         "branches": [
@@ -25336,6 +26985,10 @@
       "presubmit": {
         "target_branch": "release-5.2",
         "target_release": "5.2",
+        "sippy_ingestion": {
+          "enabled": false,
+          "basis": "Sippy presubmit ingestion is not enabled for release branch 5.2 by registry policy."
+        },
         "required": true,
         "always_run": false,
         "branches": [
@@ -25371,6 +27024,10 @@
       "presubmit": {
         "target_branch": "release-5.2",
         "target_release": "5.2",
+        "sippy_ingestion": {
+          "enabled": false,
+          "basis": "Sippy presubmit ingestion is not enabled for release branch 5.2 by registry policy."
+        },
         "required": false,
         "always_run": false,
         "branches": [
@@ -25405,6 +27062,10 @@
       "presubmit": {
         "target_branch": "release-5.2",
         "target_release": "5.2",
+        "sippy_ingestion": {
+          "enabled": false,
+          "basis": "Sippy presubmit ingestion is not enabled for release branch 5.2 by registry policy."
+        },
         "required": false,
         "always_run": false,
         "branches": [
@@ -25439,6 +27100,10 @@
       "presubmit": {
         "target_branch": "release-5.2",
         "target_release": "5.2",
+        "sippy_ingestion": {
+          "enabled": false,
+          "basis": "Sippy presubmit ingestion is not enabled for release branch 5.2 by registry policy."
+        },
         "required": false,
         "always_run": false,
         "branches": [
@@ -25473,6 +27138,10 @@
       "presubmit": {
         "target_branch": "release-5.2",
         "target_release": "5.2",
+        "sippy_ingestion": {
+          "enabled": false,
+          "basis": "Sippy presubmit ingestion is not enabled for release branch 5.2 by registry policy."
+        },
         "required": true,
         "always_run": false,
         "branches": [
@@ -25508,6 +27177,10 @@
       "presubmit": {
         "target_branch": "release-5.2",
         "target_release": "5.2",
+        "sippy_ingestion": {
+          "enabled": false,
+          "basis": "Sippy presubmit ingestion is not enabled for release branch 5.2 by registry policy."
+        },
         "required": false,
         "always_run": false,
         "branches": [
@@ -25543,6 +27216,10 @@
       "presubmit": {
         "target_branch": "release-5.2",
         "target_release": "5.2",
+        "sippy_ingestion": {
+          "enabled": false,
+          "basis": "Sippy presubmit ingestion is not enabled for release branch 5.2 by registry policy."
+        },
         "required": false,
         "always_run": false,
         "branches": [
@@ -25578,6 +27255,10 @@
       "presubmit": {
         "target_branch": "release-5.2",
         "target_release": "5.2",
+        "sippy_ingestion": {
+          "enabled": false,
+          "basis": "Sippy presubmit ingestion is not enabled for release branch 5.2 by registry policy."
+        },
         "required": false,
         "always_run": false,
         "branches": [
@@ -25613,6 +27294,10 @@
       "presubmit": {
         "target_branch": "release-5.2",
         "target_release": "5.2",
+        "sippy_ingestion": {
+          "enabled": false,
+          "basis": "Sippy presubmit ingestion is not enabled for release branch 5.2 by registry policy."
+        },
         "required": false,
         "always_run": false,
         "branches": [
@@ -25647,6 +27332,10 @@
       "presubmit": {
         "target_branch": "release-5.2",
         "target_release": "5.2",
+        "sippy_ingestion": {
+          "enabled": false,
+          "basis": "Sippy presubmit ingestion is not enabled for release branch 5.2 by registry policy."
+        },
         "required": false,
         "always_run": false,
         "branches": [
@@ -25681,6 +27370,10 @@
       "presubmit": {
         "target_branch": "release-5.2",
         "target_release": "5.2",
+        "sippy_ingestion": {
+          "enabled": false,
+          "basis": "Sippy presubmit ingestion is not enabled for release branch 5.2 by registry policy."
+        },
         "required": false,
         "always_run": false,
         "branches": [
@@ -25716,6 +27409,10 @@
       "presubmit": {
         "target_branch": "release-5.2",
         "target_release": "5.2",
+        "sippy_ingestion": {
+          "enabled": false,
+          "basis": "Sippy presubmit ingestion is not enabled for release branch 5.2 by registry policy."
+        },
         "required": false,
         "always_run": false,
         "branches": [
@@ -25751,6 +27448,10 @@
       "presubmit": {
         "target_branch": "release-5.2",
         "target_release": "5.2",
+        "sippy_ingestion": {
+          "enabled": false,
+          "basis": "Sippy presubmit ingestion is not enabled for release branch 5.2 by registry policy."
+        },
         "required": true,
         "always_run": false,
         "branches": [
@@ -25786,6 +27487,10 @@
       "presubmit": {
         "target_branch": "release-5.2",
         "target_release": "5.2",
+        "sippy_ingestion": {
+          "enabled": false,
+          "basis": "Sippy presubmit ingestion is not enabled for release branch 5.2 by registry policy."
+        },
         "required": false,
         "always_run": false,
         "branches": [
@@ -25821,6 +27526,10 @@
       "presubmit": {
         "target_branch": "release-5.2",
         "target_release": "5.2",
+        "sippy_ingestion": {
+          "enabled": false,
+          "basis": "Sippy presubmit ingestion is not enabled for release branch 5.2 by registry policy."
+        },
         "required": false,
         "always_run": false,
         "branches": [
@@ -25856,6 +27565,10 @@
       "presubmit": {
         "target_branch": "release-5.2",
         "target_release": "5.2",
+        "sippy_ingestion": {
+          "enabled": false,
+          "basis": "Sippy presubmit ingestion is not enabled for release branch 5.2 by registry policy."
+        },
         "required": false,
         "always_run": false,
         "branches": [
@@ -25891,6 +27604,10 @@
       "presubmit": {
         "target_branch": "release-5.2",
         "target_release": "5.2",
+        "sippy_ingestion": {
+          "enabled": false,
+          "basis": "Sippy presubmit ingestion is not enabled for release branch 5.2 by registry policy."
+        },
         "required": false,
         "always_run": false,
         "branches": [
@@ -25926,6 +27643,10 @@
       "presubmit": {
         "target_branch": "release-5.2",
         "target_release": "5.2",
+        "sippy_ingestion": {
+          "enabled": false,
+          "basis": "Sippy presubmit ingestion is not enabled for release branch 5.2 by registry policy."
+        },
         "required": false,
         "always_run": false,
         "branches": [
@@ -25961,6 +27682,10 @@
       "presubmit": {
         "target_branch": "release-5.2",
         "target_release": "5.2",
+        "sippy_ingestion": {
+          "enabled": false,
+          "basis": "Sippy presubmit ingestion is not enabled for release branch 5.2 by registry policy."
+        },
         "required": false,
         "always_run": false,
         "branches": [
@@ -25996,6 +27721,10 @@
       "presubmit": {
         "target_branch": "release-5.2",
         "target_release": "5.2",
+        "sippy_ingestion": {
+          "enabled": false,
+          "basis": "Sippy presubmit ingestion is not enabled for release branch 5.2 by registry policy."
+        },
         "required": false,
         "always_run": false,
         "branches": [
@@ -26030,6 +27759,10 @@
       "presubmit": {
         "target_branch": "release-5.2",
         "target_release": "5.2",
+        "sippy_ingestion": {
+          "enabled": false,
+          "basis": "Sippy presubmit ingestion is not enabled for release branch 5.2 by registry policy."
+        },
         "required": true,
         "always_run": false,
         "branches": [
@@ -26064,6 +27797,10 @@
       "presubmit": {
         "target_branch": "release-5.2",
         "target_release": "5.2",
+        "sippy_ingestion": {
+          "enabled": false,
+          "basis": "Sippy presubmit ingestion is not enabled for release branch 5.2 by registry policy."
+        },
         "required": false,
         "always_run": false,
         "branches": [
@@ -26098,6 +27835,10 @@
       "presubmit": {
         "target_branch": "release-5.2",
         "target_release": "5.2",
+        "sippy_ingestion": {
+          "enabled": false,
+          "basis": "Sippy presubmit ingestion is not enabled for release branch 5.2 by registry policy."
+        },
         "required": false,
         "always_run": false,
         "branches": [
@@ -26132,6 +27873,10 @@
       "presubmit": {
         "target_branch": "release-5.2",
         "target_release": "5.2",
+        "sippy_ingestion": {
+          "enabled": false,
+          "basis": "Sippy presubmit ingestion is not enabled for release branch 5.2 by registry policy."
+        },
         "required": true,
         "always_run": false,
         "branches": [
@@ -26166,6 +27911,10 @@
       "presubmit": {
         "target_branch": "release-5.2",
         "target_release": "5.2",
+        "sippy_ingestion": {
+          "enabled": false,
+          "basis": "Sippy presubmit ingestion is not enabled for release branch 5.2 by registry policy."
+        },
         "required": true,
         "always_run": false,
         "branches": [
@@ -26198,6 +27947,10 @@
       "presubmit": {
         "target_branch": "release-5.2",
         "target_release": "5.2",
+        "sippy_ingestion": {
+          "enabled": false,
+          "basis": "Sippy presubmit ingestion is not enabled for release branch 5.2 by registry policy."
+        },
         "required": true,
         "always_run": true,
         "branches": [
@@ -26232,6 +27985,10 @@
       "presubmit": {
         "target_branch": "release-5.2",
         "target_release": "5.2",
+        "sippy_ingestion": {
+          "enabled": false,
+          "basis": "Sippy presubmit ingestion is not enabled for release branch 5.2 by registry policy."
+        },
         "required": false,
         "always_run": false,
         "branches": [
@@ -26264,6 +28021,10 @@
       "presubmit": {
         "target_branch": "release-5.2",
         "target_release": "5.2",
+        "sippy_ingestion": {
+          "enabled": false,
+          "basis": "Sippy presubmit ingestion is not enabled for release branch 5.2 by registry policy."
+        },
         "required": true,
         "always_run": false,
         "branches": [
@@ -26297,6 +28058,10 @@
       "presubmit": {
         "target_branch": "release-5.2",
         "target_release": "5.2",
+        "sippy_ingestion": {
+          "enabled": false,
+          "basis": "Sippy presubmit ingestion is not enabled for release branch 5.2 by registry policy."
+        },
         "required": true,
         "always_run": true,
         "branches": [
@@ -26329,6 +28094,10 @@
       "presubmit": {
         "target_branch": "release-5.2",
         "target_release": "5.2",
+        "sippy_ingestion": {
+          "enabled": false,
+          "basis": "Sippy presubmit ingestion is not enabled for release branch 5.2 by registry policy."
+        },
         "required": true,
         "always_run": true,
         "branches": [
@@ -26361,6 +28130,10 @@
       "presubmit": {
         "target_branch": "release-5.2",
         "target_release": "5.2",
+        "sippy_ingestion": {
+          "enabled": false,
+          "basis": "Sippy presubmit ingestion is not enabled for release branch 5.2 by registry policy."
+        },
         "required": true,
         "always_run": true,
         "branches": [
@@ -26394,6 +28167,10 @@
       "presubmit": {
         "target_branch": "",
         "target_release": "",
+        "sippy_ingestion": {
+          "enabled": false,
+          "basis": "Sippy presubmit ingestion is disabled because no release branch policy applies to this job."
+        },
         "required": false,
         "always_run": true,
         "branches": [
@@ -26429,6 +28206,10 @@
       "presubmit": {
         "target_branch": "",
         "target_release": "",
+        "sippy_ingestion": {
+          "enabled": false,
+          "basis": "Sippy presubmit ingestion is disabled because no release branch policy applies to this job."
+        },
         "required": true,
         "always_run": true,
         "branches": [
@@ -26464,6 +28245,10 @@
       "presubmit": {
         "target_branch": "",
         "target_release": "",
+        "sippy_ingestion": {
+          "enabled": false,
+          "basis": "Sippy presubmit ingestion is disabled because no release branch policy applies to this job."
+        },
         "required": true,
         "always_run": true,
         "branches": [
@@ -26499,6 +28284,10 @@
       "presubmit": {
         "target_branch": "",
         "target_release": "",
+        "sippy_ingestion": {
+          "enabled": false,
+          "basis": "Sippy presubmit ingestion is disabled because no release branch policy applies to this job."
+        },
         "required": true,
         "always_run": true,
         "branches": [
@@ -26534,6 +28323,10 @@
       "presubmit": {
         "target_branch": "",
         "target_release": "",
+        "sippy_ingestion": {
+          "enabled": false,
+          "basis": "Sippy presubmit ingestion is disabled because no release branch policy applies to this job."
+        },
         "required": true,
         "always_run": true,
         "branches": [
@@ -26569,6 +28362,10 @@
       "presubmit": {
         "target_branch": "",
         "target_release": "",
+        "sippy_ingestion": {
+          "enabled": false,
+          "basis": "Sippy presubmit ingestion is disabled because no release branch policy applies to this job."
+        },
         "required": true,
         "always_run": true,
         "branches": [
@@ -26604,6 +28401,10 @@
       "presubmit": {
         "target_branch": "",
         "target_release": "",
+        "sippy_ingestion": {
+          "enabled": false,
+          "basis": "Sippy presubmit ingestion is disabled because no release branch policy applies to this job."
+        },
         "required": true,
         "always_run": true,
         "branches": [
@@ -26639,6 +28440,10 @@
       "presubmit": {
         "target_branch": "",
         "target_release": "",
+        "sippy_ingestion": {
+          "enabled": false,
+          "basis": "Sippy presubmit ingestion is disabled because no release branch policy applies to this job."
+        },
         "required": true,
         "always_run": true,
         "branches": [
@@ -26674,6 +28479,10 @@
       "presubmit": {
         "target_branch": "",
         "target_release": "",
+        "sippy_ingestion": {
+          "enabled": false,
+          "basis": "Sippy presubmit ingestion is disabled because no release branch policy applies to this job."
+        },
         "required": true,
         "always_run": true,
         "branches": [
@@ -26709,6 +28518,10 @@
       "presubmit": {
         "target_branch": "",
         "target_release": "",
+        "sippy_ingestion": {
+          "enabled": false,
+          "basis": "Sippy presubmit ingestion is disabled because no release branch policy applies to this job."
+        },
         "required": true,
         "always_run": true,
         "branches": [
@@ -26744,6 +28557,10 @@
       "presubmit": {
         "target_branch": "",
         "target_release": "",
+        "sippy_ingestion": {
+          "enabled": false,
+          "basis": "Sippy presubmit ingestion is disabled because no release branch policy applies to this job."
+        },
         "required": false,
         "always_run": true,
         "branches": [
@@ -26779,6 +28596,10 @@
       "presubmit": {
         "target_branch": "",
         "target_release": "",
+        "sippy_ingestion": {
+          "enabled": false,
+          "basis": "Sippy presubmit ingestion is disabled because no release branch policy applies to this job."
+        },
         "required": true,
         "always_run": true,
         "branches": [
@@ -26814,6 +28635,10 @@
       "presubmit": {
         "target_branch": "",
         "target_release": "",
+        "sippy_ingestion": {
+          "enabled": false,
+          "basis": "Sippy presubmit ingestion is disabled because no release branch policy applies to this job."
+        },
         "required": false,
         "always_run": true,
         "branches": [
@@ -26849,6 +28674,10 @@
       "presubmit": {
         "target_branch": "",
         "target_release": "",
+        "sippy_ingestion": {
+          "enabled": false,
+          "basis": "Sippy presubmit ingestion is disabled because no release branch policy applies to this job."
+        },
         "required": false,
         "always_run": true,
         "branches": [

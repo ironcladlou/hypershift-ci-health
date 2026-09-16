@@ -85,7 +85,7 @@ func NewProvider(ctx context.Context, client *Client, catalog *jobs.Catalog, int
 		p.status.HasData = true
 		p.mu.Unlock()
 		componentReadinessCount := len(snapshot.Windows["1w"].ComponentReadinessJobs)
-		fmt.Fprintf(logWriter, "sippy: collection complete in %s: %d presubmits, %d periodics, %d component readiness blockers\n", finishedAt.Sub(startedAt).Round(time.Millisecond), len(catalog.BlockingJobs), catalog.PeriodicJobCount(), componentReadinessCount)
+		fmt.Fprintf(logWriter, "sippy: collection complete in %s: %d presubmits displayed (%d queried), %d periodics, %d component readiness blockers\n", finishedAt.Sub(startedAt).Round(time.Millisecond), len(catalog.BlockingJobs), len(catalog.SippyPresubmitProwJobNames()), catalog.PeriodicJobCount(), componentReadinessCount)
 	}
 
 	go refresh()
@@ -120,7 +120,7 @@ func (p *Provider) Status() CollectionStatus {
 
 func collect(ctx context.Context, client *Client, catalog *jobs.Catalog, progress func(string, error), addTotal func(int)) (*HealthSnapshot, error) {
 	releases := catalog.Releases()
-	presubmitNames := catalog.PresubmitProwJobNames()
+	presubmitNames := catalog.SippyPresubmitProwJobNames()
 	periodicsByRelease := catalog.PeriodicProwJobNamesByRelease()
 	today := time.Now().UTC().Truncate(24 * time.Hour)
 	analysisEnd := today.AddDate(0, 0, 1)

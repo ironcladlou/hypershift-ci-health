@@ -356,6 +356,19 @@ func (c *Catalog) PresubmitProwJobNames() []string {
 	return names
 }
 
+// SippyPresubmitProwJobNames returns only presubmits whose registry metadata
+// says Sippy ingestion is enabled. Catalog membership remains broader so the
+// UI can display intentionally uningested jobs.
+func (c *Catalog) SippyPresubmitProwJobNames() []string {
+	var names []string
+	for _, job := range c.BlockingJobs {
+		if job.Job.Presubmit.SippyIngestion.Enabled {
+			names = append(names, job.ProwJobName)
+		}
+	}
+	return names
+}
+
 func (c *Catalog) PeriodicProwJobNamesByRelease() map[string][]string {
 	result := make(map[string][]string)
 	seen := make(map[string]map[string]struct{})

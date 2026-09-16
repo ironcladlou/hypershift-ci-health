@@ -14,24 +14,37 @@ type Registry struct {
 // PresubmitPolicy describes how the development branch is represented as an
 // OpenShift release until Prow publishes that relationship directly.
 type PresubmitPolicy struct {
-	DevelopmentBranch  string `json:"development_branch"`
-	DevelopmentRelease string `json:"development_release"`
-	Provisional        bool   `json:"provisional"`
-	Description        string `json:"description"`
+	DevelopmentBranch           string   `json:"development_branch"`
+	DevelopmentRelease          string   `json:"development_release"`
+	SippyReleaseBranchAllowlist []string `json:"sippy_release_branch_allowlist"`
+	Provisional                 bool     `json:"provisional"`
+	Description                 string   `json:"description"`
+}
+
+// SippyIngestion records whether Sippy is intended to ingest analysis data for
+// a presubmit. It describes configured availability, not whether the job has
+// produced runs.
+type SippyIngestion struct {
+	Enabled bool   `json:"enabled"`
+	Basis   string `json:"basis"`
 }
 
 // PeriodicCounterpartSource identifies who asserted a periodic relationship.
 type PeriodicCounterpartSource string
 
 const (
-	PeriodicCounterpartSourceRegistryManual PeriodicCounterpartSource = "registry-manual"
+	PeriodicCounterpartSourceRegistryManual   PeriodicCounterpartSource = "registry-manual"
+	PeriodicCounterpartSourceRegistryProposal PeriodicCounterpartSource = "registry-proposal"
 )
 
 // PeriodicCounterpartVerification identifies the review state of a periodic
 // relationship.
 type PeriodicCounterpartVerification string
 
-const PeriodicCounterpartVerificationHuman PeriodicCounterpartVerification = "human-verified"
+const (
+	PeriodicCounterpartVerificationHuman       PeriodicCounterpartVerification = "human-verified"
+	PeriodicCounterpartVerificationNeedsReview PeriodicCounterpartVerification = "needs-review"
+)
 
 // PeriodicCounterpart identifies a periodic believed to exercise the same
 // scenario as its containing presubmit. Prow does not currently express this
@@ -95,6 +108,9 @@ type Presubmit struct {
 	// TargetRelease is the dashboard release line represented by TargetBranch.
 	// It can differ from a counterpart's TestedRelease for compatibility jobs.
 	TargetRelease string `json:"target_release"`
+	// SippyIngestion records whether the collector should request analysis for
+	// this presubmit and why.
+	SippyIngestion SippyIngestion `json:"sippy_ingestion"`
 	// Required reports whether the job is non-optional when it applies. It is
 	// the inverse of Prow's optional field and does not imply AlwaysRun.
 	Required bool `json:"required"`
@@ -112,8 +128,9 @@ type Presubmit struct {
 	// SkipIfOnlyChanged is a regular expression that skips the job when every
 	// changed file matches. It is omitted when the job has no such condition.
 	SkipIfOnlyChanged string `json:"skip_if_only_changed,omitempty"`
-	// PeriodicCounterparts contains human-verified periodic associations owned
-	// by the registry. An empty list means no counterpart has been verified.
+	// PeriodicCounterparts contains registry-owned periodic associations and
+	// review proposals. Verification distinguishes reviewed mappings from
+	// candidates. An empty list means no counterpart has been identified.
 	PeriodicCounterparts []PeriodicCounterpart `json:"periodic_counterparts"`
 }
 
