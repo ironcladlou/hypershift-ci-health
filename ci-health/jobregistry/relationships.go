@@ -12,13 +12,8 @@ import (
 var presubmitPeriodicOverrides = []PresubmitPeriodicRelationship{
 	{PresubmitID: "pull-ci-openshift-hypershift-main-e2e-aws", PeriodicIDs: []string{"periodic-ci-openshift-hypershift-release-5.1-periodics-e2e-aws-ovn"}},
 	{PresubmitID: "pull-ci-openshift-hypershift-main-e2e-aws-upgrade-hypershift-operator", PeriodicIDs: []string{"periodic-ci-openshift-hypershift-release-5.1-periodics-e2e-aws-upgrade"}},
-	{PresubmitID: "pull-ci-openshift-hypershift-main-e2e-v2-aws", PeriodicIDs: []string{"periodic-ci-openshift-hypershift-release-5.1-periodics-e2e-v2-aws"}},
-	{PresubmitID: "pull-ci-openshift-hypershift-main-e2e-aks", PeriodicIDs: []string{"periodic-ci-openshift-hypershift-release-5.1-periodics-e2e-aks"}},
-	{PresubmitID: "pull-ci-openshift-hypershift-main-e2e-v2-azure-self-managed", PeriodicIDs: []string{"periodic-ci-openshift-hypershift-release-5.1-periodics-e2e-v2-azure-self-managed"}},
-	{PresubmitID: "pull-ci-openshift-hypershift-main-e2e-v2-gke", PeriodicIDs: []string{"periodic-ci-openshift-hypershift-release-5.1-periodics-e2e-v2-gke"}},
 	{PresubmitID: "pull-ci-openshift-hypershift-main-e2e-kubevirt-aws-ovn-reduced", PeriodicIDs: []string{"periodic-ci-openshift-hypershift-release-5.1-periodics-e2e-kubevirt-aws-ovn-csi"}},
 	{PresubmitID: "pull-ci-openshift-hypershift-main-e2e-aws-5-0", PeriodicIDs: []string{"periodic-ci-openshift-hypershift-release-5.0-periodics-e2e-aws-ovn"}},
-	{PresubmitID: "pull-ci-openshift-hypershift-main-e2e-aks-5-0", PeriodicIDs: []string{"periodic-ci-openshift-hypershift-release-5.0-periodics-e2e-aks"}},
 	{PresubmitID: "pull-ci-openshift-hypershift-release-4.22-e2e-aws", PeriodicIDs: []string{"periodic-ci-openshift-hypershift-release-4.22-periodics-e2e-aws-ovn"}},
 	{PresubmitID: "pull-ci-openshift-hypershift-release-4.21-e2e-aws", PeriodicIDs: []string{"periodic-ci-openshift-hypershift-release-4.21-periodics-e2e-aws-ovn"}},
 	{PresubmitID: "pull-ci-openshift-hypershift-release-4.20-e2e-aws", PeriodicIDs: []string{"periodic-ci-openshift-hypershift-release-4.20-periodics-e2e-aws-ovn"}},
@@ -106,6 +101,7 @@ func exactReleasePeriodicKey(name, release string) (string, bool) {
 
 func validatePresubmitPeriodicRelationships(registry *Registry, index map[string]*Job) error {
 	seen := make(map[string]struct{}, len(registry.PresubmitPeriodicRelationships))
+	periodicOwners := make(map[string]string)
 	for _, relationship := range registry.PresubmitPeriodicRelationships {
 		if relationship.PresubmitID == "" || len(relationship.PeriodicIDs) == 0 || relationship.Basis == "" {
 			return fmt.Errorf("relationship for presubmit %q is incomplete", relationship.PresubmitID)
@@ -130,6 +126,10 @@ func validatePresubmitPeriodicRelationships(registry *Registry, index map[string
 				return fmt.Errorf("relationship for presubmit %q contains duplicate periodic %q", relationship.PresubmitID, id)
 			}
 			seenPeriodics[id] = struct{}{}
+			if owner, found := periodicOwners[id]; found {
+				return fmt.Errorf("periodic %q is related to both presubmits %q and %q", id, owner, relationship.PresubmitID)
+			}
+			periodicOwners[id] = relationship.PresubmitID
 			if periodic := index[id]; periodic == nil || periodic.Type != "periodic" {
 				return fmt.Errorf("relationship target %q is not a periodic job", id)
 			}
