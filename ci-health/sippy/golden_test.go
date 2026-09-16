@@ -1,6 +1,7 @@
 package sippy
 
 import (
+	"slices"
 	"testing"
 	"time"
 
@@ -83,5 +84,25 @@ func TestGoldenRegistryPresubmitHealthQueries(t *testing.T) {
 				t.Errorf("periodics = %+v", job.Periodics)
 			}
 		})
+	}
+
+	presubmit := index["pull-ci-openshift-hypershift-main-e2e-aws"]
+	if presubmit.Name != "e2e-aws" || !slices.Equal(presubmit.Platforms, []string{"aws"}) || len(presubmit.Periodics) == 0 || presubmit.Periodics[0].RelationshipRationale == "" {
+		t.Errorf("presubmit registry projection = %+v", presubmit)
+	}
+
+	var payload *PayloadBlockingJobHealth
+	for i := range window.PayloadBlockingJobs {
+		candidate := &window.PayloadBlockingJobs[i]
+		if candidate.Prow == "periodic-ci-openshift-hypershift-release-5.1-periodics-e2e-aks" && candidate.Release == "5.1" {
+			payload = candidate
+			break
+		}
+	}
+	if payload == nil {
+		t.Fatal("5.1 e2e-aks payload blocker not found")
+	}
+	if payload.Name != "e2e-aks" || !slices.Equal(payload.Platforms, []string{"aro"}) || len(payload.Participations) == 0 {
+		t.Errorf("payload registry projection = %+v", payload)
 	}
 }

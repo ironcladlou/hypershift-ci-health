@@ -25,7 +25,7 @@ func TestGoldenRegistryCatalogQueries(t *testing.T) {
 	catalog := goldenCatalog(t)
 	for _, job := range catalog.BlockingJobs {
 		if slices.Contains(job.Job.Versions, "4.23") {
-			t.Errorf("4.23 presubmit leaked into catalog: %s", job.ProwJobName)
+			t.Errorf("4.23 presubmit leaked into catalog: %s", job.Job.Name)
 		}
 	}
 	aggregates := []struct {
@@ -37,7 +37,6 @@ func TestGoldenRegistryCatalogQueries(t *testing.T) {
 		{"payload-blocking job count", len(catalog.PayloadBlockingJobs), 37},
 		{"releases", catalog.Releases(), []string{"4.14", "4.15", "4.16", "4.17", "4.18", "4.19", "4.20", "4.21", "4.22", "5.0", "5.1"}},
 		{"platforms", catalog.Platforms(), []string{"aro", "aws", "azure", "gcp", "kubevirt"}},
-		{"presubmit query count", len(catalog.PresubmitProwJobNames()), 69},
 		{"Sippy presubmit query count", len(catalog.SippyPresubmitProwJobNames()), 11},
 	}
 	for _, test := range aggregates {
@@ -64,7 +63,10 @@ func TestGoldenRegistryCatalogQueries(t *testing.T) {
 		})
 	}
 
-	presubmits := catalog.PresubmitProwJobNames()
+	presubmits := make([]string, 0, len(catalog.BlockingJobs))
+	for _, job := range catalog.BlockingJobs {
+		presubmits = append(presubmits, job.Job.Name)
+	}
 	presubmitQueries := []struct {
 		name string
 		want bool
@@ -115,7 +117,7 @@ func TestGoldenRegistryBlockingJobPairingQueries(t *testing.T) {
 	catalog := goldenCatalog(t)
 	index := make(map[string]BlockingJobConfig, len(catalog.BlockingJobs))
 	for _, job := range catalog.BlockingJobs {
-		index[job.ProwJobName] = job
+		index[job.Job.Name] = job
 	}
 	tests := []struct {
 		name         string
@@ -191,7 +193,7 @@ func TestGoldenRegistryBlockingJobPairingQueries(t *testing.T) {
 				t.Fatalf("periodics = %+v", job.Periodics)
 			}
 			got := job.Periodics[0]
-			if job.TargetRelease != test.target || got.ProwJobName != test.periodic || got.Release != test.release || got.RelationshipSource != test.source || got.RelationshipVerification != test.verification || got.RelationshipRationale == "" {
+			if job.Job.Presubmit.TargetRelease != test.target || got.Job.Name != test.periodic || got.Counterpart.TestedRelease != test.release || got.Counterpart.Source != test.source || got.Counterpart.Verification != test.verification || got.Counterpart.Rationale == "" {
 				t.Errorf("periodic pairing = %+v", got)
 			}
 		})
@@ -202,7 +204,7 @@ func TestGoldenRegistryUnpairedPresubmitsRemainVisible(t *testing.T) {
 	catalog := goldenCatalog(t)
 	index := make(map[string]BlockingJobConfig, len(catalog.BlockingJobs))
 	for _, job := range catalog.BlockingJobs {
-		index[job.ProwJobName] = job
+		index[job.Job.Name] = job
 	}
 	tests := []struct {
 		name          string
@@ -220,7 +222,7 @@ func TestGoldenRegistryUnpairedPresubmitsRemainVisible(t *testing.T) {
 			if !found {
 				t.Fatalf("presubmit %q not found", test.presubmit)
 			}
-			if job.TargetRelease != test.targetRelease || len(job.Periodics) != 0 {
+			if job.Job.Presubmit.TargetRelease != test.targetRelease || len(job.Periodics) != 0 {
 				t.Errorf("job = %+v", job)
 			}
 		})

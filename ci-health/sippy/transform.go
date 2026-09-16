@@ -205,18 +205,18 @@ func transformWindow(raw *rawData, windowKey string, now time.Time, catalog *job
 
 	blockingProwNames := make(map[string]bool)
 	for _, bj := range catalog.BlockingJobs {
-		blockingProwNames[bj.ProwJobName] = true
+		blockingProwNames[bj.Job.Name] = true
 	}
 
 	var jobHealths []JobHealth
 	for _, cfg := range catalog.BlockingJobs {
-		d := summaries[cfg.ProwJobName]
+		d := summaries[cfg.Job.Name]
 
 		var periodics []PeriodicJobHealth
 		for _, cfgPer := range cfg.Periodics {
 			periodics = append(periodics, buildPeriodicHealth(
-				cfgPer.ID, cfgPer.Name, cfgPer.ProwJobName, cfgPer.Release, cfgPer.Release,
-				string(cfgPer.RelationshipSource), string(cfgPer.RelationshipVerification), cfgPer.RelationshipRationale,
+				cfgPer.Job.ID, jobs.DisplayName(cfgPer.Job.Name), cfgPer.Job.Name, cfgPer.Counterpart.TestedRelease, cfgPer.Counterpart.TestedRelease,
+				string(cfgPer.Counterpart.Source), string(cfgPer.Counterpart.Verification), cfgPer.Counterpart.Rationale,
 				summaries, sparklines,
 			))
 		}
@@ -224,24 +224,24 @@ func transformWindow(raw *rawData, windowKey string, now time.Time, catalog *job
 		var correlation *Correlation
 		if len(cfg.Periodics) > 0 {
 			correlation = computeCorrelation(
-				sparklines[cfg.ProwJobName],
-				sparklines[cfg.Periodics[0].ProwJobName],
+				sparklines[cfg.Job.Name],
+				sparklines[cfg.Periodics[0].Job.Name],
 				now, win,
 			)
 		}
 
-		preSparkline := sparklines[cfg.ProwJobName]
+		preSparkline := sparklines[cfg.Job.Name]
 		preCounts := countResultTypes(preSparkline)
 
 		jh := JobHealth{
-			ID:            cfg.ID,
-			Name:          cfg.Name,
-			Prow:          cfg.ProwJobName,
-			TargetBranch:  cfg.TargetBranch,
-			TargetRelease: cfg.TargetRelease,
-			Platforms:     cfg.Platforms,
+			ID:            cfg.Job.ID,
+			Name:          jobs.DisplayName(cfg.Job.Name),
+			Prow:          cfg.Job.Name,
+			TargetBranch:  cfg.Job.Presubmit.TargetBranch,
+			TargetRelease: cfg.Job.Presubmit.TargetRelease,
+			Platforms:     cfg.Job.Platforms,
 			Role:          string(cfg.Role),
-			RoleLabel:     jobs.RoleLabel(cfg.Role, cfg.TargetRelease),
+			RoleLabel:     jobs.RoleLabel(cfg.Role, cfg.Job.Presubmit.TargetRelease),
 			TestFails:     preCounts.testFails,
 			InfraFails:    preCounts.infraFails,
 			SparkRuns:     preCounts.sparkRuns,
@@ -265,7 +265,7 @@ func transformWindow(raw *rawData, windowKey string, now time.Time, catalog *job
 	payloadHealths := make([]PayloadBlockingJobHealth, 0, len(catalog.PayloadBlockingJobs))
 	for _, cfg := range catalog.PayloadBlockingJobs {
 		health := buildPeriodicHealth(
-			cfg.ID, cfg.Name, cfg.ProwJobName, cfg.Release, "release payload",
+			cfg.Job.ID, jobs.DisplayName(cfg.Job.Name), cfg.Job.Name, cfg.Release, "release payload",
 			"", "", "",
 			summaries, sparklines,
 		)
@@ -282,7 +282,7 @@ func transformWindow(raw *rawData, windowKey string, now time.Time, catalog *job
 		}
 		payloadHealths = append(payloadHealths, PayloadBlockingJobHealth{
 			PeriodicJobHealth: health,
-			Platforms:         cfg.Platforms,
+			Platforms:         cfg.Job.Platforms,
 			Participations:    participations,
 		})
 	}

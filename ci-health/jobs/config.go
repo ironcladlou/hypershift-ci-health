@@ -11,43 +11,23 @@ import (
 )
 
 type PeriodicJobConfig struct {
-	ID                       string
-	Name                     string
-	ProwJobName              string
-	Release                  string
-	RelationshipSource       jobregistry.PeriodicCounterpartSource
-	RelationshipVerification jobregistry.PeriodicCounterpartVerification
-	RelationshipRationale    string
-	Job                      *jobregistry.Job
+	Job         *jobregistry.Job
+	Counterpart jobregistry.PeriodicCounterpart
 }
 
 type BlockingJobConfig struct {
-	ID            string
-	Name          string
-	ProwJobName   string
-	TargetBranch  string
-	TargetRelease string
-	Platforms     []string
-	Role          string
-	Periodics     []PeriodicJobConfig
-	Job           *jobregistry.Job
+	Job       *jobregistry.Job
+	Role      string
+	Periodics []PeriodicJobConfig
 }
 
 // PayloadBlockingJobConfig is a periodic job that gates a release payload.
 // These relationships come directly from release-controller metadata in the
 // generated registry rather than from its provisional presubmit relationships.
-type ReleasePayloadParticipation struct {
-	Stream       jobregistry.ReleaseControllerStream
-	Verification jobregistry.ReleaseControllerVerification
-}
-
 type PayloadBlockingJobConfig struct {
-	ID             string
-	Name           string
-	ProwJobName    string
+	Job            *jobregistry.Job
 	Release        string
-	Platforms      []string
-	Participations []ReleasePayloadParticipation
+	Participations []jobregistry.ReleaseControllerParticipation
 }
 
 type JobTier string
@@ -86,6 +66,9 @@ type Catalog struct {
 }
 
 func NewCatalog(registry *jobregistry.Registry) (*Catalog, error) {
+	if err := registry.Validate(); err != nil {
+		return nil, fmt.Errorf("validate job registry: %w", err)
+	}
 	index := registry.Index()
 	catalog := &Catalog{
 		BlockingJobs:  make([]BlockingJobConfig, 0),
@@ -108,37 +91,16 @@ func NewCatalog(registry *jobregistry.Registry) (*Catalog, error) {
 		}
 
 		configured := BlockingJobConfig{
-			ID:            presubmit.ID,
-			Name:          shortName(presubmit.Name),
-			ProwJobName:   presubmit.Name,
-			TargetBranch:  presubmit.Presubmit.TargetBranch,
-			TargetRelease: presubmit.Presubmit.TargetRelease,
-			Platforms:     append([]string(nil), presubmit.Platforms...),
-			Job:           presubmit,
+			Job: presubmit,
 		}
 		for _, counterpart := range presubmit.Presubmit.PeriodicCounterparts {
 			periodic := index[counterpart.JobID]
-			if periodic == nil {
-				return nil, fmt.Errorf("periodic counterpart %q is absent from the job registry", counterpart.JobID)
-			}
-			if periodic.Type != "periodic" {
-				return nil, fmt.Errorf("periodic counterpart %q has registry type %q", counterpart.JobID, periodic.Type)
-			}
-			if len(periodic.Versions) != 1 {
-				return nil, fmt.Errorf("periodic counterpart %q has %d versions; expected exactly one", counterpart.JobID, len(periodic.Versions))
-			}
 			configured.Periodics = append(configured.Periodics, PeriodicJobConfig{
-				ID:                       periodic.ID,
-				Name:                     shortName(periodic.Name),
-				ProwJobName:              periodic.Name,
-				Release:                  counterpart.TestedRelease,
-				RelationshipSource:       counterpart.Source,
-				RelationshipVerification: counterpart.Verification,
-				RelationshipRationale:    counterpart.Rationale,
-				Job:                      periodic,
+				Job:         periodic,
+				Counterpart: counterpart,
 			})
 		}
-		if !supportedRelease(configured.TargetRelease) {
+		if !supportedRelease(presubmit.Presubmit.TargetRelease) {
 			continue
 		}
 		catalog.BlockingJobs = append(catalog.BlockingJobs, configured)
@@ -170,17 +132,14 @@ func NewCatalog(registry *jobregistry.Registry) (*Catalog, error) {
 				index = len(catalog.PayloadBlockingJobs)
 				payloadIndices[key] = index
 				catalog.PayloadBlockingJobs = append(catalog.PayloadBlockingJobs, PayloadBlockingJobConfig{
-					ID:             job.ID,
-					Name:           shortName(job.Name),
-					ProwJobName:    job.Name,
+					Job:            job,
 					Release:        participation.Stream.Release,
-					Platforms:      append([]string(nil), job.Platforms...),
-					Participations: []ReleasePayloadParticipation{},
+					Participations: []jobregistry.ReleaseControllerParticipation{},
 				})
 			}
 			catalog.PayloadBlockingJobs[index].Participations = append(
 				catalog.PayloadBlockingJobs[index].Participations,
-				ReleasePayloadParticipation{Stream: participation.Stream, Verification: participation.Verification},
+				participation,
 			)
 		}
 	}
@@ -199,11 +158,11 @@ func NewCatalog(registry *jobregistry.Registry) (*Catalog, error) {
 		if a.Release != b.Release {
 			return releaseRank(a.Release) > releaseRank(b.Release)
 		}
-		return a.ProwJobName < b.ProwJobName
+		return a.Job.Name < b.Job.Name
 	})
 	releases := catalog.Releases()
 	for i := range catalog.BlockingJobs {
-		catalog.BlockingJobs[i].Role = roleForRelease(catalog.BlockingJobs[i].TargetRelease, releases)
+		catalog.BlockingJobs[i].Role = roleForRelease(catalog.BlockingJobs[i].Job.Presubmit.TargetRelease, releases)
 	}
 	return catalog, nil
 }
@@ -218,7 +177,7 @@ func (c *Catalog) ComponentReadinessJobs(memberships []ComponentReadinessMembers
 		}
 		config := ComponentReadinessJobConfig{
 			ID:          membership.ProwJobName,
-			Name:        shortName(membership.ProwJobName),
+			Name:        DisplayName(membership.ProwJobName),
 			ProwJobName: membership.ProwJobName,
 			Release:     membership.Release,
 			Tier:        membership.Tier,
@@ -267,7 +226,8 @@ func releaseRank(release string) int {
 	return -1
 }
 
-func shortName(name string) string {
+// DisplayName removes standard Prow job prefixes used only for global identity.
+func DisplayName(name string) string {
 	if value := strings.TrimPrefix(name, "pull-ci-openshift-hypershift-main-"); value != name {
 		return value
 	}
@@ -316,7 +276,7 @@ func (c *Catalog) Releases() []string {
 		}
 	}
 	for _, job := range c.BlockingJobs {
-		add(job.TargetRelease)
+		add(job.Job.Presubmit.TargetRelease)
 	}
 	for _, job := range c.PayloadBlockingJobs {
 		add(job.Release)
@@ -339,21 +299,13 @@ func (c *Catalog) Platforms() []string {
 		}
 	}
 	for _, job := range c.BlockingJobs {
-		add(job.Platforms)
+		add(job.Job.Platforms)
 	}
 	for _, job := range c.PayloadBlockingJobs {
-		add(job.Platforms)
+		add(job.Job.Platforms)
 	}
 	sort.Strings(platforms)
 	return platforms
-}
-
-func (c *Catalog) PresubmitProwJobNames() []string {
-	names := make([]string, len(c.BlockingJobs))
-	for i, job := range c.BlockingJobs {
-		names[i] = job.ProwJobName
-	}
-	return names
 }
 
 // SippyPresubmitProwJobNames returns only presubmits whose registry metadata
@@ -363,7 +315,7 @@ func (c *Catalog) SippyPresubmitProwJobNames() []string {
 	var names []string
 	for _, job := range c.BlockingJobs {
 		if job.Job.Presubmit.SippyIngestion.Enabled {
-			names = append(names, job.ProwJobName)
+			names = append(names, job.Job.Name)
 		}
 	}
 	return names
@@ -384,11 +336,11 @@ func (c *Catalog) PeriodicProwJobNamesByRelease() map[string][]string {
 	}
 	for _, job := range c.BlockingJobs {
 		for _, periodic := range job.Periodics {
-			add(periodic.Release, periodic.ProwJobName)
+			add(periodic.Counterpart.TestedRelease, periodic.Job.Name)
 		}
 	}
 	for _, job := range c.PayloadBlockingJobs {
-		add(job.Release, job.ProwJobName)
+		add(job.Release, job.Job.Name)
 	}
 	for release := range result {
 		sort.Strings(result[release])
@@ -400,11 +352,11 @@ func (c *Catalog) PeriodicJobCount() int {
 	seen := make(map[string]struct{})
 	for _, job := range c.BlockingJobs {
 		for _, periodic := range job.Periodics {
-			seen[periodic.ID] = struct{}{}
+			seen[periodic.Job.ID] = struct{}{}
 		}
 	}
 	for _, job := range c.PayloadBlockingJobs {
-		seen[job.ID] = struct{}{}
+		seen[job.Job.ID] = struct{}{}
 	}
 	return len(seen)
 }
