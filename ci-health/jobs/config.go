@@ -2,6 +2,7 @@ package jobs
 
 import (
 	"fmt"
+	"slices"
 	"sort"
 	"strconv"
 	"strings"
@@ -10,23 +11,26 @@ import (
 )
 
 type PeriodicJobConfig struct {
-	ID                      string
-	Name                    string
-	ProwJobName             string
-	Release                 string
-	RelationshipBasis       jobregistry.PeriodicCounterpartBasis
-	RelationshipDescription string
-	Job                     *jobregistry.Job
+	ID                       string
+	Name                     string
+	ProwJobName              string
+	Release                  string
+	RelationshipSource       jobregistry.PeriodicCounterpartSource
+	RelationshipVerification jobregistry.PeriodicCounterpartVerification
+	RelationshipRationale    string
+	Job                      *jobregistry.Job
 }
 
 type BlockingJobConfig struct {
-	ID          string
-	Name        string
-	ProwJobName string
-	Platforms   []string
-	Role        string
-	Periodics   []PeriodicJobConfig
-	Job         *jobregistry.Job
+	ID            string
+	Name          string
+	ProwJobName   string
+	TargetBranch  string
+	TargetRelease string
+	Platforms     []string
+	Role          string
+	Periodics     []PeriodicJobConfig
+	Job           *jobregistry.Job
 }
 
 // PayloadBlockingJobConfig is a periodic job that gates a release payload.
@@ -90,16 +94,27 @@ func NewCatalog(registry *jobregistry.Registry) (*Catalog, error) {
 
 	for i := range registry.Jobs {
 		presubmit := &registry.Jobs[i]
-		if presubmit.Type != "presubmit" || presubmit.Presubmit == nil || !presubmit.Presubmit.Required || len(presubmit.Presubmit.PeriodicCounterparts) == 0 {
+		if presubmit.Type != "presubmit" || presubmit.Presubmit == nil || !presubmit.Presubmit.Required || presubmit.E2EFramework == "none" || presubmit.Presubmit.TargetRelease == "" {
+			continue
+		}
+		if slices.Contains(presubmit.Versions, "4.23") {
+			continue
+		}
+		if presubmit.Presubmit.TargetRelease == registry.PresubmitPolicy.DevelopmentRelease && presubmit.Presubmit.TargetBranch != registry.PresubmitPolicy.DevelopmentBranch {
+			continue
+		}
+		if releaseRank(presubmit.Presubmit.TargetRelease) > releaseRank(registry.PresubmitPolicy.DevelopmentRelease) {
 			continue
 		}
 
 		configured := BlockingJobConfig{
-			ID:          presubmit.ID,
-			Name:        shortName(presubmit.Name),
-			ProwJobName: presubmit.Name,
-			Platforms:   append([]string(nil), presubmit.Platforms...),
-			Job:         presubmit,
+			ID:            presubmit.ID,
+			Name:          shortName(presubmit.Name),
+			ProwJobName:   presubmit.Name,
+			TargetBranch:  presubmit.Presubmit.TargetBranch,
+			TargetRelease: presubmit.Presubmit.TargetRelease,
+			Platforms:     append([]string(nil), presubmit.Platforms...),
+			Job:           presubmit,
 		}
 		for _, counterpart := range presubmit.Presubmit.PeriodicCounterparts {
 			periodic := index[counterpart.JobID]
@@ -113,16 +128,17 @@ func NewCatalog(registry *jobregistry.Registry) (*Catalog, error) {
 				return nil, fmt.Errorf("periodic counterpart %q has %d versions; expected exactly one", counterpart.JobID, len(periodic.Versions))
 			}
 			configured.Periodics = append(configured.Periodics, PeriodicJobConfig{
-				ID:                      periodic.ID,
-				Name:                    shortName(periodic.Name),
-				ProwJobName:             periodic.Name,
-				Release:                 periodic.Versions[0],
-				RelationshipBasis:       counterpart.Basis,
-				RelationshipDescription: counterpart.Description,
-				Job:                     periodic,
+				ID:                       periodic.ID,
+				Name:                     shortName(periodic.Name),
+				ProwJobName:              periodic.Name,
+				Release:                  counterpart.TestedRelease,
+				RelationshipSource:       counterpart.Source,
+				RelationshipVerification: counterpart.Verification,
+				RelationshipRationale:    counterpart.Rationale,
+				Job:                      periodic,
 			})
 		}
-		if len(configured.Periodics) == 0 || !supportedRelease(configured.Periodics[0].Release) {
+		if !supportedRelease(configured.TargetRelease) {
 			continue
 		}
 		catalog.BlockingJobs = append(catalog.BlockingJobs, configured)
@@ -187,7 +203,7 @@ func NewCatalog(registry *jobregistry.Registry) (*Catalog, error) {
 	})
 	releases := catalog.Releases()
 	for i := range catalog.BlockingJobs {
-		catalog.BlockingJobs[i].Role = roleForRelease(catalog.BlockingJobs[i].Periodics[0].Release, releases)
+		catalog.BlockingJobs[i].Role = roleForRelease(catalog.BlockingJobs[i].TargetRelease, releases)
 	}
 	return catalog, nil
 }
@@ -197,7 +213,7 @@ func NewCatalog(registry *jobregistry.Registry) (*Catalog, error) {
 func (c *Catalog) ComponentReadinessJobs(memberships []ComponentReadinessMembership) []ComponentReadinessJobConfig {
 	result := make([]ComponentReadinessJobConfig, 0, len(memberships))
 	for _, membership := range memberships {
-		if membership.Tier != JobTierStandard {
+		if membership.Tier != JobTierStandard || !supportedRelease(membership.Release) {
 			continue
 		}
 		config := ComponentReadinessJobConfig{
@@ -223,7 +239,7 @@ func (c *Catalog) ComponentReadinessJobs(memberships []ComponentReadinessMembers
 	return result
 }
 
-// supportedRelease bounds the payload view. OpenShift 5.0 follows
+// supportedRelease bounds the health views. OpenShift 5.0 follows
 // 4.22; 4.23 names the same release line and is intentionally not displayed.
 func supportedRelease(release string) bool {
 	if release == "4.23" {
@@ -300,9 +316,7 @@ func (c *Catalog) Releases() []string {
 		}
 	}
 	for _, job := range c.BlockingJobs {
-		for _, periodic := range job.Periodics {
-			add(periodic.Release)
-		}
+		add(job.TargetRelease)
 	}
 	for _, job := range c.PayloadBlockingJobs {
 		add(job.Release)

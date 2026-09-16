@@ -37,11 +37,18 @@ name.
   are emitted in ID order so unchanged inputs produce stable output.
 - Every job remains traceable to its generated definition in
   `openshift/release`.
-- Periodic counterparts are provisional properties of presubmit jobs. The
-  development release selects `main`; other releases select `release-X.Y`.
-  Scenario-name aliases handle exceptional names, and each serialized
-  counterpart records its basis, description, and provisional status so
-  consumers do not treat it as Prow-authoritative.
+- Periodic counterparts are human-verified properties of presubmit jobs. Each
+  presubmit records the branch and release receiving the pull request, while
+  each counterpart records the release it tests. These differ for N-1
+  compatibility jobs. The provisional registry policy maps `main` to the
+  development release; `release-X.Y` maps to `X.Y`. Counterparts come only
+  from the registry's explicit manual mapping list; name and release
+  heuristics do not publish relationships. Each counterpart records its
+  source, verification, and rationale so consumers do not treat it as
+  Prow-authoritative.
+- Health-view membership does not depend on having a periodic counterpart.
+  Required E2E presubmits without a verified mapping remain visible without a
+  periodic child row.
 - Release-controller participation is a job property rather than a report
   category. A job may have multiple stream relationships, and every
   relationship remains traceable to the exact `verify` declaration that

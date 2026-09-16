@@ -164,22 +164,23 @@ func computeCorrelation(preSparkline, perSparkline map[string]*SparklineSlot, no
 	}
 }
 
-func buildPeriodicHealth(id, name, prow, release, label, relationshipBasis, relationshipDescription string, periodicMap map[string]*SippyJob, sparklines map[string]map[string]*SparklineSlot) PeriodicJobHealth {
+func buildPeriodicHealth(id, name, prow, release, label, relationshipSource, relationshipVerification, relationshipRationale string, periodicMap map[string]*SippyJob, sparklines map[string]map[string]*SparklineSlot) PeriodicJobHealth {
 	d := periodicMap[prow]
 	sparkline := sparklines[prow]
 	counts := countResultTypes(sparkline)
 	health := PeriodicJobHealth{
-		ID:                      id,
-		Name:                    name,
-		Prow:                    prow,
-		Release:                 release,
-		Label:                   label,
-		RelationshipBasis:       relationshipBasis,
-		RelationshipDescription: relationshipDescription,
-		TestFails:               counts.testFails,
-		InfraFails:              counts.infraFails,
-		SparkRuns:               counts.sparkRuns,
-		Sparkline:               sparkline,
+		ID:                       id,
+		Name:                     name,
+		Prow:                     prow,
+		Release:                  release,
+		Label:                    label,
+		RelationshipSource:       relationshipSource,
+		RelationshipVerification: relationshipVerification,
+		RelationshipRationale:    relationshipRationale,
+		TestFails:                counts.testFails,
+		InfraFails:               counts.infraFails,
+		SparkRuns:                counts.sparkRuns,
+		Sparkline:                sparkline,
 	}
 	if d != nil {
 		health.Rate = &d.CurrentPassPercentage
@@ -215,7 +216,7 @@ func transformWindow(raw *rawData, windowKey string, now time.Time, catalog *job
 		for _, cfgPer := range cfg.Periodics {
 			periodics = append(periodics, buildPeriodicHealth(
 				cfgPer.ID, cfgPer.Name, cfgPer.ProwJobName, cfgPer.Release, cfgPer.Release,
-				string(cfgPer.RelationshipBasis), cfgPer.RelationshipDescription,
+				string(cfgPer.RelationshipSource), string(cfgPer.RelationshipVerification), cfgPer.RelationshipRationale,
 				summaries, sparklines,
 			))
 		}
@@ -232,24 +233,21 @@ func transformWindow(raw *rawData, windowKey string, now time.Time, catalog *job
 		preSparkline := sparklines[cfg.ProwJobName]
 		preCounts := countResultTypes(preSparkline)
 
-		release := ""
-		if len(cfg.Periodics) > 0 {
-			release = cfg.Periodics[0].Release
-		}
-
 		jh := JobHealth{
-			ID:          cfg.ID,
-			Name:        cfg.Name,
-			Prow:        cfg.ProwJobName,
-			Platforms:   cfg.Platforms,
-			Role:        string(cfg.Role),
-			RoleLabel:   jobs.RoleLabel(cfg.Role, release),
-			TestFails:   preCounts.testFails,
-			InfraFails:  preCounts.infraFails,
-			SparkRuns:   preCounts.sparkRuns,
-			Periodics:   periodics,
-			Sparkline:   preSparkline,
-			Correlation: correlation,
+			ID:            cfg.ID,
+			Name:          cfg.Name,
+			Prow:          cfg.ProwJobName,
+			TargetBranch:  cfg.TargetBranch,
+			TargetRelease: cfg.TargetRelease,
+			Platforms:     cfg.Platforms,
+			Role:          string(cfg.Role),
+			RoleLabel:     jobs.RoleLabel(cfg.Role, cfg.TargetRelease),
+			TestFails:     preCounts.testFails,
+			InfraFails:    preCounts.infraFails,
+			SparkRuns:     preCounts.sparkRuns,
+			Periodics:     periodics,
+			Sparkline:     preSparkline,
+			Correlation:   correlation,
 		}
 
 		if d != nil {
@@ -268,7 +266,7 @@ func transformWindow(raw *rawData, windowKey string, now time.Time, catalog *job
 	for _, cfg := range catalog.PayloadBlockingJobs {
 		health := buildPeriodicHealth(
 			cfg.ID, cfg.Name, cfg.ProwJobName, cfg.Release, "release payload",
-			"", "",
+			"", "", "",
 			summaries, sparklines,
 		)
 		participations := make([]ReleasePayloadParticipation, 0, len(cfg.Participations))
@@ -293,7 +291,7 @@ func transformWindow(raw *rawData, windowKey string, now time.Time, catalog *job
 	for _, cfg := range raw.componentReadiness {
 		health := buildPeriodicHealth(
 			cfg.ID, cfg.Name, cfg.ProwJobName, cfg.Release, "component readiness",
-			"", "",
+			"", "", "",
 			summaries, sparklines,
 		)
 		componentReadinessHealths = append(componentReadinessHealths, ComponentReadinessJobHealth{

@@ -4,7 +4,7 @@ BIN := $(BIN_DIR)/$(APP)
 NAMESPACE := ci-health
 ROUTE_PREFIX := hypershift-ci-health
 
-.PHONY: build fmt image setup deploy
+.PHONY: build fmt test generate-job-registry update-golden image setup deploy
 
 build:
 	mkdir -p $(BIN_DIR)
@@ -12,6 +12,17 @@ build:
 
 fmt:
 	gofmt -w $$(rg --files --glob '*.go')
+
+test:
+	go test ./...
+
+generate-job-registry: build
+	@test -n "$(RELEASE_DIR)" || (echo "RELEASE_DIR is required" >&2; exit 1)
+	./$(BIN) job-registry --release-dir=$(RELEASE_DIR) > job-registry.json
+
+update-golden: build
+	@test -n "$(RELEASE_DIR)" || (echo "RELEASE_DIR is required" >&2; exit 1)
+	./$(BIN) job-registry --release-dir=$(RELEASE_DIR) > jobregistry/testdata/job-registry.json
 
 image:
 	mkdir -p $(BIN_DIR)

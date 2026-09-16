@@ -2,3 +2,4 @@
 deploy/route-patch.yaml
 deploy/.github-token
 job-registry.json
+!jobregistry/testdata/job-registry.json

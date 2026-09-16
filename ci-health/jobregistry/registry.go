@@ -18,7 +18,7 @@ import (
 )
 
 const (
-	currentAPIVersion           = "job-registry/v3"
+	currentAPIVersion           = "job-registry/v5"
 	releaseRepository           = "openshift/release"
 	releaseMainURL              = "https://github.com/openshift/release/blob/main/"
 	defaultSippyURL             = "https://sippy.dptools.openshift.org"
@@ -333,7 +333,16 @@ func discover(releaseDir string) (Registry, error) {
 		return Registry{}, fmt.Errorf("%s is not a directory", root)
 	}
 
-	registry := Registry{APIVersion: currentAPIVersion, Jobs: []Job{}}
+	registry := Registry{
+		APIVersion: currentAPIVersion,
+		PresubmitPolicy: PresubmitPolicy{
+			DevelopmentBranch:  developmentBranch,
+			DevelopmentRelease: developmentRelease,
+			Provisional:        true,
+			Description:        "Maps pull requests targeting main to the configured development release until Prow publishes a release identity for the branch.",
+		},
+		Jobs: []Job{},
+	}
 	seen := map[string]Source{}
 	err := filepath.WalkDir(root, func(path string, entry fs.DirEntry, walkErr error) error {
 		if walkErr != nil {

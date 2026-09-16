@@ -4,28 +4,44 @@ package jobregistry
 type Registry struct {
 	// APIVersion identifies the schema used to serialize the registry.
 	APIVersion string `json:"api_version"`
+	// PresubmitPolicy records the provisional policy used to translate Prow
+	// target branches into dashboard release lines.
+	PresubmitPolicy PresubmitPolicy `json:"presubmit_policy"`
 	// Jobs contains every discovered job, ordered by stable job ID.
 	Jobs []Job `json:"jobs"`
 }
 
-// PeriodicCounterpartBasis identifies the heuristic used to associate a
-// periodic with a presubmit.
-type PeriodicCounterpartBasis string
+// PresubmitPolicy describes how the development branch is represented as an
+// OpenShift release until Prow publishes that relationship directly.
+type PresubmitPolicy struct {
+	DevelopmentBranch  string `json:"development_branch"`
+	DevelopmentRelease string `json:"development_release"`
+	Provisional        bool   `json:"provisional"`
+	Description        string `json:"description"`
+}
+
+// PeriodicCounterpartSource identifies who asserted a periodic relationship.
+type PeriodicCounterpartSource string
 
 const (
-	PeriodicCounterpartBasisReleaseBranchPolicy          PeriodicCounterpartBasis = "release-branch-policy"
-	PeriodicCounterpartBasisReleaseBranchPolicyWithAlias PeriodicCounterpartBasis = "release-branch-policy-with-name-alias"
+	PeriodicCounterpartSourceRegistryManual PeriodicCounterpartSource = "registry-manual"
 )
+
+// PeriodicCounterpartVerification identifies the review state of a periodic
+// relationship.
+type PeriodicCounterpartVerification string
+
+const PeriodicCounterpartVerificationHuman PeriodicCounterpartVerification = "human-verified"
 
 // PeriodicCounterpart identifies a periodic believed to exercise the same
 // scenario as its containing presubmit. Prow does not currently express this
-// relationship, so it is explicitly provisional and includes its heuristic.
+// relationship, so the registry includes its source, verification, and rationale.
 type PeriodicCounterpart struct {
-	JobID       string                   `json:"job_id"`
-	Release     string                   `json:"release"`
-	Provisional bool                     `json:"provisional"`
-	Basis       PeriodicCounterpartBasis `json:"basis"`
-	Description string                   `json:"description"`
+	JobID         string                          `json:"job_id"`
+	TestedRelease string                          `json:"tested_release"`
+	Source        PeriodicCounterpartSource       `json:"source"`
+	Verification  PeriodicCounterpartVerification `json:"verification"`
+	Rationale     string                          `json:"rationale"`
 }
 
 // Job describes one Prow job. A Prow job name is its globally unique, stable
@@ -74,6 +90,11 @@ type Job struct {
 
 // Presubmit contains properties that do not apply to periodic jobs.
 type Presubmit struct {
+	// TargetBranch is the Prow branch receiving the pull request.
+	TargetBranch string `json:"target_branch"`
+	// TargetRelease is the dashboard release line represented by TargetBranch.
+	// It can differ from a counterpart's TestedRelease for compatibility jobs.
+	TargetRelease string `json:"target_release"`
 	// Required reports whether the job is non-optional when it applies. It is
 	// the inverse of Prow's optional field and does not imply AlwaysRun.
 	Required bool `json:"required"`
@@ -91,8 +112,8 @@ type Presubmit struct {
 	// SkipIfOnlyChanged is a regular expression that skips the job when every
 	// changed file matches. It is omitted when the job has no such condition.
 	SkipIfOnlyChanged string `json:"skip_if_only_changed,omitempty"`
-	// PeriodicCounterparts contains provisional periodic associations selected
-	// using the registry's release-branch policy and scenario-name heuristics.
+	// PeriodicCounterparts contains human-verified periodic associations owned
+	// by the registry. An empty list means no counterpart has been verified.
 	PeriodicCounterparts []PeriodicCounterpart `json:"periodic_counterparts"`
 }
 

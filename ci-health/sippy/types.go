@@ -57,23 +57,24 @@ type Correlation struct {
 }
 
 type PeriodicJobHealth struct {
-	ID                      string                    `json:"id"`
-	Name                    string                    `json:"name"`
-	Prow                    string                    `json:"prow"`
-	Release                 string                    `json:"release"`
-	Label                   string                    `json:"label"`
-	RelationshipBasis       string                    `json:"relationship_basis,omitempty"`
-	RelationshipDescription string                    `json:"relationship_description,omitempty"`
-	Rate                    *float64                  `json:"rate"`
-	Prev                    *float64                  `json:"prev"`
-	PrevRuns                int                       `json:"prev_runs"`
-	Trend                   *float64                  `json:"trend"`
-	Runs                    int                       `json:"runs"`
-	Fails                   int                       `json:"fails"`
-	TestFails               int                       `json:"test_fails"`
-	InfraFails              int                       `json:"infra_fails"`
-	SparkRuns               int                       `json:"spark_runs"`
-	Sparkline               map[string]*SparklineSlot `json:"sparkline"`
+	ID                       string                    `json:"id"`
+	Name                     string                    `json:"name"`
+	Prow                     string                    `json:"prow"`
+	Release                  string                    `json:"release"`
+	Label                    string                    `json:"label"`
+	RelationshipSource       string                    `json:"relationship_source,omitempty"`
+	RelationshipVerification string                    `json:"relationship_verification,omitempty"`
+	RelationshipRationale    string                    `json:"relationship_rationale,omitempty"`
+	Rate                     *float64                  `json:"rate"`
+	Prev                     *float64                  `json:"prev"`
+	PrevRuns                 int                       `json:"prev_runs"`
+	Trend                    *float64                  `json:"trend"`
+	Runs                     int                       `json:"runs"`
+	Fails                    int                       `json:"fails"`
+	TestFails                int                       `json:"test_fails"`
+	InfraFails               int                       `json:"infra_fails"`
+	SparkRuns                int                       `json:"spark_runs"`
+	Sparkline                map[string]*SparklineSlot `json:"sparkline"`
 }
 
 type ReleasePayloadParticipation struct {
@@ -98,24 +99,26 @@ type ComponentReadinessJobHealth struct {
 }
 
 type JobHealth struct {
-	ID          string                    `json:"id"`
-	Name        string                    `json:"name"`
-	Prow        string                    `json:"prow"`
-	Platforms   []string                  `json:"platforms"`
-	Role        string                    `json:"role"`
-	RoleLabel   string                    `json:"role_label"`
-	Rate        float64                   `json:"rate"`
-	Prev        float64                   `json:"prev"`
-	PrevRuns    int                       `json:"prev_runs"`
-	Trend       *float64                  `json:"trend"`
-	Runs        int                       `json:"runs"`
-	Fails       int                       `json:"fails"`
-	TestFails   int                       `json:"test_fails"`
-	InfraFails  int                       `json:"infra_fails"`
-	SparkRuns   int                       `json:"spark_runs"`
-	Periodics   []PeriodicJobHealth       `json:"periodics"`
-	Sparkline   map[string]*SparklineSlot `json:"sparkline"`
-	Correlation *Correlation              `json:"correlation"`
+	ID            string                    `json:"id"`
+	Name          string                    `json:"name"`
+	Prow          string                    `json:"prow"`
+	TargetBranch  string                    `json:"target_branch"`
+	TargetRelease string                    `json:"target_release"`
+	Platforms     []string                  `json:"platforms"`
+	Role          string                    `json:"role"`
+	RoleLabel     string                    `json:"role_label"`
+	Rate          float64                   `json:"rate"`
+	Prev          float64                   `json:"prev"`
+	PrevRuns      int                       `json:"prev_runs"`
+	Trend         *float64                  `json:"trend"`
+	Runs          int                       `json:"runs"`
+	Fails         int                       `json:"fails"`
+	TestFails     int                       `json:"test_fails"`
+	InfraFails    int                       `json:"infra_fails"`
+	SparkRuns     int                       `json:"spark_runs"`
+	Periodics     []PeriodicJobHealth       `json:"periodics"`
+	Sparkline     map[string]*SparklineSlot `json:"sparkline"`
+	Correlation   *Correlation              `json:"correlation"`
 }
 
 type Alert struct {
