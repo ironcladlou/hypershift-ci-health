@@ -5,8 +5,6 @@ import (
 	"fmt"
 	"net/http"
 	"os"
-	"sync/atomic"
-	"time"
 
 	"github.com/ironcladlou/hypershift-ci-health/ci-health/jobregistry"
 	"github.com/ironcladlou/hypershift-ci-health/ci-health/jobs"
@@ -20,7 +18,6 @@ func newServeCommand(indexHTML string) *cobra.Command {
 		addr            string
 		dev             bool
 		jobRegistryPath string
-		sippyInterval   time.Duration
 	)
 
 	command := &cobra.Command{
@@ -36,9 +33,12 @@ func newServeCommand(indexHTML string) *cobra.Command {
 				return fmt.Errorf("validate dashboard job configuration: %w", err)
 			}
 
-			sippyProvider := sippy.NewProvider(command.Context(), sippy.NewClient(), catalog, sippyInterval)
-			states := newApplicationStateStore(newApplicationState(registry, catalog, sippyProvider))
-			server := &http.Server{Addr: addr, Handler: newHTTPHandler(indexHTML, dev, states)}
+			health, status, err := sippy.CollectSnapshot(command.Context(), sippy.NewClient(), catalog)
+			if err != nil {
+				return fmt.Errorf("collect Sippy health snapshot: %w", err)
+			}
+			state := newApplicationState(registry, health, status)
+			server := &http.Server{Addr: addr, Handler: newHTTPHandler(indexHTML, dev, state)}
 			go func() {
 				<-command.Context().Done()
 				server.Close()
@@ -46,7 +46,7 @@ func newServeCommand(indexHTML string) *cobra.Command {
 
 			fmt.Fprintf(os.Stderr, "http://localhost%s\n", addr)
 			fmt.Fprintf(os.Stderr, "Job registry: %s (%d jobs)\n", jobRegistryPath, len(registry.Jobs))
-			fmt.Fprintf(os.Stderr, "Sippy data refresh every %s\n", sippyInterval)
+			fmt.Fprintf(os.Stderr, "Sippy snapshot: %s\n", health.GeneratedAt.Format("2006-01-02T15:04:05Z"))
 			if err := server.ListenAndServe(); err != http.ErrServerClosed {
 				return err
 			}
@@ -57,46 +57,27 @@ func newServeCommand(indexHTML string) *cobra.Command {
 	command.Flags().StringVar(&addr, "addr", ":8080", "Listen address")
 	command.Flags().BoolVar(&dev, "dev", false, "Serve index.html from filesystem instead of embedded copy")
 	command.Flags().StringVar(&jobRegistryPath, "job-registry", "", "Path to a generated job registry JSON file")
-	command.Flags().DurationVar(&sippyInterval, "sippy-interval", 15*time.Minute, "Sippy data refresh interval")
 	command.MarkFlagRequired("job-registry")
 	return command
 }
 
 type applicationState struct {
 	registry      *jobregistry.Registry
-	catalog       *jobs.Catalog
 	registryIndex map[string]*jobregistry.Job
-	provider      *sippy.Provider
+	health        *sippy.HealthSnapshot
+	status        sippy.CollectionStatus
 }
 
-type applicationStateStore struct {
-	current atomic.Pointer[applicationState]
-}
-
-func newApplicationState(registry *jobregistry.Registry, catalog *jobs.Catalog, provider *sippy.Provider) *applicationState {
+func newApplicationState(registry *jobregistry.Registry, health *sippy.HealthSnapshot, status sippy.CollectionStatus) *applicationState {
 	return &applicationState{
 		registry:      registry,
-		catalog:       catalog,
 		registryIndex: registry.Index(),
-		provider:      provider,
+		health:        health,
+		status:        status,
 	}
 }
 
-func newApplicationStateStore(state *applicationState) *applicationStateStore {
-	store := &applicationStateStore{}
-	store.replace(state)
-	return store
-}
-
-func (s *applicationStateStore) load() *applicationState {
-	return s.current.Load()
-}
-
-func (s *applicationStateStore) replace(state *applicationState) {
-	s.current.Store(state)
-}
-
-func newHTTPHandler(indexHTML string, dev bool, states *applicationStateStore) http.Handler {
+func newHTTPHandler(indexHTML string, dev bool, state *applicationState) http.Handler {
 	mux := http.NewServeMux()
 	if dev {
 		fmt.Fprintln(os.Stderr, "Dev mode: serving index.html from filesystem")
@@ -111,22 +92,31 @@ func newHTTPHandler(indexHTML string, dev bool, states *applicationStateStore) h
 			_, _ = w.Write([]byte(indexHTML))
 		})
 	}
+	mux.HandleFunc("/livez", func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	})
+	mux.HandleFunc("/readyz", func(w http.ResponseWriter, r *http.Request) {
+		if state.health == nil {
+			http.Error(w, "health snapshot unavailable", http.StatusServiceUnavailable)
+			return
+		}
+		w.WriteHeader(http.StatusOK)
+	})
 	mux.HandleFunc("/api/health", func(w http.ResponseWriter, r *http.Request) {
-		data := states.load().provider.Data()
-		if data == nil {
+		if state.health == nil {
 			http.Error(w, "data not yet available", http.StatusServiceUnavailable)
 			return
 		}
-		writeJSON(w, data)
+		writeJSON(w, state.health)
 	})
 	mux.HandleFunc("/api/health/status", func(w http.ResponseWriter, r *http.Request) {
-		writeJSON(w, states.load().provider.Status())
+		writeJSON(w, state.status)
 	})
 	mux.HandleFunc("/api/job-registry", func(w http.ResponseWriter, r *http.Request) {
-		writeJSON(w, states.load().registry)
+		writeJSON(w, state.registry)
 	})
 	mux.HandleFunc("GET /api/job-registry/jobs/{id}", func(w http.ResponseWriter, r *http.Request) {
-		job := states.load().registryIndex[r.PathValue("id")]
+		job := state.registryIndex[r.PathValue("id")]
 		if job == nil {
 			http.NotFound(w, r)
 			return

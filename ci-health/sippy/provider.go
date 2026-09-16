@@ -14,12 +14,6 @@ import (
 
 var logWriter io.Writer = os.Stderr
 
-type Provider struct {
-	mu     sync.RWMutex
-	data   *HealthSnapshot
-	status CollectionStatus
-}
-
 type CollectionStatus struct {
 	State         string     `json:"state"`
 	StartedAt     time.Time  `json:"started_at"`
@@ -33,90 +27,52 @@ type CollectionStatus struct {
 	HasData       bool       `json:"has_data"`
 }
 
-func NewProvider(ctx context.Context, client *Client, catalog *jobs.Catalog, interval time.Duration) *Provider {
-	p := &Provider{}
+// CollectSnapshot collects one immutable health snapshot for a catalog.
+func CollectSnapshot(ctx context.Context, client *Client, catalog *jobs.Catalog) (*HealthSnapshot, CollectionStatus, error) {
 	staticTargets := catalog.AnalysisTargets()
-
-	refresh := func() {
-		startedAt := time.Now().UTC()
-		fmt.Fprintf(logWriter, "sippy: collecting data...\n")
-		p.mu.Lock()
-		p.status = CollectionStatus{
-			State:     "collecting",
-			StartedAt: startedAt,
-			Total:     len(catalog.Releases()),
-			HasData:   p.data != nil,
-		}
-		p.mu.Unlock()
-
-		progress := func(label string, err error) {
-			p.mu.Lock()
-			p.status.Completed++
-			p.status.LastCompleted = label
-			if err != nil {
-				p.status.Failed++
-				p.status.LastError = err.Error()
-			}
-			completed, total := p.status.Completed, p.status.Total
-			p.mu.Unlock()
-			fmt.Fprintf(logWriter, "sippy: collection progress: %d/%d %s\n", completed, total, label)
-		}
-		addTotal := func(count int) {
-			p.mu.Lock()
-			p.status.Total += count
-			p.mu.Unlock()
-		}
-
-		snapshot, err := collect(ctx, client, catalog, staticTargets, progress, addTotal)
-		finishedAt := time.Now().UTC()
+	startedAt := time.Now().UTC()
+	fmt.Fprintf(logWriter, "sippy: collecting data...\n")
+	status := CollectionStatus{
+		State:     "collecting",
+		StartedAt: startedAt,
+		Total:     len(catalog.Releases()),
+	}
+	var statusMu sync.Mutex
+	progress := func(label string, err error) {
+		statusMu.Lock()
+		status.Completed++
+		status.LastCompleted = label
 		if err != nil {
-			p.mu.Lock()
-			p.status.State = "error"
-			p.status.Error = err.Error()
-			p.status.FinishedAt = &finishedAt
-			p.status.HasData = p.data != nil
-			p.mu.Unlock()
-			fmt.Fprintf(logWriter, "sippy: collection error after %s: %v\n", finishedAt.Sub(startedAt).Round(time.Millisecond), err)
-			return
+			status.Failed++
+			status.LastError = err.Error()
 		}
-		p.mu.Lock()
-		p.data = snapshot
-		p.status.State = "ready"
-		p.status.FinishedAt = &finishedAt
-		p.status.HasData = true
-		p.mu.Unlock()
-		componentReadinessCount := len(snapshot.Windows["1w"].ComponentReadinessJobs)
-		fmt.Fprintf(logWriter, "sippy: collection complete in %s: %d presubmits displayed, %d static analysis targets, %d component readiness blockers\n", finishedAt.Sub(startedAt).Round(time.Millisecond), len(catalog.BlockingJobs), len(staticTargets), componentReadinessCount)
+		completed, total := status.Completed, status.Total
+		statusMu.Unlock()
+		fmt.Fprintf(logWriter, "sippy: collection progress: %d/%d %s\n", completed, total, label)
+	}
+	addTotal := func(count int) {
+		statusMu.Lock()
+		status.Total += count
+		statusMu.Unlock()
 	}
 
-	go refresh()
-
-	go func() {
-		ticker := time.NewTicker(interval)
-		defer ticker.Stop()
-		for {
-			select {
-			case <-ctx.Done():
-				return
-			case <-ticker.C:
-				refresh()
-			}
-		}
-	}()
-
-	return p
-}
-
-func (p *Provider) Data() *HealthSnapshot {
-	p.mu.RLock()
-	defer p.mu.RUnlock()
-	return p.data
-}
-
-func (p *Provider) Status() CollectionStatus {
-	p.mu.RLock()
-	defer p.mu.RUnlock()
-	return p.status
+	snapshot, err := collect(ctx, client, catalog, staticTargets, progress, addTotal)
+	finishedAt := time.Now().UTC()
+	statusMu.Lock()
+	status.FinishedAt = &finishedAt
+	if err != nil {
+		status.State = "error"
+		status.Error = err.Error()
+		statusMu.Unlock()
+		fmt.Fprintf(logWriter, "sippy: collection error after %s: %v\n", finishedAt.Sub(startedAt).Round(time.Millisecond), err)
+		return nil, status, err
+	}
+	status.State = "ready"
+	status.HasData = true
+	statusMu.Unlock()
+	componentReadinessCount := len(snapshot.Windows["1w"].ComponentReadinessJobs)
+	fmt.Fprintf(logWriter, "sippy: collection complete in %s: %d presubmits displayed, %d static analysis targets, %d component readiness blockers\n", finishedAt.Sub(startedAt).Round(time.Millisecond), len(catalog.BlockingJobs), len(staticTargets), componentReadinessCount)
+	return snapshot, status, nil
 }
 
 func collect(ctx context.Context, client *Client, catalog *jobs.Catalog, staticTargets []jobs.AnalysisTarget, progress func(string, error), addTotal func(int)) (*HealthSnapshot, error) {

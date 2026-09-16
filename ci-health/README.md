@@ -17,9 +17,9 @@ Sippy.
 go run . serve --dev --job-registry=/path/to/job-registry.json
 ```
 
-`--dev` serves `index.html` from the filesystem for live editing. The server
-only consumes the registry file; producing and distributing that file are
-separate concerns.
+`--dev` serves `index.html` from the filesystem for live editing. At startup,
+the server loads the registry and collects one immutable Sippy health snapshot.
+It starts listening only after both sources are ready.
 
 ## Job registry command
 
@@ -38,7 +38,10 @@ every referenced ID and obtains all job metadata from the registry.
 On every pod start, an init container makes a shallow, blob-filtered sparse
 clone of the job and release-controller configuration from `openshift/release`.
 It generates `job-registry.json` in an `emptyDir` shared read-only with the
-server container. The cluster therefore needs outbound access to GitHub.
+server container. The server then collects one Sippy snapshot before becoming
+ready. An hourly CronJob performs a rolling restart, and the previous pod keeps
+serving its snapshot until the replacement is ready. The cluster therefore
+needs outbound access to GitHub and Sippy.
 
 ```bash
 make setup

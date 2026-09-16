@@ -8,7 +8,7 @@ import (
 	"testing"
 
 	"github.com/ironcladlou/hypershift-ci-health/ci-health/jobregistry"
-	"github.com/ironcladlou/hypershift-ci-health/ci-health/jobs"
+	"github.com/ironcladlou/hypershift-ci-health/ci-health/sippy"
 )
 
 func TestGoldenRegistrySingleJobAPI(t *testing.T) {
@@ -16,12 +16,7 @@ func TestGoldenRegistrySingleJobAPI(t *testing.T) {
 	if err != nil {
 		t.Fatalf("load golden registry: %v", err)
 	}
-	catalog, err := jobs.NewCatalog(registry)
-	if err != nil {
-		t.Fatalf("build catalog: %v", err)
-	}
-	states := newApplicationStateStore(newApplicationState(registry, catalog, nil))
-	handler := newHTTPHandler("", false, states)
+	handler := newHTTPHandler("", false, newApplicationState(registry, nil, sippy.CollectionStatus{}))
 	const id = "pull-ci-openshift-hypershift-release-4.22-e2e-v2-aws"
 	tests := []struct {
 		name        string
@@ -55,6 +50,33 @@ func TestGoldenRegistrySingleJobAPI(t *testing.T) {
 				if err := json.Unmarshal(response.Body.Bytes(), &job); err != nil || job.ID != id {
 					t.Errorf("decode JSON job = %q, %v", job.ID, err)
 				}
+			}
+		})
+	}
+}
+
+func TestHealthProbes(t *testing.T) {
+	registry, err := jobregistry.LoadFile("../jobregistry/testdata/job-registry.json")
+	if err != nil {
+		t.Fatalf("load golden registry: %v", err)
+	}
+	tests := []struct {
+		name   string
+		path   string
+		health *sippy.HealthSnapshot
+		want   int
+	}{
+		{"live before data", "/livez", nil, http.StatusOK},
+		{"not ready before data", "/readyz", nil, http.StatusServiceUnavailable},
+		{"ready with data", "/readyz", &sippy.HealthSnapshot{}, http.StatusOK},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			handler := newHTTPHandler("", false, newApplicationState(registry, test.health, sippy.CollectionStatus{}))
+			response := httptest.NewRecorder()
+			handler.ServeHTTP(response, httptest.NewRequest(http.MethodGet, test.path, nil))
+			if response.Code != test.want {
+				t.Errorf("status = %d, want %d", response.Code, test.want)
 			}
 		})
 	}

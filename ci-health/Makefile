@@ -41,5 +41,5 @@ deploy:
 	oc apply -k deploy/
 	$(MAKE) image
 	oc -n $(NAMESPACE) rollout restart deployment/$(APP)
-	oc -n $(NAMESPACE) rollout status deployment/$(APP) --timeout=120s
+	oc -n $(NAMESPACE) rollout status deployment/$(APP) --timeout=5m
 	@oc -n $(NAMESPACE) get route $(APP) -o jsonpath='https://{.spec.host}{"\n"}'
