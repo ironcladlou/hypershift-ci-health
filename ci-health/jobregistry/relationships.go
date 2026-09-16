@@ -6,132 +6,122 @@ import (
 	"strings"
 )
 
-// presubmitPeriodicOverrides contains relationships that cannot be derived
-// from an exact generated-job name match. They remain provisional because the
-// relationship is not expressed by Prow itself.
-var presubmitPeriodicOverrides = []PresubmitPeriodicRelationship{
-	{PresubmitID: "pull-ci-openshift-hypershift-main-e2e-aws", PeriodicIDs: []string{"periodic-ci-openshift-hypershift-release-5.1-periodics-e2e-aws-ovn"}},
-	{PresubmitID: "pull-ci-openshift-hypershift-main-e2e-aws-upgrade-hypershift-operator", PeriodicIDs: []string{"periodic-ci-openshift-hypershift-release-5.1-periodics-e2e-aws-upgrade"}},
-	{PresubmitID: "pull-ci-openshift-hypershift-main-e2e-kubevirt-aws-ovn-reduced", PeriodicIDs: []string{"periodic-ci-openshift-hypershift-release-5.1-periodics-e2e-kubevirt-aws-ovn-csi"}},
-	{PresubmitID: "pull-ci-openshift-hypershift-main-e2e-aws-5-0", PeriodicIDs: []string{"periodic-ci-openshift-hypershift-release-5.0-periodics-e2e-aws-ovn"}},
-	{PresubmitID: "pull-ci-openshift-hypershift-release-4.22-e2e-aws", PeriodicIDs: []string{"periodic-ci-openshift-hypershift-release-4.22-periodics-e2e-aws-ovn"}},
-	{PresubmitID: "pull-ci-openshift-hypershift-release-4.21-e2e-aws", PeriodicIDs: []string{"periodic-ci-openshift-hypershift-release-4.21-periodics-e2e-aws-ovn"}},
-	{PresubmitID: "pull-ci-openshift-hypershift-release-4.20-e2e-aws", PeriodicIDs: []string{"periodic-ci-openshift-hypershift-release-4.20-periodics-e2e-aws-ovn"}},
-	{PresubmitID: "pull-ci-openshift-hypershift-release-4.19-e2e-aws", PeriodicIDs: []string{"periodic-ci-openshift-hypershift-release-4.19-periodics-e2e-aws-ovn"}},
-	{PresubmitID: "pull-ci-openshift-hypershift-release-4.19-e2e-conformance", PeriodicIDs: []string{"periodic-ci-openshift-hypershift-release-4.19-periodics-e2e-aws-ovn-conformance"}},
-	{PresubmitID: "pull-ci-openshift-hypershift-release-4.18-e2e-aws", PeriodicIDs: []string{"periodic-ci-openshift-hypershift-release-4.18-periodics-e2e-aws-ovn"}},
-	{PresubmitID: "pull-ci-openshift-hypershift-release-4.18-e2e-conformance", PeriodicIDs: []string{"periodic-ci-openshift-hypershift-release-4.18-periodics-e2e-aws-ovn-conformance"}},
-	{PresubmitID: "pull-ci-openshift-hypershift-release-4.17-e2e-aws", PeriodicIDs: []string{"periodic-ci-openshift-hypershift-release-4.17-periodics-e2e-aws-ovn"}},
-	{PresubmitID: "pull-ci-openshift-hypershift-release-4.17-e2e-conformance", PeriodicIDs: []string{"periodic-ci-openshift-hypershift-release-4.17-periodics-e2e-aws-ovn-conformance"}},
-	{PresubmitID: "pull-ci-openshift-hypershift-release-4.16-e2e-aws", PeriodicIDs: []string{"periodic-ci-openshift-hypershift-release-4.16-periodics-e2e-aws-ovn"}},
-	{PresubmitID: "pull-ci-openshift-hypershift-release-4.16-e2e-conformance", PeriodicIDs: []string{"periodic-ci-openshift-hypershift-release-4.16-periodics-e2e-aws-ovn-conformance"}},
-	{PresubmitID: "pull-ci-openshift-hypershift-release-4.15-e2e-aws", PeriodicIDs: []string{"periodic-ci-openshift-hypershift-release-4.15-periodics-e2e-aws-ovn"}},
-	{PresubmitID: "pull-ci-openshift-hypershift-release-4.14-e2e-aws", PeriodicIDs: []string{"periodic-ci-openshift-hypershift-release-4.14-periodics-e2e-aws-ovn"}},
+// developmentRelease is the release line tested by main-branch presubmits.
+// Until Prow expresses this relationship, changing the development line is a
+// single explicit policy update here.
+const developmentRelease = "5.1"
+
+// periodicScenarioAliases contains only differences between periodic and
+// presubmit scenario names. Branch and release selection are handled by the
+// general policy rather than by per-job relationship overrides.
+var periodicScenarioAliases = map[string]string{
+	"e2e-aws-ovn":              "e2e-aws",
+	"e2e-aws-upgrade":          "e2e-aws-upgrade-hypershift-operator",
+	"e2e-kubevirt-aws-ovn-csi": "e2e-kubevirt-aws-ovn-reduced",
+	"e2e-aws-ovn-conformance":  "e2e-conformance",
 }
 
-func populatePresubmitPeriodicRelationships(registry *Registry) error {
-	return populatePresubmitPeriodicRelationshipsWithOverrides(registry, presubmitPeriodicOverrides)
-}
-
-func populatePresubmitPeriodicRelationshipsWithOverrides(registry *Registry, overrides []PresubmitPeriodicRelationship) error {
+func populatePeriodicCounterparts(registry *Registry) error {
 	index := registry.Index()
-	relationships := make([]PresubmitPeriodicRelationship, 0, len(overrides))
-	overridden := make(map[string]struct{}, len(overrides))
-
-	for _, override := range overrides {
-		override.Provisional = true
-		override.Basis = PresubmitPeriodicRelationshipBasisManualOverride
-		override.PeriodicIDs = append([]string(nil), override.PeriodicIDs...)
-		relationships = append(relationships, override)
-		overridden[override.PresubmitID] = struct{}{}
-	}
-
-	periodics := make(map[string][]string)
 	for i := range registry.Jobs {
-		job := &registry.Jobs[i]
-		if job.Type != "periodic" || len(job.Versions) != 1 {
-			continue
-		}
-		if key, ok := exactReleasePeriodicKey(job.Name, job.Versions[0]); ok {
-			periodics[key] = append(periodics[key], job.ID)
+		if registry.Jobs[i].Presubmit != nil {
+			registry.Jobs[i].Presubmit.PeriodicCounterparts = []PeriodicCounterpart{}
 		}
 	}
 
 	for i := range registry.Jobs {
-		job := &registry.Jobs[i]
-		if job.Type != "presubmit" || len(job.Versions) != 1 {
+		periodic := &registry.Jobs[i]
+		if periodic.Type != "periodic" || len(periodic.Versions) != 1 {
 			continue
 		}
-		if _, found := overridden[job.ID]; found {
+		release := periodic.Versions[0]
+		periodicScenario, ok := periodicScenarioName(periodic.Name, release)
+		if !ok {
 			continue
 		}
-		key, ok := exactReleasePresubmitKey(job.Name, job.Versions[0])
-		if !ok || len(periodics[key]) != 1 {
+
+		presubmitScenario := periodicScenario
+		basis := PeriodicCounterpartBasisReleaseBranchPolicy
+		if alias, found := periodicScenarioAliases[periodicScenario]; found {
+			presubmitScenario = alias
+			basis = PeriodicCounterpartBasisReleaseBranchPolicyWithAlias
+		}
+
+		branch := "release-" + release
+		if release == developmentRelease {
+			branch = "main"
+		}
+		presubmitID := "pull-ci-openshift-hypershift-" + branch + "-" + presubmitScenario
+		presubmit := index[presubmitID]
+		if presubmit == nil || presubmit.Type != "presubmit" || presubmit.Presubmit == nil {
 			continue
 		}
-		relationships = append(relationships, PresubmitPeriodicRelationship{
-			PresubmitID: job.ID,
-			PeriodicIDs: []string{periodics[key][0]},
+
+		description := fmt.Sprintf("Matched the %s periodic scenario %q to the %s presubmit using the release branch policy.", release, periodicScenario, branch)
+		if periodicScenario != presubmitScenario {
+			description = fmt.Sprintf("Matched the %s periodic scenario %q to presubmit scenario %q on %s using the release branch policy and a configured name alias.", release, periodicScenario, presubmitScenario, branch)
+		}
+		presubmit.Presubmit.PeriodicCounterparts = append(presubmit.Presubmit.PeriodicCounterparts, PeriodicCounterpart{
+			JobID:       periodic.ID,
+			Release:     release,
 			Provisional: true,
-			Basis:       PresubmitPeriodicRelationshipBasisExactReleaseName,
+			Basis:       basis,
+			Description: description,
 		})
 	}
 
-	sort.Slice(relationships, func(i, j int) bool {
-		return relationships[i].PresubmitID < relationships[j].PresubmitID
-	})
-	registry.PresubmitPeriodicRelationships = relationships
-	if err := validatePresubmitPeriodicRelationships(registry, index); err != nil {
-		return fmt.Errorf("validate presubmit-periodic relationships: %w", err)
+	for i := range registry.Jobs {
+		if registry.Jobs[i].Presubmit == nil {
+			continue
+		}
+		sort.Slice(registry.Jobs[i].Presubmit.PeriodicCounterparts, func(a, b int) bool {
+			return registry.Jobs[i].Presubmit.PeriodicCounterparts[a].JobID < registry.Jobs[i].Presubmit.PeriodicCounterparts[b].JobID
+		})
+	}
+	if err := validatePeriodicCounterparts(registry, index); err != nil {
+		return fmt.Errorf("validate periodic counterparts: %w", err)
 	}
 	return nil
 }
 
-func exactReleasePresubmitKey(name, release string) (string, bool) {
-	prefix := "pull-ci-openshift-hypershift-release-" + release + "-"
-	value, found := strings.CutPrefix(name, prefix)
-	return release + "/" + value, found && value != ""
-}
-
-func exactReleasePeriodicKey(name, release string) (string, bool) {
+func periodicScenarioName(name, release string) (string, bool) {
 	prefix := "periodic-ci-openshift-hypershift-release-" + release + "-periodics-"
 	value, found := strings.CutPrefix(name, prefix)
-	return release + "/" + value, found && value != ""
+	return value, found && value != ""
 }
 
-func validatePresubmitPeriodicRelationships(registry *Registry, index map[string]*Job) error {
-	seen := make(map[string]struct{}, len(registry.PresubmitPeriodicRelationships))
+func validatePeriodicCounterparts(registry *Registry, index map[string]*Job) error {
 	periodicOwners := make(map[string]string)
-	for _, relationship := range registry.PresubmitPeriodicRelationships {
-		if relationship.PresubmitID == "" || len(relationship.PeriodicIDs) == 0 || relationship.Basis == "" {
-			return fmt.Errorf("relationship for presubmit %q is incomplete", relationship.PresubmitID)
+	for i := range registry.Jobs {
+		presubmit := &registry.Jobs[i]
+		if presubmit.Presubmit == nil {
+			continue
 		}
-		if !relationship.Provisional {
-			return fmt.Errorf("relationship for presubmit %q is not marked provisional", relationship.PresubmitID)
-		}
-		if relationship.Basis != PresubmitPeriodicRelationshipBasisExactReleaseName && relationship.Basis != PresubmitPeriodicRelationshipBasisManualOverride {
-			return fmt.Errorf("relationship for presubmit %q has unsupported basis %q", relationship.PresubmitID, relationship.Basis)
-		}
-		if _, found := seen[relationship.PresubmitID]; found {
-			return fmt.Errorf("duplicate relationship for presubmit %q", relationship.PresubmitID)
-		}
-		seen[relationship.PresubmitID] = struct{}{}
-		presubmit := index[relationship.PresubmitID]
-		if presubmit == nil || presubmit.Type != "presubmit" {
-			return fmt.Errorf("relationship source %q is not a presubmit job", relationship.PresubmitID)
-		}
-		seenPeriodics := make(map[string]struct{}, len(relationship.PeriodicIDs))
-		for _, id := range relationship.PeriodicIDs {
-			if _, found := seenPeriodics[id]; found {
-				return fmt.Errorf("relationship for presubmit %q contains duplicate periodic %q", relationship.PresubmitID, id)
+		seen := make(map[string]struct{}, len(presubmit.Presubmit.PeriodicCounterparts))
+		for _, counterpart := range presubmit.Presubmit.PeriodicCounterparts {
+			if counterpart.JobID == "" || counterpart.Release == "" || counterpart.Basis == "" || counterpart.Description == "" {
+				return fmt.Errorf("presubmit %q has an incomplete periodic counterpart", presubmit.ID)
 			}
-			seenPeriodics[id] = struct{}{}
-			if owner, found := periodicOwners[id]; found {
-				return fmt.Errorf("periodic %q is related to both presubmits %q and %q", id, owner, relationship.PresubmitID)
+			if !counterpart.Provisional {
+				return fmt.Errorf("periodic counterpart %q on presubmit %q is not marked provisional", counterpart.JobID, presubmit.ID)
 			}
-			periodicOwners[id] = relationship.PresubmitID
-			if periodic := index[id]; periodic == nil || periodic.Type != "periodic" {
-				return fmt.Errorf("relationship target %q is not a periodic job", id)
+			if counterpart.Basis != PeriodicCounterpartBasisReleaseBranchPolicy && counterpart.Basis != PeriodicCounterpartBasisReleaseBranchPolicyWithAlias {
+				return fmt.Errorf("periodic counterpart %q on presubmit %q has unsupported basis %q", counterpart.JobID, presubmit.ID, counterpart.Basis)
+			}
+			if _, found := seen[counterpart.JobID]; found {
+				return fmt.Errorf("presubmit %q contains duplicate periodic counterpart %q", presubmit.ID, counterpart.JobID)
+			}
+			seen[counterpart.JobID] = struct{}{}
+			if owner, found := periodicOwners[counterpart.JobID]; found {
+				return fmt.Errorf("periodic %q is a counterpart of both presubmits %q and %q", counterpart.JobID, owner, presubmit.ID)
+			}
+			periodicOwners[counterpart.JobID] = presubmit.ID
+			periodic := index[counterpart.JobID]
+			if periodic == nil || periodic.Type != "periodic" {
+				return fmt.Errorf("counterpart %q on presubmit %q is not a periodic job", counterpart.JobID, presubmit.ID)
+			}
+			if len(periodic.Versions) != 1 || periodic.Versions[0] != counterpart.Release {
+				return fmt.Errorf("counterpart %q on presubmit %q does not uniquely test release %q", counterpart.JobID, presubmit.ID, counterpart.Release)
 			}
 		}
 	}

@@ -1196,8 +1196,8 @@ function rateTrendHtml(rate, prev, prevRuns, trend, runs, fails) {
 }
 
 function relationshipBasisTooltip(basis) {
-  if (basis === "exact-release-name") return "Pairing basis: exact release and job name match";
-  if (basis === "manual-override") return "Pairing basis: manual override";
+  if (basis === "release-branch-policy") return "Pairing basis: release branch policy";
+  if (basis === "release-branch-policy-with-name-alias") return "Pairing basis: release branch policy with a configured name alias";
   return basis ? `Pairing basis: ${basis}` : "";
 }
 
@@ -1237,7 +1237,7 @@ function buildRow(j) {
     const perInfraBadge = (p.infra_fails > 0 && perSparkRuns > 0 && p.infra_fails / perSparkRuns >= 0.15)
       ? `<span class="infra-badge has-tip"><span class="tip">${p.infra_fails} of ${perSparkRuns} runs were infrastructure failures — the job errored or timed out before tests could run.</span>${p.infra_fails} infra</span>`
       : '';
-    const pairingTip = relationshipBasisTooltip(p.relationship_basis);
+    const pairingTip = p.relationship_description || relationshipBasisTooltip(p.relationship_basis);
     const periodicBadge = pairingTip
       ? `<span class="job-type has-tip"><span class="tip">${esc(pairingTip)}</span>periodic ${esc(p.label)}</span>`
       : `<span class="job-type">periodic ${esc(p.label)}</span>`;

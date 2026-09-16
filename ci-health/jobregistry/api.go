@@ -6,33 +6,27 @@ type Registry struct {
 	APIVersion string `json:"api_version"`
 	// Jobs contains every discovered job, ordered by stable job ID.
 	Jobs []Job `json:"jobs"`
-	// PresubmitPeriodicRelationships contains provisional associations between
-	// presubmit and periodic jobs. Prow does not currently express these
-	// relationships, so each entry identifies the heuristic or override used to
-	// produce it and must not be treated as authoritative Prow metadata.
-	PresubmitPeriodicRelationships []PresubmitPeriodicRelationship `json:"presubmit_periodic_relationships"`
 }
 
-// PresubmitPeriodicRelationship associates one presubmit with one or more
-// periodics that exercise the same scenario. Provisional remains true until
-// the relationship can be sourced from authoritative Prow data.
-type PresubmitPeriodicRelationship struct {
-	PresubmitID string   `json:"presubmit_id"`
-	PeriodicIDs []string `json:"periodic_ids"`
-	Provisional bool     `json:"provisional"`
-	// Basis describes how the provisional relationship was established. Current
-	// values are "exact-release-name" and "manual-override".
-	Basis PresubmitPeriodicRelationshipBasis `json:"basis"`
-}
-
-// PresubmitPeriodicRelationshipBasis identifies the evidence used to create a
-// provisional relationship.
-type PresubmitPeriodicRelationshipBasis string
+// PeriodicCounterpartBasis identifies the heuristic used to associate a
+// periodic with a presubmit.
+type PeriodicCounterpartBasis string
 
 const (
-	PresubmitPeriodicRelationshipBasisExactReleaseName PresubmitPeriodicRelationshipBasis = "exact-release-name"
-	PresubmitPeriodicRelationshipBasisManualOverride   PresubmitPeriodicRelationshipBasis = "manual-override"
+	PeriodicCounterpartBasisReleaseBranchPolicy          PeriodicCounterpartBasis = "release-branch-policy"
+	PeriodicCounterpartBasisReleaseBranchPolicyWithAlias PeriodicCounterpartBasis = "release-branch-policy-with-name-alias"
 )
+
+// PeriodicCounterpart identifies a periodic believed to exercise the same
+// scenario as its containing presubmit. Prow does not currently express this
+// relationship, so it is explicitly provisional and includes its heuristic.
+type PeriodicCounterpart struct {
+	JobID       string                   `json:"job_id"`
+	Release     string                   `json:"release"`
+	Provisional bool                     `json:"provisional"`
+	Basis       PeriodicCounterpartBasis `json:"basis"`
+	Description string                   `json:"description"`
+}
 
 // Job describes one Prow job. A Prow job name is its globally unique, stable
 // identity and is also retained as Name to keep identity and display concerns
@@ -97,6 +91,9 @@ type Presubmit struct {
 	// SkipIfOnlyChanged is a regular expression that skips the job when every
 	// changed file matches. It is omitted when the job has no such condition.
 	SkipIfOnlyChanged string `json:"skip_if_only_changed,omitempty"`
+	// PeriodicCounterparts contains provisional periodic associations selected
+	// using the registry's release-branch policy and scenario-name heuristics.
+	PeriodicCounterparts []PeriodicCounterpart `json:"periodic_counterparts"`
 }
 
 // ReleaseControllerParticipation describes how a job participates in one

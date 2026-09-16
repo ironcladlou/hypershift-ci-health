@@ -59,8 +59,8 @@ func (r *Registry) Validate() error {
 			return fmt.Errorf("job %q has unsupported type %q", job.ID, job.Type)
 		}
 	}
-	if err := validatePresubmitPeriodicRelationships(r, r.Index()); err != nil {
-		return fmt.Errorf("invalid presubmit-periodic relationships: %w", err)
+	if err := validatePeriodicCounterparts(r, r.Index()); err != nil {
+		return fmt.Errorf("invalid periodic counterparts: %w", err)
 	}
 	return nil
 }

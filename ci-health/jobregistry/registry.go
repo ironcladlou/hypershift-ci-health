@@ -18,7 +18,7 @@ import (
 )
 
 const (
-	currentAPIVersion           = "job-registry/v2"
+	currentAPIVersion           = "job-registry/v3"
 	releaseRepository           = "openshift/release"
 	releaseMainURL              = "https://github.com/openshift/release/blob/main/"
 	defaultSippyURL             = "https://sippy.dptools.openshift.org"
@@ -126,8 +126,8 @@ func Discover(releaseDir string, options Options) (Registry, error) {
 	if err := populateReleaseController(&registry, releaseDir, options.SippyStreamBaseURL, options.ReleaseStatusBaseURL); err != nil {
 		return Registry{}, fmt.Errorf("discover release-controller participation: %w", err)
 	}
-	if err := populatePresubmitPeriodicRelationships(&registry); err != nil {
-		return Registry{}, fmt.Errorf("discover presubmit-periodic relationships: %w", err)
+	if err := populatePeriodicCounterparts(&registry); err != nil {
+		return Registry{}, fmt.Errorf("discover periodic counterparts: %w", err)
 	}
 	return registry, nil
 }
@@ -333,7 +333,7 @@ func discover(releaseDir string) (Registry, error) {
 		return Registry{}, fmt.Errorf("%s is not a directory", root)
 	}
 
-	registry := Registry{APIVersion: currentAPIVersion, Jobs: []Job{}, PresubmitPeriodicRelationships: []PresubmitPeriodicRelationship{}}
+	registry := Registry{APIVersion: currentAPIVersion, Jobs: []Job{}}
 	seen := map[string]Source{}
 	err := filepath.WalkDir(root, func(path string, entry fs.DirEntry, walkErr error) error {
 		if walkErr != nil {
@@ -433,12 +433,13 @@ func addJob(registry *Registry, seen map[string]Source, candidate prowJob, jobTy
 	}
 	if jobType == "presubmit" {
 		job.Presubmit = &Presubmit{
-			Required:          !candidate.Optional,
-			AlwaysRun:         candidate.AlwaysRun,
-			Branches:          nonNil(candidate.Branches),
-			SkipBranches:      nonNil(candidate.SkipBranches),
-			RunIfChanged:      candidate.RunIfChanged,
-			SkipIfOnlyChanged: candidate.SkipIfOnlyChanged,
+			Required:             !candidate.Optional,
+			AlwaysRun:            candidate.AlwaysRun,
+			Branches:             nonNil(candidate.Branches),
+			SkipBranches:         nonNil(candidate.SkipBranches),
+			RunIfChanged:         candidate.RunIfChanged,
+			SkipIfOnlyChanged:    candidate.SkipIfOnlyChanged,
+			PeriodicCounterparts: []PeriodicCounterpart{},
 		}
 	}
 	registry.Jobs = append(registry.Jobs, job)

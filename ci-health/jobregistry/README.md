@@ -37,10 +37,11 @@ name.
   are emitted in ID order so unchanged inputs produce stable output.
 - Every job remains traceable to its generated definition in
   `openshift/release`.
-- Presubmit-to-periodic relationships are provisional registry metadata. Exact
-  release-name matches are inferred automatically and exceptional names are
-  supplied by manual overrides; the serialized relationship records its basis
-  and provisional status so consumers do not treat it as Prow-authoritative.
+- Periodic counterparts are provisional properties of presubmit jobs. The
+  development release selects `main`; other releases select `release-X.Y`.
+  Scenario-name aliases handle exceptional names, and each serialized
+  counterpart records its basis, description, and provisional status so
+  consumers do not treat it as Prow-authoritative.
 - Release-controller participation is a job property rather than a report
   category. A job may have multiple stream relationships, and every
   relationship remains traceable to the exact `verify` declaration that

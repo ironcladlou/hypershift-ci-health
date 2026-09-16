@@ -57,22 +57,23 @@ type Correlation struct {
 }
 
 type PeriodicJobHealth struct {
-	ID                string                    `json:"id"`
-	Name              string                    `json:"name"`
-	Prow              string                    `json:"prow"`
-	Release           string                    `json:"release"`
-	Label             string                    `json:"label"`
-	RelationshipBasis string                    `json:"relationship_basis,omitempty"`
-	Rate              *float64                  `json:"rate"`
-	Prev              *float64                  `json:"prev"`
-	PrevRuns          int                       `json:"prev_runs"`
-	Trend             *float64                  `json:"trend"`
-	Runs              int                       `json:"runs"`
-	Fails             int                       `json:"fails"`
-	TestFails         int                       `json:"test_fails"`
-	InfraFails        int                       `json:"infra_fails"`
-	SparkRuns         int                       `json:"spark_runs"`
-	Sparkline         map[string]*SparklineSlot `json:"sparkline"`
+	ID                      string                    `json:"id"`
+	Name                    string                    `json:"name"`
+	Prow                    string                    `json:"prow"`
+	Release                 string                    `json:"release"`
+	Label                   string                    `json:"label"`
+	RelationshipBasis       string                    `json:"relationship_basis,omitempty"`
+	RelationshipDescription string                    `json:"relationship_description,omitempty"`
+	Rate                    *float64                  `json:"rate"`
+	Prev                    *float64                  `json:"prev"`
+	PrevRuns                int                       `json:"prev_runs"`
+	Trend                   *float64                  `json:"trend"`
+	Runs                    int                       `json:"runs"`
+	Fails                   int                       `json:"fails"`
+	TestFails               int                       `json:"test_fails"`
+	InfraFails              int                       `json:"infra_fails"`
+	SparkRuns               int                       `json:"spark_runs"`
+	Sparkline               map[string]*SparklineSlot `json:"sparkline"`
 }
 
 type ReleasePayloadParticipation struct {

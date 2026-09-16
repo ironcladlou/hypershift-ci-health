@@ -164,21 +164,22 @@ func computeCorrelation(preSparkline, perSparkline map[string]*SparklineSlot, no
 	}
 }
 
-func buildPeriodicHealth(id, name, prow, release, label, relationshipBasis string, periodicMap map[string]*SippyJob, sparklines map[string]map[string]*SparklineSlot) PeriodicJobHealth {
+func buildPeriodicHealth(id, name, prow, release, label, relationshipBasis, relationshipDescription string, periodicMap map[string]*SippyJob, sparklines map[string]map[string]*SparklineSlot) PeriodicJobHealth {
 	d := periodicMap[prow]
 	sparkline := sparklines[prow]
 	counts := countResultTypes(sparkline)
 	health := PeriodicJobHealth{
-		ID:                id,
-		Name:              name,
-		Prow:              prow,
-		Release:           release,
-		Label:             label,
-		RelationshipBasis: relationshipBasis,
-		TestFails:         counts.testFails,
-		InfraFails:        counts.infraFails,
-		SparkRuns:         counts.sparkRuns,
-		Sparkline:         sparkline,
+		ID:                      id,
+		Name:                    name,
+		Prow:                    prow,
+		Release:                 release,
+		Label:                   label,
+		RelationshipBasis:       relationshipBasis,
+		RelationshipDescription: relationshipDescription,
+		TestFails:               counts.testFails,
+		InfraFails:              counts.infraFails,
+		SparkRuns:               counts.sparkRuns,
+		Sparkline:               sparkline,
 	}
 	if d != nil {
 		health.Rate = &d.CurrentPassPercentage
@@ -214,7 +215,7 @@ func transformWindow(raw *rawData, windowKey string, now time.Time, catalog *job
 		for _, cfgPer := range cfg.Periodics {
 			periodics = append(periodics, buildPeriodicHealth(
 				cfgPer.ID, cfgPer.Name, cfgPer.ProwJobName, cfgPer.Release, cfgPer.Release,
-				string(cfgPer.RelationshipBasis),
+				string(cfgPer.RelationshipBasis), cfgPer.RelationshipDescription,
 				summaries, sparklines,
 			))
 		}
@@ -267,7 +268,7 @@ func transformWindow(raw *rawData, windowKey string, now time.Time, catalog *job
 	for _, cfg := range catalog.PayloadBlockingJobs {
 		health := buildPeriodicHealth(
 			cfg.ID, cfg.Name, cfg.ProwJobName, cfg.Release, "release payload",
-			"",
+			"", "",
 			summaries, sparklines,
 		)
 		participations := make([]ReleasePayloadParticipation, 0, len(cfg.Participations))
@@ -292,7 +293,7 @@ func transformWindow(raw *rawData, windowKey string, now time.Time, catalog *job
 	for _, cfg := range raw.componentReadiness {
 		health := buildPeriodicHealth(
 			cfg.ID, cfg.Name, cfg.ProwJobName, cfg.Release, "component readiness",
-			"",
+			"", "",
 			summaries, sparklines,
 		)
 		componentReadinessHealths = append(componentReadinessHealths, ComponentReadinessJobHealth{

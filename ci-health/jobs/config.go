@@ -10,12 +10,13 @@ import (
 )
 
 type PeriodicJobConfig struct {
-	ID                string
-	Name              string
-	ProwJobName       string
-	Release           string
-	RelationshipBasis jobregistry.PresubmitPeriodicRelationshipBasis
-	Job               *jobregistry.Job
+	ID                      string
+	Name                    string
+	ProwJobName             string
+	Release                 string
+	RelationshipBasis       jobregistry.PeriodicCounterpartBasis
+	RelationshipDescription string
+	Job                     *jobregistry.Job
 }
 
 type BlockingJobConfig struct {
@@ -83,27 +84,13 @@ type Catalog struct {
 func NewCatalog(registry *jobregistry.Registry) (*Catalog, error) {
 	index := registry.Index()
 	catalog := &Catalog{
-		BlockingJobs:  make([]BlockingJobConfig, 0, len(registry.PresubmitPeriodicRelationships)),
+		BlockingJobs:  make([]BlockingJobConfig, 0),
 		registryIndex: index,
 	}
-	seenPresubmits := make(map[string]struct{}, len(registry.PresubmitPeriodicRelationships))
 
-	for _, pairing := range registry.PresubmitPeriodicRelationships {
-		if len(pairing.PeriodicIDs) == 0 {
-			return nil, fmt.Errorf("presubmit pairing %q has no periodics", pairing.PresubmitID)
-		}
-		if _, found := seenPresubmits[pairing.PresubmitID]; found {
-			return nil, fmt.Errorf("duplicate presubmit pairing %q", pairing.PresubmitID)
-		}
-		seenPresubmits[pairing.PresubmitID] = struct{}{}
-		presubmit := index[pairing.PresubmitID]
-		if presubmit == nil {
-			return nil, fmt.Errorf("configured presubmit %q is absent from the job registry", pairing.PresubmitID)
-		}
-		if presubmit.Type != "presubmit" {
-			return nil, fmt.Errorf("configured presubmit %q has registry type %q", pairing.PresubmitID, presubmit.Type)
-		}
-		if presubmit.Presubmit == nil || !presubmit.Presubmit.Required {
+	for i := range registry.Jobs {
+		presubmit := &registry.Jobs[i]
+		if presubmit.Type != "presubmit" || presubmit.Presubmit == nil || !presubmit.Presubmit.Required || len(presubmit.Presubmit.PeriodicCounterparts) == 0 {
 			continue
 		}
 
@@ -114,29 +101,25 @@ func NewCatalog(registry *jobregistry.Registry) (*Catalog, error) {
 			Platforms:   append([]string(nil), presubmit.Platforms...),
 			Job:         presubmit,
 		}
-		seenPeriodics := make(map[string]struct{}, len(pairing.PeriodicIDs))
-		for _, periodicID := range pairing.PeriodicIDs {
-			if _, found := seenPeriodics[periodicID]; found {
-				return nil, fmt.Errorf("presubmit pairing %q contains duplicate periodic %q", pairing.PresubmitID, periodicID)
-			}
-			seenPeriodics[periodicID] = struct{}{}
-			periodic := index[periodicID]
+		for _, counterpart := range presubmit.Presubmit.PeriodicCounterparts {
+			periodic := index[counterpart.JobID]
 			if periodic == nil {
-				return nil, fmt.Errorf("paired periodic %q is absent from the job registry", periodicID)
+				return nil, fmt.Errorf("periodic counterpart %q is absent from the job registry", counterpart.JobID)
 			}
 			if periodic.Type != "periodic" {
-				return nil, fmt.Errorf("paired periodic %q has registry type %q", periodicID, periodic.Type)
+				return nil, fmt.Errorf("periodic counterpart %q has registry type %q", counterpart.JobID, periodic.Type)
 			}
 			if len(periodic.Versions) != 1 {
-				return nil, fmt.Errorf("paired periodic %q has %d versions; expected exactly one", periodicID, len(periodic.Versions))
+				return nil, fmt.Errorf("periodic counterpart %q has %d versions; expected exactly one", counterpart.JobID, len(periodic.Versions))
 			}
 			configured.Periodics = append(configured.Periodics, PeriodicJobConfig{
-				ID:                periodic.ID,
-				Name:              shortName(periodic.Name),
-				ProwJobName:       periodic.Name,
-				Release:           periodic.Versions[0],
-				RelationshipBasis: pairing.Basis,
-				Job:               periodic,
+				ID:                      periodic.ID,
+				Name:                    shortName(periodic.Name),
+				ProwJobName:             periodic.Name,
+				Release:                 periodic.Versions[0],
+				RelationshipBasis:       counterpart.Basis,
+				RelationshipDescription: counterpart.Description,
+				Job:                     periodic,
 			})
 		}
 		if len(configured.Periodics) == 0 || !supportedRelease(configured.Periodics[0].Release) {
