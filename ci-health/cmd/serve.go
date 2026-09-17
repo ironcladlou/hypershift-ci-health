@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"compress/gzip"
 	"context"
 	"crypto/sha256"
 	"encoding/json"
@@ -8,6 +9,7 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"strconv"
 	"strings"
 	"time"
 
@@ -55,7 +57,7 @@ func newServeCommand(indexHTML string) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			state := newApplicationState(registry, plan, health)
+			state := newApplicationState(registry, health)
 			server := &http.Server{Addr: addr, Handler: newHTTPHandler(indexHTML, dev, state)}
 			go func() {
 				<-command.Context().Done()
@@ -83,35 +85,54 @@ func newServeCommand(indexHTML string) *cobra.Command {
 
 type applicationState struct {
 	registry           *jobregistry.Registry
-	plan               *reportplan.Plan
 	registryIndex      map[string]*jobregistry.Job
 	registryETag       string
 	jobETags           map[string]string
 	health             *healthreport.Report
-	planETag           string
-	healthETag         string
+	healthWindowETags  map[string]string
+	healthWindowBodies map[string][]byte
 	apiDescriptionETag string
 }
 
-func newApplicationState(registry *jobregistry.Registry, plan *reportplan.Plan, health *healthreport.Report) *applicationState {
+type healthWindowResponse struct {
+	APIVersion           string                          `json:"api_version"`
+	RegistryDigest       string                          `json:"registry_digest"`
+	PlanDigest           string                          `json:"plan_digest"`
+	ObservationDigest    string                          `json:"observation_digest"`
+	GeneratedAt          time.Time                       `json:"generated_at"`
+	ObservationStartedAt time.Time                       `json:"observation_started_at"`
+	Complete             bool                            `json:"complete"`
+	Collection           []healthreport.CollectionResult `json:"collection"`
+	Platforms            []string                        `json:"platforms"`
+	Releases             []string                        `json:"releases"`
+	Window               string                          `json:"window"`
+	Data                 *healthreport.WindowData        `json:"data"`
+}
+
+func newApplicationState(registry *jobregistry.Registry, health *healthreport.Report) *applicationState {
 	registryIndex := registry.Index()
 	jobETags := make(map[string]string, len(registryIndex))
 	for id, job := range registryIndex {
 		jobETags[id] = contentETag(job)
 	}
-	healthETag := ""
+	healthWindowBodies := map[string][]byte{}
+	healthWindowETags := map[string]string{}
 	if health != nil {
-		healthETag = contentETag(health)
+		for window, data := range health.Windows {
+			response := healthWindowResponse{APIVersion: health.APIVersion, RegistryDigest: health.RegistryDigest, PlanDigest: health.PlanDigest, ObservationDigest: health.ObservationDigest, GeneratedAt: health.GeneratedAt, ObservationStartedAt: health.ObservationStartedAt, Complete: health.Complete, Collection: health.Collection, Platforms: health.Platforms, Releases: health.Releases, Window: window, Data: data}
+			body, _ := json.Marshal(response)
+			healthWindowBodies[window] = body
+			healthWindowETags[window] = contentETagBytes(body)
+		}
 	}
 	return &applicationState{
 		registry:           registry,
-		plan:               plan,
 		registryIndex:      registryIndex,
 		registryETag:       contentETag(registry),
 		jobETags:           jobETags,
 		health:             health,
-		planETag:           contentETag(plan),
-		healthETag:         healthETag,
+		healthWindowETags:  healthWindowETags,
+		healthWindowBodies: healthWindowBodies,
 		apiDescriptionETag: contentETag(struct{ Instance int64 }{time.Now().UnixNano()}),
 	}
 }
@@ -146,30 +167,35 @@ func newHTTPHandler(indexHTML string, dev bool, state *applicationState) http.Ha
 		}
 		w.WriteHeader(http.StatusOK)
 	})
-	mux.HandleFunc("/api/health", func(w http.ResponseWriter, r *http.Request) {
+	mux.HandleFunc("GET /_dashboard/health/windows/{window}", func(w http.ResponseWriter, r *http.Request) {
 		if state.health == nil {
 			http.Error(w, "data not yet available", http.StatusServiceUnavailable)
 			return
 		}
-		writeJSON(w, state.health)
+		body := state.healthWindowBodies[r.PathValue("window")]
+		if body == nil {
+			http.NotFound(w, r)
+			return
+		}
+		writeJSONBytes(w, body)
 	})
-	mux.HandleFunc("/api/report-plan", func(w http.ResponseWriter, r *http.Request) { writeJSON(w, state.plan) })
 	registerJobRegistryAPI(mux, state)
-	return withAPICaching(mux, state)
+	return withResponseCaching(withGzip(mux), state)
 }
 
-const apiCacheControl = "public, max-age=300, must-revalidate"
+const dataCacheControl = "public, max-age=300, must-revalidate"
 
 const (
 	fuseAssetPath              = "/assets/fuse-7.5.0.min.mjs"
 	immutableAssetCacheControl = "public, max-age=31536000, immutable"
 )
 
-func withAPICaching(next http.Handler, state *applicationState) http.Handler {
+func withResponseCaching(next http.Handler, state *applicationState) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Vary", "Accept-Encoding")
 		if r.Method == http.MethodGet && r.URL.RawQuery == "" {
 			if etag := state.etagForPath(r.URL.Path); etag != "" {
-				w.Header().Set("Cache-Control", apiCacheControl)
+				w.Header().Set("Cache-Control", dataCacheControl)
 				w.Header().Set("ETag", etag)
 				if etagMatches(r.Header.Get("If-None-Match"), etag) {
 					w.WriteHeader(http.StatusNotModified)
@@ -182,11 +208,11 @@ func withAPICaching(next http.Handler, state *applicationState) http.Handler {
 }
 
 func (state *applicationState) etagForPath(path string) string {
+	const healthWindowPath = "/_dashboard/health/windows/"
+	if strings.HasPrefix(path, healthWindowPath) {
+		return state.healthWindowETags[strings.TrimPrefix(path, healthWindowPath)]
+	}
 	switch path {
-	case "/api/health":
-		return state.healthETag
-	case "/api/report-plan":
-		return state.planETag
 	case "/api/job-registry":
 		return state.registryETag
 	case "/api/openapi.json", "/api/openapi.yaml", "/api/schemas/Job.json", "/api/schemas/Registry.json":
@@ -203,12 +229,63 @@ func (state *applicationState) etagForPath(path string) string {
 	return state.jobETags[id]
 }
 
+func contentETagBytes(data []byte) string { return fmt.Sprintf(`W/"%x"`, sha256.Sum256(data)) }
+
 func contentETag(value any) string {
 	data, err := json.Marshal(value)
 	if err != nil {
 		return ""
 	}
-	return fmt.Sprintf(`"%x"`, sha256.Sum256(data))
+	return fmt.Sprintf(`W/"%x"`, sha256.Sum256(data))
+}
+
+type gzipResponseWriter struct {
+	http.ResponseWriter
+	writer *gzip.Writer
+}
+
+func (w *gzipResponseWriter) WriteHeader(status int) {
+	w.Header().Del("Content-Length")
+	w.ResponseWriter.WriteHeader(status)
+}
+func (w *gzipResponseWriter) Write(data []byte) (int, error) {
+	w.Header().Del("Content-Length")
+	return w.writer.Write(data)
+}
+
+func withGzip(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Vary", "Accept-Encoding")
+		if r.Method != http.MethodGet || !acceptsGzip(r.Header.Get("Accept-Encoding")) {
+			next.ServeHTTP(w, r)
+			return
+		}
+		w.Header().Set("Content-Encoding", "gzip")
+		writer := gzip.NewWriter(w)
+		defer writer.Close()
+		next.ServeHTTP(&gzipResponseWriter{ResponseWriter: w, writer: writer}, r)
+	})
+}
+
+func acceptsGzip(header string) bool {
+	for _, value := range strings.Split(header, ",") {
+		encoding, parameters, _ := strings.Cut(strings.TrimSpace(value), ";")
+		if encoding != "gzip" {
+			continue
+		}
+		disabled := false
+		for _, parameter := range strings.Split(parameters, ";") {
+			name, value, found := strings.Cut(strings.TrimSpace(parameter), "=")
+			quality, err := strconv.ParseFloat(value, 64)
+			if found && name == "q" && err == nil && quality == 0 {
+				disabled = true
+			}
+		}
+		if !disabled {
+			return true
+		}
+	}
+	return false
 }
 
 func etagMatches(header, etag string) bool {
@@ -306,8 +383,7 @@ func registerJobRegistryAPI(mux *http.ServeMux, state *applicationState) {
 	})
 }
 
-func writeJSON(w http.ResponseWriter, value any) {
+func writeJSONBytes(w http.ResponseWriter, body []byte) {
 	w.Header().Set("Content-Type", "application/json")
-	w.Header().Set("Access-Control-Allow-Origin", "*")
-	_ = json.NewEncoder(w).Encode(value)
+	_, _ = w.Write(body)
 }

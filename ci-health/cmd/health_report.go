@@ -33,7 +33,7 @@ func newHealthReportCommand() *cobra.Command {
 		if err != nil {
 			return fmt.Errorf("evaluate health report: %w", err)
 		}
-		return writeIndentedJSON(command, report, "health report")
+		return writeArtifactJSON(command, report, "health report", false)
 	}}
 	command.Flags().StringVar(&registryPath, "job-registry", "", "Path to a generated job registry")
 	command.Flags().StringVar(&planPath, "report-plan", "", "Path to a generated report plan")

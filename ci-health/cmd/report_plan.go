@@ -20,7 +20,7 @@ func newReportPlanCommand() *cobra.Command {
 		if err != nil {
 			return fmt.Errorf("build report plan: %w", err)
 		}
-		return writeIndentedJSON(command, plan, "report plan")
+		return writeArtifactJSON(command, plan, "report plan", false)
 	}}
 	command.Flags().StringVar(&registryPath, "job-registry", "", "Path to a generated job registry")
 	command.Flags().StringVar(&developmentBranch, "development-branch", "main", "Development branch represented by the report")
@@ -29,9 +29,11 @@ func newReportPlanCommand() *cobra.Command {
 	return command
 }
 
-func writeIndentedJSON(command *cobra.Command, value any, description string) error {
+func writeArtifactJSON(command *cobra.Command, value any, description string, pretty bool) error {
 	encoder := json.NewEncoder(command.OutOrStdout())
-	encoder.SetIndent("", "  ")
+	if pretty {
+		encoder.SetIndent("", "  ")
+	}
 	if err := encoder.Encode(value); err != nil {
 		return fmt.Errorf("render %s JSON: %w", description, err)
 	}

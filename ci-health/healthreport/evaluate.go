@@ -193,13 +193,13 @@ func analysisSparkline(analysis *analysisData, win WindowConfig, now time.Time) 
 		key := slotKey(t, win.SparkSlotHours)
 		slot, ok := data[key]
 		if !ok {
-			slot = &SparklineSlot{ResultCount: make(map[string]int)}
+			slot = &SparklineSlot{}
 			data[key] = slot
 		}
 		slot.TotalRuns += result.TotalRuns
-		for resultCode, count := range result.ResultCount {
-			slot.ResultCount[resultCode] += count
-		}
+		slot.Passes += result.ResultCount["S"]
+		slot.TestFailures += result.ResultCount["F"]
+		slot.InfraFailures += result.ResultCount["n"] + result.ResultCount["N"]
 	}
 	return data
 }
@@ -252,9 +252,9 @@ type resultCounts struct {
 func countResultTypes(sparkline map[string]*SparklineSlot) resultCounts {
 	var c resultCounts
 	for _, slot := range sparkline {
-		c.passes += slot.ResultCount["S"]
-		c.testFails += slot.ResultCount["F"]
-		c.infraFails += slot.ResultCount["n"] + slot.ResultCount["N"]
+		c.passes += slot.Passes
+		c.testFails += slot.TestFailures
+		c.infraFails += slot.InfraFailures
 		c.sparkRuns += slot.TotalRuns
 	}
 	return c
@@ -273,7 +273,7 @@ func computeCorrelation(preSparkline, perSparkline map[string]*SparklineSlot, no
 		if pre == nil || pre.TotalRuns == 0 {
 			continue
 		}
-		prePassRate := float64(pre.ResultCount["S"]) / float64(pre.TotalRuns)
+		prePassRate := float64(pre.Passes) / float64(pre.TotalRuns)
 		if prePassRate >= 0.5 {
 			continue
 		}
@@ -283,7 +283,7 @@ func computeCorrelation(preSparkline, perSparkline map[string]*SparklineSlot, no
 		if per == nil || per.TotalRuns == 0 {
 			continue
 		}
-		perPassRate := float64(per.ResultCount["S"]) / float64(per.TotalRuns)
+		perPassRate := float64(per.Passes) / float64(per.TotalRuns)
 		if perPassRate < 0.5 {
 			correlated++
 			indices = append(indices, idx)
@@ -300,7 +300,7 @@ func computeCorrelation(preSparkline, perSparkline map[string]*SparklineSlot, no
 	}
 }
 
-func buildPeriodicHealth(key analysisKey, id, name, prow, release, label, relationshipSource, relationshipVerification, relationshipRationale string, periodicMap map[analysisKey]*analysisSummary, sparklines map[analysisKey]map[string]*SparklineSlot) PeriodicJobHealth {
+func buildPeriodicHealth(key analysisKey, id, name, prow, release, label, relationshipSource, relationshipVerification, relationshipRationale, prowJobHistoryURL string, periodicMap map[analysisKey]*analysisSummary, sparklines map[analysisKey]map[string]*SparklineSlot, slots []string) PeriodicJobHealth {
 	d := periodicMap[key]
 	sparkline := sparklines[key]
 	counts := countResultTypes(sparkline)
@@ -316,7 +316,8 @@ func buildPeriodicHealth(key analysisKey, id, name, prow, release, label, relati
 		TestFails:                counts.testFails,
 		InfraFails:               counts.infraFails,
 		SparkRuns:                counts.sparkRuns,
-		Sparkline:                sparkline,
+		Sparkline:                orderedSparkline(sparkline, slots),
+		ProwJobHistoryURL:        prowJobHistoryURL,
 	}
 	if d != nil {
 		health.Rate = &d.CurrentPassPercentage
@@ -329,8 +330,20 @@ func buildPeriodicHealth(key analysisKey, id, name, prow, release, label, relati
 	return health
 }
 
+func orderedSparkline(sparkline map[string]*SparklineSlot, slots []string) []*SparklineSlot {
+	if sparkline == nil {
+		return nil
+	}
+	result := make([]*SparklineSlot, len(slots))
+	for index, slot := range slots {
+		result[index] = sparkline[slot]
+	}
+	return result
+}
+
 func transformWindow(raw *rawData, windowKey string, now time.Time, inputs reportInputs) *WindowData {
 	win := WindowConfigs[windowKey]
+	slots := slotKeys(now, win)
 
 	summaries := make(map[analysisKey]*analysisSummary, len(raw.analyses))
 	sparklines := make(map[analysisKey]map[string]*SparklineSlot, len(raw.analyses))
@@ -355,8 +368,8 @@ func transformWindow(raw *rawData, windowKey string, now time.Time, inputs repor
 			periodics = append(periodics, buildPeriodicHealth(
 				periodicKey,
 				cfgPer.Job.ID, displayName(cfgPer.Job.Name), cfgPer.Job.Name, cfgPer.Counterpart.TestedRelease, cfgPer.Counterpart.TestedRelease,
-				string(cfgPer.Counterpart.Source), string(cfgPer.Counterpart.Verification), cfgPer.Counterpart.Rationale,
-				summaries, sparklines,
+				string(cfgPer.Counterpart.Source), string(cfgPer.Counterpart.Verification), cfgPer.Counterpart.Rationale, cfgPer.Job.ProwJobHistoryURL,
+				summaries, sparklines, slots,
 			))
 		}
 
@@ -374,20 +387,23 @@ func transformWindow(raw *rawData, windowKey string, now time.Time, inputs repor
 		preCounts := countResultTypes(preSparkline)
 
 		jh := JobHealth{
-			ID:            cfg.Job.ID,
-			Name:          displayName(cfg.Job.Name),
-			Prow:          cfg.Job.Name,
-			TargetBranch:  cfg.Job.Presubmit.TargetBranch,
-			TargetRelease: cfg.Job.Presubmit.TargetRelease,
-			Platforms:     cfg.Job.Platforms,
-			Role:          string(cfg.Role),
-			RoleLabel:     roleLabel(cfg.Role, cfg.Job.Presubmit.TargetRelease),
-			TestFails:     preCounts.testFails,
-			InfraFails:    preCounts.infraFails,
-			SparkRuns:     preCounts.sparkRuns,
-			Periodics:     periodics,
-			Sparkline:     preSparkline,
-			Correlation:   correlation,
+			ID:                    cfg.Job.ID,
+			Name:                  displayName(cfg.Job.Name),
+			Prow:                  cfg.Job.Name,
+			TargetBranch:          cfg.Job.Presubmit.TargetBranch,
+			TargetRelease:         cfg.Job.Presubmit.TargetRelease,
+			Platforms:             cfg.Job.Platforms,
+			Role:                  string(cfg.Role),
+			RoleLabel:             roleLabel(cfg.Role, cfg.Job.Presubmit.TargetRelease),
+			TestFails:             preCounts.testFails,
+			InfraFails:            preCounts.infraFails,
+			SparkRuns:             preCounts.sparkRuns,
+			Periodics:             periodics,
+			Sparkline:             orderedSparkline(preSparkline, slots),
+			Correlation:           correlation,
+			SippyIngestionEnabled: cfg.Job.Presubmit.SippyIngestion.Enabled,
+			SippyIngestionBasis:   cfg.Job.Presubmit.SippyIngestion.Basis,
+			ProwJobHistoryURL:     cfg.Job.ProwJobHistoryURL,
 		}
 
 		if d != nil {
@@ -408,8 +424,8 @@ func transformWindow(raw *rawData, windowKey string, now time.Time, inputs repor
 		health := buildPeriodicHealth(
 			key,
 			cfg.Job.ID, displayName(cfg.Job.Name), cfg.Job.Name, cfg.Release, "release payload",
-			"", "", "",
-			summaries, sparklines,
+			"", "", "", cfg.Job.ProwJobHistoryURL,
+			summaries, sparklines, slots,
 		)
 		participations := make([]ReleasePayloadParticipation, 0, len(cfg.Participations))
 		for _, participation := range cfg.Participations {
@@ -434,14 +450,16 @@ func transformWindow(raw *rawData, windowKey string, now time.Time, inputs repor
 		membership := cfg.Membership
 		key := analysisKey{release: membership.Release, jobID: membership.ProwJobName}
 		var platforms []string
+		var prowJobHistoryURL string
 		if cfg.Job != nil {
 			platforms = cfg.Job.Platforms
+			prowJobHistoryURL = cfg.Job.ProwJobHistoryURL
 		}
 		health := buildPeriodicHealth(
 			key,
 			membership.ProwJobName, displayName(membership.ProwJobName), membership.ProwJobName, membership.Release, "component readiness",
-			"", "", "",
-			summaries, sparklines,
+			"", "", "", prowJobHistoryURL,
+			summaries, sparklines, slots,
 		)
 		componentReadinessHealths = append(componentReadinessHealths, ComponentReadinessJobHealth{
 			PeriodicJobHealth: health,
@@ -453,6 +471,7 @@ func transformWindow(raw *rawData, windowKey string, now time.Time, inputs repor
 	alerts := buildAlerts(raw.recentFailures, blockingProwNames)
 
 	return &WindowData{
+		SparklineSlots:         slots,
 		Jobs:                   jobHealths,
 		PayloadBlockingJobs:    payloadHealths,
 		ComponentReadinessJobs: componentReadinessHealths,

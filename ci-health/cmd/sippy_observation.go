@@ -25,7 +25,7 @@ func newSippyObservationCommand() *cobra.Command {
 			return fmt.Errorf("collect Sippy observation: %w", err)
 		}
 		fmt.Fprintf(command.ErrOrStderr(), "Sippy observation: %s (%d/%d requests failed)\n", status.State, status.Failed, status.Total)
-		return writeIndentedJSON(command, observation, "Sippy observation")
+		return writeArtifactJSON(command, observation, "Sippy observation", false)
 	}}
 	command.Flags().StringVar(&registryPath, "job-registry", "", "Path to a generated job registry")
 	command.Flags().StringVar(&planPath, "report-plan", "", "Path to a generated report plan")

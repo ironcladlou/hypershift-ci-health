@@ -12,11 +12,28 @@ import (
 	"github.com/ironcladlou/hypershift-ci-health/ci-health/sippy"
 )
 
-const CurrentAPIVersion = "health-report/v1"
+const CurrentAPIVersion = "health-report/v2"
 
 type SparklineSlot struct {
-	TotalRuns   int            `json:"total_runs"`
-	ResultCount map[string]int `json:"result_count"`
+	TotalRuns     int
+	Passes        int
+	TestFailures  int
+	InfraFailures int
+}
+
+func (s SparklineSlot) MarshalJSON() ([]byte, error) {
+	return json.Marshal([4]int{s.TotalRuns, s.Passes, s.TestFailures, s.InfraFailures})
+}
+func (s *SparklineSlot) UnmarshalJSON(data []byte) error {
+	var values []int
+	if err := json.Unmarshal(data, &values); err != nil {
+		return err
+	}
+	if len(values) != 4 {
+		return fmt.Errorf("sparkline slot has %d values, want 4", len(values))
+	}
+	s.TotalRuns, s.Passes, s.TestFailures, s.InfraFailures = values[0], values[1], values[2], values[3]
+	return nil
 }
 
 type Correlation struct {
@@ -26,24 +43,25 @@ type Correlation struct {
 }
 
 type PeriodicJobHealth struct {
-	ID                       string                    `json:"id"`
-	Name                     string                    `json:"name"`
-	Prow                     string                    `json:"prow"`
-	Release                  string                    `json:"release"`
-	Label                    string                    `json:"label"`
-	RelationshipSource       string                    `json:"relationship_source,omitempty"`
-	RelationshipVerification string                    `json:"relationship_verification,omitempty"`
-	RelationshipRationale    string                    `json:"relationship_rationale,omitempty"`
-	Rate                     *float64                  `json:"rate"`
-	Prev                     *float64                  `json:"prev"`
-	PrevRuns                 int                       `json:"prev_runs"`
-	Trend                    *float64                  `json:"trend"`
-	Runs                     int                       `json:"runs"`
-	Fails                    int                       `json:"fails"`
-	TestFails                int                       `json:"test_fails"`
-	InfraFails               int                       `json:"infra_fails"`
-	SparkRuns                int                       `json:"spark_runs"`
-	Sparkline                map[string]*SparklineSlot `json:"sparkline"`
+	ID                       string           `json:"id"`
+	Name                     string           `json:"name"`
+	Prow                     string           `json:"prow"`
+	Release                  string           `json:"release"`
+	Label                    string           `json:"label"`
+	RelationshipSource       string           `json:"relationship_source,omitempty"`
+	RelationshipVerification string           `json:"relationship_verification,omitempty"`
+	RelationshipRationale    string           `json:"relationship_rationale,omitempty"`
+	Rate                     *float64         `json:"rate"`
+	Prev                     *float64         `json:"prev"`
+	PrevRuns                 int              `json:"prev_runs"`
+	Trend                    *float64         `json:"trend"`
+	Runs                     int              `json:"runs"`
+	Fails                    int              `json:"fails"`
+	TestFails                int              `json:"test_fails"`
+	InfraFails               int              `json:"infra_fails"`
+	SparkRuns                int              `json:"spark_runs"`
+	Sparkline                []*SparklineSlot `json:"sparkline"`
+	ProwJobHistoryURL        string           `json:"prow_job_history_url,omitempty"`
 }
 
 type ReleasePayloadParticipation struct {
@@ -68,26 +86,29 @@ type ComponentReadinessJobHealth struct {
 }
 
 type JobHealth struct {
-	ID            string                    `json:"id"`
-	Name          string                    `json:"name"`
-	Prow          string                    `json:"prow"`
-	TargetBranch  string                    `json:"target_branch"`
-	TargetRelease string                    `json:"target_release"`
-	Platforms     []string                  `json:"platforms"`
-	Role          string                    `json:"role"`
-	RoleLabel     string                    `json:"role_label"`
-	Rate          float64                   `json:"rate"`
-	Prev          float64                   `json:"prev"`
-	PrevRuns      int                       `json:"prev_runs"`
-	Trend         *float64                  `json:"trend"`
-	Runs          int                       `json:"runs"`
-	Fails         int                       `json:"fails"`
-	TestFails     int                       `json:"test_fails"`
-	InfraFails    int                       `json:"infra_fails"`
-	SparkRuns     int                       `json:"spark_runs"`
-	Periodics     []PeriodicJobHealth       `json:"periodics"`
-	Sparkline     map[string]*SparklineSlot `json:"sparkline"`
-	Correlation   *Correlation              `json:"correlation"`
+	ID                    string              `json:"id"`
+	Name                  string              `json:"name"`
+	Prow                  string              `json:"prow"`
+	TargetBranch          string              `json:"target_branch"`
+	TargetRelease         string              `json:"target_release"`
+	Platforms             []string            `json:"platforms"`
+	Role                  string              `json:"role"`
+	RoleLabel             string              `json:"role_label"`
+	Rate                  float64             `json:"rate"`
+	Prev                  float64             `json:"prev"`
+	PrevRuns              int                 `json:"prev_runs"`
+	Trend                 *float64            `json:"trend"`
+	Runs                  int                 `json:"runs"`
+	Fails                 int                 `json:"fails"`
+	TestFails             int                 `json:"test_fails"`
+	InfraFails            int                 `json:"infra_fails"`
+	SparkRuns             int                 `json:"spark_runs"`
+	Periodics             []PeriodicJobHealth `json:"periodics"`
+	Sparkline             []*SparklineSlot    `json:"sparkline"`
+	Correlation           *Correlation        `json:"correlation"`
+	SippyIngestionEnabled bool                `json:"sippy_ingestion_enabled"`
+	SippyIngestionBasis   string              `json:"sippy_ingestion_basis,omitempty"`
+	ProwJobHistoryURL     string              `json:"prow_job_history_url,omitempty"`
 }
 
 type Alert struct {
@@ -97,6 +118,7 @@ type Alert struct {
 }
 
 type WindowData struct {
+	SparklineSlots         []string                      `json:"sparkline_slots"`
 	Jobs                   []JobHealth                   `json:"jobs"`
 	PayloadBlockingJobs    []PayloadBlockingJobHealth    `json:"payload_blocking_jobs"`
 	ComponentReadinessJobs []ComponentReadinessJobHealth `json:"component_readiness_jobs"`

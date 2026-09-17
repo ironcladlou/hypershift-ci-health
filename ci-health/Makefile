@@ -39,15 +39,16 @@ generate-health-report: build
 	@test -f sippy-observation.json || (echo "sippy-observation.json is required" >&2; exit 1)
 	./$(BIN) health-report --job-registry=job-registry.json --report-plan=report-plan.json --sippy-observation=sippy-observation.json > health-report.json
 
-generate-artifacts:
-	$(MAKE) generate-job-registry
-	$(MAKE) generate-report-plan
-	$(MAKE) generate-sippy-observation
-	$(MAKE) generate-health-report
+generate-artifacts: build
+	@test -n "$(RELEASE_DIR)" || (echo "RELEASE_DIR is required" >&2; exit 1)
+	./$(BIN) job-registry --release-dir=$(RELEASE_DIR) > job-registry.json
+	./$(BIN) report-plan --job-registry=job-registry.json > report-plan.json
+	./$(BIN) sippy-observation --job-registry=job-registry.json --report-plan=report-plan.json > sippy-observation.json
+	./$(BIN) health-report --job-registry=job-registry.json --report-plan=report-plan.json --sippy-observation=sippy-observation.json > health-report.json
 
 update-golden: build
 	@test -n "$(RELEASE_DIR)" || (echo "RELEASE_DIR is required" >&2; exit 1)
-	./$(BIN) job-registry --release-dir=$(RELEASE_DIR) > jobregistry/testdata/job-registry.json
+	./$(BIN) job-registry --pretty --release-dir=$(RELEASE_DIR) > jobregistry/testdata/job-registry.json
 
 image:
 	mkdir -p $(BIN_DIR)

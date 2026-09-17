@@ -12,6 +12,7 @@ func newJobRegistryCommand() *cobra.Command {
 		sippyStreamBaseURL   string
 		prowBaseURL          string
 		releaseStatusBaseURL string
+		pretty               bool
 	)
 
 	command := &cobra.Command{
@@ -29,7 +30,7 @@ func newJobRegistryCommand() *cobra.Command {
 				return err
 			}
 
-			return writeIndentedJSON(command, registry, "job registry")
+			return writeArtifactJSON(command, registry, "job registry", pretty)
 		},
 	}
 
@@ -39,5 +40,6 @@ func newJobRegistryCommand() *cobra.Command {
 	command.Flags().StringVar(&sippyStreamBaseURL, "sippy-stream-base-url", "", "Base URL for generated Sippy release stream links")
 	command.Flags().StringVar(&prowBaseURL, "prow-base-url", "", "Base URL for generated Prow job history links")
 	command.Flags().StringVar(&releaseStatusBaseURL, "release-status-base-url", "", "Base URL for generated release payload status links")
+	command.Flags().BoolVar(&pretty, "pretty", false, "Indent JSON for human review")
 	return command
 }

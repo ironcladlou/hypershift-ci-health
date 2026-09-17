@@ -87,8 +87,25 @@ func TestAnalysisResultsAreReleaseScoped(t *testing.T) {
 	key50 := analysisKey{release: "5.0", jobID: "shared"}
 	key51 := analysisKey{release: "5.1", jobID: "shared"}
 	summaries := map[analysisKey]*analysisSummary{key50: {CurrentPassPercentage: 50}, key51: {CurrentPassPercentage: 90}}
-	health := buildPeriodicHealth(key51, "shared", "shared", "shared", "5.1", "test", "", "", "", summaries, nil)
+	health := buildPeriodicHealth(key51, "shared", "shared", "shared", "5.1", "test", "", "", "", "", summaries, nil, nil)
 	if health.Rate == nil || *health.Rate != 90 {
 		t.Fatalf("5.1 health rate = %v, want 90", health.Rate)
+	}
+}
+
+func TestSparklineSlotUsesCompactTuple(t *testing.T) {
+	data, err := json.Marshal(SparklineSlot{TotalRuns: 10, Passes: 7, TestFailures: 2, InfraFailures: 1})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(data) != "[10,7,2,1]" {
+		t.Fatalf("sparkline JSON = %s", data)
+	}
+	var slot SparklineSlot
+	if err := json.Unmarshal(data, &slot); err != nil {
+		t.Fatal(err)
+	}
+	if slot.TotalRuns != 10 || slot.Passes != 7 || slot.TestFailures != 2 || slot.InfraFailures != 1 {
+		t.Fatalf("sparkline round trip = %+v", slot)
 	}
 }

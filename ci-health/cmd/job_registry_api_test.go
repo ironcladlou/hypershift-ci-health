@@ -2,7 +2,9 @@ package cmd
 
 import (
 	"bytes"
+	"compress/gzip"
 	"encoding/json"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -11,11 +13,10 @@ import (
 	webassets "github.com/ironcladlou/hypershift-ci-health/ci-health/assets"
 	"github.com/ironcladlou/hypershift-ci-health/ci-health/healthreport"
 	"github.com/ironcladlou/hypershift-ci-health/ci-health/jobregistry"
-	"github.com/ironcladlou/hypershift-ci-health/ci-health/reportplan"
 )
 
 func TestEmbeddedFuseAsset(t *testing.T) {
-	handler := newHTTPHandler("", false, newApplicationState(&jobregistry.Registry{}, nil, nil))
+	handler := newHTTPHandler("", false, newApplicationState(&jobregistry.Registry{}, nil))
 	request := httptest.NewRequest(http.MethodGet, fuseAssetPath, nil)
 	response := httptest.NewRecorder()
 	handler.ServeHTTP(response, request)
@@ -31,6 +32,40 @@ func TestEmbeddedFuseAsset(t *testing.T) {
 	}
 	if !bytes.Equal(response.Body.Bytes(), webassets.FuseJS) {
 		t.Error("response does not contain the embedded Fuse.js asset")
+	}
+}
+
+func TestResponsesUseGzip(t *testing.T) {
+	handler := newHTTPHandler("", false, newApplicationState(&jobregistry.Registry{}, nil))
+	request := httptest.NewRequest(http.MethodGet, fuseAssetPath, nil)
+	request.Header.Set("Accept-Encoding", "gzip")
+	response := httptest.NewRecorder()
+	handler.ServeHTTP(response, request)
+	if response.Header().Get("Content-Encoding") != "gzip" {
+		t.Fatalf("Content-Encoding = %q", response.Header().Get("Content-Encoding"))
+	}
+	reader, err := gzip.NewReader(response.Body)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer reader.Close()
+	data, err := io.ReadAll(reader)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !bytes.Equal(data, webassets.FuseJS) {
+		t.Fatal("decompressed response does not match asset")
+	}
+}
+
+func TestGzipNegotiation(t *testing.T) {
+	for _, test := range []struct {
+		header string
+		want   bool
+	}{{"gzip", true}, {"br, gzip;q=0.5", true}, {"gzip;q=0", false}, {"br", false}} {
+		if got := acceptsGzip(test.header); got != test.want {
+			t.Errorf("acceptsGzip(%q) = %t, want %t", test.header, got, test.want)
+		}
 	}
 }
 
@@ -55,7 +90,7 @@ func TestGoldenRegistrySingleJobAPI(t *testing.T) {
 	if err != nil {
 		t.Fatalf("load golden registry: %v", err)
 	}
-	handler := newHTTPHandler("", false, newApplicationState(registry, nil, nil))
+	handler := newHTTPHandler("", false, newApplicationState(registry, nil))
 	const id = "pull-ci-openshift-hypershift-release-4.22-e2e-v2-aws"
 	tests := []struct {
 		name        string
@@ -103,7 +138,7 @@ func TestJobRegistryDocumentationAPI(t *testing.T) {
 	if err != nil {
 		t.Fatalf("load golden registry: %v", err)
 	}
-	handler := newHTTPHandler("", false, newApplicationState(registry, nil, nil))
+	handler := newHTTPHandler("", false, newApplicationState(registry, nil))
 	tests := []struct {
 		name        string
 		path        string
@@ -141,15 +176,11 @@ func TestAPIResponseCaching(t *testing.T) {
 	if err != nil {
 		t.Fatalf("load golden registry: %v", err)
 	}
-	plan, err := reportplan.Build(registry, reportplan.DefaultSelectionPolicy("main", "5.1"))
-	if err != nil {
-		t.Fatal(err)
-	}
-	handler := newHTTPHandler("", false, newApplicationState(registry, plan, &healthreport.Report{}))
+	health := &healthreport.Report{Windows: map[string]*healthreport.WindowData{"1w": {}}}
+	handler := newHTTPHandler("", false, newApplicationState(registry, health))
 	const id = "pull-ci-openshift-hypershift-release-4.22-e2e-v2-aws"
 	paths := []string{
-		"/api/health",
-		"/api/report-plan",
+		"/_dashboard/health/windows/1w",
 		"/api/job-registry",
 		"/api/job-registry/jobs/" + id,
 		"/api/openapi.json",
@@ -162,8 +193,8 @@ func TestAPIResponseCaching(t *testing.T) {
 			if response.Code != http.StatusOK {
 				t.Fatalf("initial status = %d, want 200", response.Code)
 			}
-			if got := response.Header().Get("Cache-Control"); got != apiCacheControl {
-				t.Errorf("Cache-Control = %q, want %q", got, apiCacheControl)
+			if got := response.Header().Get("Cache-Control"); got != dataCacheControl {
+				t.Errorf("Cache-Control = %q, want %q", got, dataCacheControl)
 			}
 			etag := response.Header().Get("ETag")
 			if etag == "" {
@@ -184,6 +215,35 @@ func TestAPIResponseCaching(t *testing.T) {
 	}
 }
 
+func TestDashboardHealthWindowAPI(t *testing.T) {
+	registry, err := jobregistry.LoadFile("../jobregistry/testdata/job-registry.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	health := &healthreport.Report{APIVersion: healthreport.CurrentAPIVersion, Windows: map[string]*healthreport.WindowData{"1w": {SparklineSlots: []string{"2026-09-17 12:00"}}}}
+	handler := newHTTPHandler("", false, newApplicationState(registry, health))
+	response := httptest.NewRecorder()
+	handler.ServeHTTP(response, httptest.NewRequest(http.MethodGet, "/_dashboard/health/windows/1w", nil))
+	if response.Code != http.StatusOK {
+		t.Fatalf("status = %d", response.Code)
+	}
+	if got := response.Header().Get("Access-Control-Allow-Origin"); got != "" {
+		t.Errorf("dashboard response exposes CORS header %q", got)
+	}
+	var payload healthWindowResponse
+	if err := json.Unmarshal(response.Body.Bytes(), &payload); err != nil {
+		t.Fatal(err)
+	}
+	if payload.Window != "1w" || payload.Data == nil || len(payload.Data.SparklineSlots) != 1 {
+		t.Fatalf("window response = %+v", payload)
+	}
+	response = httptest.NewRecorder()
+	handler.ServeHTTP(response, httptest.NewRequest(http.MethodGet, "/_dashboard/health/windows/missing", nil))
+	if response.Code != http.StatusNotFound {
+		t.Fatalf("missing window status = %d", response.Code)
+	}
+}
+
 func TestHealthProbes(t *testing.T) {
 	registry, err := jobregistry.LoadFile("../jobregistry/testdata/job-registry.json")
 	if err != nil {
@@ -201,7 +261,7 @@ func TestHealthProbes(t *testing.T) {
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			handler := newHTTPHandler("", false, newApplicationState(registry, nil, test.health))
+			handler := newHTTPHandler("", false, newApplicationState(registry, test.health))
 			response := httptest.NewRecorder()
 			handler.ServeHTTP(response, httptest.NewRequest(http.MethodGet, test.path, nil))
 			if response.Code != test.want {

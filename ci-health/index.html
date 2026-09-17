@@ -536,7 +536,7 @@ tr:has(+ .periodic-row) td { border-bottom: none; }
     <nav class="header-links" aria-label="Project links">
       <a href="https://github.com/ironcladlou/hypershift-ci-health" target="_blank" rel="noopener">Source code</a>
       <span aria-hidden="true">·</span>
-      <a href="/api/docs">API reference</a>
+      <a href="/api/docs">Job Registry API docs</a>
     </nav>
   </div>
   <div class="header-meta">
@@ -606,17 +606,22 @@ if (["version", "role"].includes(activeGroupBy)) activeGroupBy = "release";
 if (!["", "platform", "release", "platform-release"].includes(activeGroupBy)) activeGroupBy = "platform-release";
 let activePlatform = localStorage.getItem("sippy_platform") || "";
 let healthSnapshot = null;
+let healthSnapshots = new Map();
 let healthLoadPending = false;
 let jobRegistry = null;
-let jobRegistryIndex = new Map();
 let registryLoadPending = false;
 let registryFuse = null;
 let registrySearchJobs = [];
 let fuseClass = null;
-import("/assets/fuse-7.5.0.min.mjs").then(module => {
-  fuseClass = module.default;
-  initializeRegistrySearch();
-}).catch(err => console.error("Fuse.js load failed:", err));
+let fuseLoadPending = false;
+function loadFuse() {
+	if (fuseClass || fuseLoadPending) return;
+	fuseLoadPending = true;
+	import("/assets/fuse-7.5.0.min.mjs").then(module => {
+		fuseClass = module.default;
+		initializeRegistrySearch();
+	}).catch(err => console.error("Fuse.js load failed:", err));
+}
 let releaseVersions = [];
 let releaseMinIndex = 0;
 let releaseMaxIndex = 0;
@@ -787,26 +792,21 @@ function selectedReleases() {
 function buildSparkline(hourlyData, showDates, correlatedIndices) {
   if (showDates === undefined) showDates = true;
   if (!hourlyData) return "";
-  const win = WINDOWS[activeWindow];
-  const now = new Date();
-  const slotData = [];
-  for (let i = win.sparkSlots - 1; i >= 0; i--) {
-    const t = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), now.getUTCHours()));
-    const slotBase = Math.floor(t.getUTCHours() / win.sparkSlotHours) * win.sparkSlotHours;
-    t.setUTCHours(slotBase - i * win.sparkSlotHours);
-    const key = t.getUTCFullYear() + "-" +
-      String(t.getUTCMonth() + 1).padStart(2, "0") + "-" +
-      String(t.getUTCDate()).padStart(2, "0") + " " +
-      String(t.getUTCHours()).padStart(2, "0") + ":00";
-    slotData.push({ val: hourlyData[key] || null, day: t.getUTCDate(), month: t.getUTCMonth() + 1, key });
-  }
+	const win = WINDOWS[activeWindow];
+	const slots = (healthSnapshot && healthSnapshot.data && healthSnapshot.data.sparkline_slots) || [];
+	const slotData = slots.map((key, index) => {
+	  const t = new Date(key.replace(" ", "T") + "Z");
+	  return { val: hourlyData[index] || null, day: t.getUTCDate(), month: t.getUTCMonth() + 1, key };
+	});
+	const sparkSlots = slotData.length;
+	if (sparkSlots === 0) return "";
 
   const gap = 1, dayGap = 4;
   const isDayBound = slotData.map((s, i) => i > 0 && s.day !== slotData[i - 1].day);
   const dayBounds = isDayBound.filter(Boolean).length;
-  const totalGap = (win.sparkSlots - 1 - dayBounds) * gap + dayBounds * dayGap;
+	const totalGap = (sparkSlots - 1 - dayBounds) * gap + dayBounds * dayGap;
   const svgW = 300, barH = 20;
-  const slotW = (svgW - totalGap) / win.sparkSlots;
+	const slotW = (svgW - totalGap) / sparkSlots;
 
   const corrSet = correlatedIndices ? new Set(correlatedIndices) : null;
   const hasCorr = corrSet && corrSet.size > 0;
@@ -820,7 +820,7 @@ function buildSparkline(hourlyData, showDates, correlatedIndices) {
   const labels = [];
   const labelEveryDays = activeWindow === "1m" ? 5 : (activeWindow === "2w" ? 2 : 1);
   let dayBoundaryIndex = 0;
-  for (let i = 0; i < win.sparkSlots; i++) {
+	for (let i = 0; i < sparkSlots; i++) {
     if (i > 0) {
       if (isDayBound[i]) {
         if (dayBoundaryIndex % labelEveryDays === 0) {
@@ -834,11 +834,10 @@ function buildSparkline(hourlyData, showDates, correlatedIndices) {
     }
     const slot = slotData[i].val;
     let fill;
-    if (!slot || slot.total_runs === 0) {
+	if (!slot || slot[0] === 0) {
       fill = "var(--gridline)";
     } else {
-      const s = (slot.result_count && slot.result_count.S) || 0;
-      const ratio = s / slot.total_runs;
+	  const ratio = slot[1] / slot[0];
       if (ratio >= 0.8) fill = "var(--good)";
       else if (ratio >= 0.5) fill = "var(--warning)";
       else fill = "var(--critical)";
@@ -847,18 +846,16 @@ function buildSparkline(hourlyData, showDates, correlatedIndices) {
     if (!slot) {
       tip = "no runs";
     } else {
-      const rc = slot.result_count || {};
-      const inf = (rc.n || 0) + (rc.N || 0);
-      tip = inf > 0
-        ? `${slot.total_runs} runs · ${rc.S || 0} pass · ${rc.F || 0} fail · ${inf} infra`
-        : `${slot.total_runs} runs, ${rc.S || 0} pass`;
+	  tip = slot[3] > 0
+		? `${slot[0]} runs · ${slot[1]} pass · ${slot[2]} fail · ${slot[3]} infra`
+		: `${slot[0]} runs, ${slot[1]} pass`;
     }
     svg += `<rect x="${x}" y="${barY}" width="${slotW}" height="${barH}" rx="2" fill="${fill}" data-tip="${tip}"/>`;
     x += slotW;
   }
   if (hasCorr) {
     let mx = 0;
-    for (let i = 0; i < win.sparkSlots; i++) {
+	for (let i = 0; i < sparkSlots; i++) {
       if (i > 0) mx += isDayBound[i] ? dayGap : gap;
       if (corrSet.has(i)) {
         svg += `<rect x="${mx}" y="0" width="${slotW}" height="4" rx="1" fill="var(--serious)" data-tip="periodic also failing — likely infra"/>`;
@@ -877,24 +874,17 @@ function buildSparkline(hourlyData, showDates, correlatedIndices) {
 
 function extractErrorRates(sparklineData) {
   if (!sparklineData) return null;
-  const win = WINDOWS[activeWindow];
-  const now = new Date();
+	const slots = (healthSnapshot && healthSnapshot.data && healthSnapshot.data.sparkline_slots) || [];
   const rates = [];
   const labels = [];
-  for (let i = win.sparkSlots - 1; i >= 0; i--) {
-    const t = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), now.getUTCHours()));
-    const slotBase = Math.floor(t.getUTCHours() / win.sparkSlotHours) * win.sparkSlotHours;
-    t.setUTCHours(slotBase - i * win.sparkSlotHours);
-    const key = t.getUTCFullYear() + "-" +
-      String(t.getUTCMonth() + 1).padStart(2, "0") + "-" +
-      String(t.getUTCDate()).padStart(2, "0") + " " +
-      String(t.getUTCHours()).padStart(2, "0") + ":00";
+	for (let i = 0; i < slots.length; i++) {
+		const t = new Date(slots[i].replace(" ", "T") + "Z");
     labels.push(`${t.getUTCMonth()+1}/${t.getUTCDate()} ${String(t.getUTCHours()).padStart(2,'0')}:00`);
-    const slot = sparklineData[key];
-    if (!slot || slot.total_runs === 0) {
+		const slot = sparklineData[i];
+	if (!slot || slot[0] === 0) {
       rates.push(null);
     } else {
-      const passRate = ((slot.result_count && slot.result_count.S) || 0) / slot.total_runs * 100;
+	  const passRate = slot[1] / slot[0] * 100;
       rates.push(+passRate.toFixed(1));
     }
   }
@@ -1303,14 +1293,8 @@ function relationshipTooltip(periodic) {
   return [periodic.relationship_rationale, source, verification].filter(Boolean).join(" · ");
 }
 
-function registryJobFor(job) {
-  return jobRegistryIndex.get(job.id || job.prow);
-}
-
 function disabledSippyIngestion(job) {
-  const registryJob = registryJobFor(job);
-  const ingestion = registryJob && registryJob.presubmit && registryJob.presubmit.sippy_ingestion;
-  return ingestion && !ingestion.enabled ? ingestion : null;
+	return job.sippy_ingestion_enabled ? null : {basis: job.sippy_ingestion_basis || "Sippy ingestion is disabled."};
 }
 
 function sippyIngestionBadge(job) {
@@ -1320,20 +1304,19 @@ function sippyIngestionBadge(job) {
 }
 
 function presubmitJobName(job) {
-  if (!registryJobFor(job) || disabledSippyIngestion(job)) {
+	if (disabledSippyIngestion(job)) {
     return `<span class="job-name-label">${esc(job.name)}</span>`;
   }
   return `<a href="${sippyJobLink(job.prow, "Presubmits")}" target="_blank" rel="noopener">${esc(job.name)}</a>`;
 }
 
 function prowHistoryLink(job) {
-  const registryJob = registryJobFor(job);
-  if (!registryJob || !registryJob.prow_job_history_url) return "";
-  return `<a class="job-link-icon" href="${esc(registryJob.prow_job_history_url)}" target="_blank" rel="noopener" title="Prow job history" aria-label="Prow history for ${esc(registryJob.name)}"><svg focusable="false" aria-hidden="true" viewBox="0 0 24 24" fill="currentColor"><path d="M20 21c-1.39 0-2.78-.47-4-1.32-2.44 1.71-5.56 1.71-8 0C6.78 20.53 5.39 21 4 21H2v2h2c1.38 0 2.74-.35 4-.99 2.52 1.29 5.48 1.29 8 0 1.26.65 2.62.99 4 .99h2v-2h-2zM3.95 19H4c1.6 0 3.02-.88 4-2 .98 1.12 2.4 2 4 2s3.02-.88 4-2c.98 1.12 2.4 2 4 2h.05l1.89-6.68c.08-.26.06-.54-.06-.78s-.34-.42-.6-.5L20 10.62V6c0-1.1-.9-2-2-2h-3V1H9v3H6c-1.1 0-2 .9-2 2v4.62l-1.29.42c-.26.08-.48.26-.6.5s-.15.52-.06.78L3.95 19zM6 6h12v3.97L12 8 6 9.97V6z"></path></svg></a>`;
+	if (!job.prow_job_history_url) return "";
+	return `<a class="job-link-icon" href="${esc(job.prow_job_history_url)}" target="_blank" rel="noopener" title="Prow job history" aria-label="Prow history for ${esc(job.prow)}"><svg focusable="false" aria-hidden="true" viewBox="0 0 24 24" fill="currentColor"><path d="M20 21c-1.39 0-2.78-.47-4-1.32-2.44 1.71-5.56 1.71-8 0C6.78 20.53 5.39 21 4 21H2v2h2c1.38 0 2.74-.35 4-.99 2.52 1.29 5.48 1.29 8 0 1.26.65 2.62.99 4 .99h2v-2h-2zM3.95 19H4c1.6 0 3.02-.88 4-2 .98 1.12 2.4 2 4 2s3.02-.88 4-2c.98 1.12 2.4 2 4 2h.05l1.89-6.68c.08-.26.06-.54-.06-.78s-.34-.42-.6-.5L20 10.62V6c0-1.1-.9-2-2-2h-3V1H9v3H6c-1.1 0-2 .9-2 2v4.62l-1.29.42c-.26.08-.48.26-.6.5s-.15.52-.06.78L3.95 19zM6 6h12v3.97L12 8 6 9.97V6z"></path></svg></a>`;
 }
 
 function sippyAnalysisLink(job, release, presubmit = false) {
-  if (presubmit && (!registryJobFor(job) || disabledSippyIngestion(job))) return "";
+	if (presubmit && disabledSippyIngestion(job)) return "";
   const href = sippyJobLink(job.prow, presubmit ? "Presubmits" : release);
   return `<a class="job-link-icon" href="${esc(href)}" target="_blank" rel="noopener" title="Sippy analysis" aria-label="Sippy analysis for ${esc(job.prow)}"><svg focusable="false" aria-hidden="true" viewBox="0 0 100 100"><path d="M 32 28 C 12 28 5 42 10 59" stroke="#848484" stroke-width="9" stroke-linecap="round" fill="none"/><path d="M 68 28 C 88 28 95 42 90 59" stroke="#848484" stroke-width="9" stroke-linecap="round" fill="none"/><path d="M 24 40 H 76 C 76 40 82 54 82 70 C 82 86 70 93 50 93 C 30 93 18 86 18 70 C 18 54 24 40 24 40 Z" fill="#b7b7b7"/><path d="M 24 40 H 76 C 76 42 70 48 50 48 C 30 48 24 42 24 40 Z" fill="#929292"/><path d="M 27 53 H 73 C 74 53 75 64 75 72 C 75 83 64 87 50 87 C 36 87 25 83 25 72 C 25 64 26 53 27 53 Z" fill="#bebebe"/><ellipse cx="37" cy="68" rx="2.2" ry="3.8" fill="#3b3b3b"/><ellipse cx="63" cy="68" rx="2.2" ry="3.8" fill="#3b3b3b"/><path d="M 45 71 Q 50 75 55 71" stroke="#3b3b3b" stroke-width="2.5" stroke-linecap="round" fill="none"/><path d="M 50 7 C 45 7 38 18 33 26 C 44 28 56 28 67 26 C 62 18 55 7 50 7 Z" fill="#747474"/><path d="M 19 36 C 19 25 33 23 50 23 C 67 23 81 25 81 36 C 81 42 67 44 50 44 C 33 44 19 42 19 36 Z" fill="#848484"/></svg></a>`;
 }
@@ -1481,7 +1464,7 @@ function renderDashboard() {
   }
 
   if (!healthSnapshot) return;
-  const windowData = healthSnapshot.windows[activeWindow];
+	const windowData = healthSnapshot.data;
   if (!windowData) return;
   const selected = new Set(selectedReleases());
   if (payloadView) {
@@ -1501,12 +1484,12 @@ function renderDashboard() {
 
 async function loadJobRegistry() {
   if (jobRegistry || registryLoadPending) return;
+	loadFuse();
   registryLoadPending = true;
   try {
     const resp = await fetch("/api/job-registry");
     if (!resp.ok) throw new Error(`${resp.status} ${resp.statusText}`);
     jobRegistry = await resp.json();
-    jobRegistryIndex = new Map((jobRegistry.jobs || []).map(job => [job.id, job]));
     renderDashboard();
   } catch (err) {
     console.error("Job registry load failed:", err);
@@ -1526,12 +1509,18 @@ function setStatus(text, cls) {
 }
 
 async function loadDashboard(forceRefresh = false) {
+	const requestedWindow = activeWindow;
+	if (!forceRefresh && healthSnapshots.has(requestedWindow)) {
+		healthSnapshot = healthSnapshots.get(requestedWindow);
+		renderDashboard();
+		return;
+	}
   if (healthLoadPending) return;
   healthLoadPending = true;
   const btn = document.getElementById("refresh-btn");
   btn.classList.add("spinning");
   try {
-    const resp = await fetch("/api/health");
+		const resp = await fetch(`/_dashboard/health/windows/${encodeURIComponent(requestedWindow)}`);
     if (resp.status === 503) {
       if (!healthSnapshot && activeView !== "registry") {
         setStatus("Waiting for data…", "cache-stale");
@@ -1539,7 +1528,10 @@ async function loadDashboard(forceRefresh = false) {
       return;
     }
     if (!resp.ok) throw new Error(`${resp.status} ${resp.statusText}`);
-    healthSnapshot = await resp.json();
+		const snapshot = await resp.json();
+		healthSnapshots.set(requestedWindow, snapshot);
+		if (activeWindow !== requestedWindow) return;
+		healthSnapshot = snapshot;
     initializeReleaseRange(healthSnapshot.releases || []);
     initializePlatformFilter(healthSnapshot.platforms || []);
     renderDashboard();
@@ -1561,6 +1553,7 @@ async function loadDashboard(forceRefresh = false) {
   } finally {
     healthLoadPending = false;
     btn.classList.remove("spinning");
+	if (!healthSnapshots.has(activeWindow) && activeWindow !== requestedWindow) loadDashboard();
   }
 }
 
@@ -1570,7 +1563,12 @@ function setActiveWindow(w) {
   document.querySelectorAll("#window-toggle button").forEach(b => {
     b.classList.toggle("active", b.dataset.window === w);
   });
-  renderDashboard();
+	healthSnapshot = healthSnapshots.get(w) || null;
+	if (healthSnapshot) renderDashboard();
+	else {
+		document.getElementById("dashboard").innerHTML = '<div class="loading">Loading health window…</div>';
+		loadDashboard();
+	}
 }
 
 function setActiveView(view) {
@@ -1611,8 +1609,8 @@ document.querySelectorAll("#group-toggle button").forEach(b => {
   b.classList.toggle("active", b.dataset.group === activeGroupBy);
 });
 loadDashboard();
-loadJobRegistry();
-setInterval(() => loadDashboard(), 15 * 60 * 1000);
+if (activeView === "registry") loadJobRegistry();
+setInterval(() => loadDashboard(true), 15 * 60 * 1000);
 
 const sparkTip = document.getElementById("spark-tip");
 document.addEventListener("mouseover", e => {
