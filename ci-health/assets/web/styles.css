@@ -114,6 +114,7 @@ select { padding: 2px 6px; font-size: 12px; }
 .toggle button:last-child { border-right: 0; }
 .toggle button:hover { color: var(--text-primary); }
 .toggle button.active { background: var(--gridline); color: var(--text-primary); font-weight: 500; }
+.toggle[aria-label="View"] button.active { font-weight: inherit; }
 
 .refresh-btn {
   border: 1px solid var(--gridline);

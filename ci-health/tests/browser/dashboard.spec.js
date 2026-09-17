@@ -48,13 +48,19 @@ test("renders the health dashboard and changes perspectives", async ({ page }) =
   await expect(page.getByRole("link", { name: /Sippy analysis for/ }).first().locator("svg")).toBeVisible();
   await expect(page.getByRole("link", { name: /Prow history for/ }).first().locator("svg")).toBeVisible();
 
-  await page.getByRole("button", { name: "Release Payload" }).click();
+  const payloadTab = page.getByRole("button", { name: "Release Payload" });
+  const payloadWidth = (await payloadTab.boundingBox()).width;
+  await payloadTab.click();
   await expect(page.getByRole("columnheader", { name: "Release payload job" })).toBeVisible();
   await expect(page).toHaveURL(/\/payload(?:\?|$)/);
+  expect(Math.abs((await payloadTab.boundingBox()).width - payloadWidth)).toBeLessThan(0.1);
 
-  await page.getByRole("button", { name: "Component Readiness" }).click();
+  const componentTab = page.getByRole("button", { name: "Component Readiness" });
+  const componentWidth = (await componentTab.boundingBox()).width;
+  await componentTab.click();
   await expect(page.getByRole("columnheader", { name: "Component Readiness job" })).toBeVisible();
   await expect(page).toHaveURL(/\/component-readiness(?:\?|$)/);
+  expect(Math.abs((await componentTab.boundingBox()).width - componentWidth)).toBeLessThan(0.1);
 
   await page.goBack();
   await expect(page).toHaveURL(/\/payload(?:\?|$)/);
