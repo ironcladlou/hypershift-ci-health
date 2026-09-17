@@ -386,6 +386,8 @@ a.registry-tag:hover { border-color: var(--series-1); color: var(--text-primary)
 .registry-dashboard-tag { background: color-mix(in srgb, var(--series-1) 7%, var(--surface)); }
 .registry-muted { color: var(--text-muted); font-size: 11px; }
 .registry-detail-row > td { padding: 0 12px 12px; background: color-mix(in srgb, var(--series-1) 4%, var(--surface)); }
+.health-registry-detail-row > td { padding-top: 12px; }
+.health-registry-detail-row > td > div { max-width: 100%; contain: inline-size; }
 .registry-details {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -414,6 +416,8 @@ a.registry-tag:hover { border-color: var(--series-1); color: var(--text-primary)
 .job-focus-banner span { min-width: 0; overflow-wrap: anywhere; }
 .job-focus-banner a { margin-left: auto; white-space: nowrap; }
 .registry-link-icon { width: 17px; height: 17px; border: 1px solid currentColor; border-radius: 50%; font-family: Georgia, serif; font-size: 12px; font-weight: 600; line-height: 15px; text-align: center; }
+button.registry-link-icon { padding: 0; background: none; cursor: pointer; }
+.inline-registry-message { padding: 24px; color: var(--text-muted); text-align: center; }
 
 @media (max-width: 900px) {
   .page { padding: 16px; }

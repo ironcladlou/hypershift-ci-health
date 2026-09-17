@@ -1,6 +1,59 @@
 import { Fragment, html, groupJobs, jobRelease, releasesInOrder, sippyJobURL, statusClass, WINDOWS } from "../ui.js";
+import { useState } from "preact/hooks";
 import { RateChart, RateSummary, Sparkline } from "./charts.js";
+import { JobDetailsCard } from "./registry.js";
 import { Tooltip } from "./tooltip.js";
+
+const registryJobCache = new Map();
+
+function loadRegistryJob(id) {
+  if (!registryJobCache.has(id)) {
+    const request = fetch(`/api/job-registry/jobs/${encodeURIComponent(id)}`, { headers: { Accept: "application/json" } }).then(response => {
+      if (!response.ok) throw new Error(`${response.status} ${response.statusText}`);
+      return response.json();
+    }).catch(error => {
+      registryJobCache.delete(id);
+      throw error;
+    });
+    registryJobCache.set(id, request);
+  }
+  return registryJobCache.get(id);
+}
+
+function useRegistryDetail(id, instance) {
+  const [expanded, setExpanded] = useState(false);
+  const [detail, setDetail] = useState(null);
+  const [error, setError] = useState("");
+  const panelID = `health-registry-${instance.replace(/[^a-zA-Z0-9_-]/g, "-")}`;
+  const toggle = async () => {
+    if (expanded) {
+      setExpanded(false);
+      return;
+    }
+    setExpanded(true);
+    if (detail) return;
+    setError("");
+    try {
+      setDetail(await loadRegistryJob(id));
+    } catch (cause) {
+      setError(cause.message);
+    }
+  };
+  return { detail, error, expanded, panelID, toggle };
+}
+
+function RegistryDetailRow({ registry, dashboards }) {
+  if (!registry?.expanded) return null;
+  return html`<tr class="registry-detail-row health-registry-detail-row"><td colspan="4">
+    <div id=${registry.panelID}>
+      ${registry.error
+        ? html`<div class="inline-registry-message error">Failed to load registry details: ${registry.error}</div>`
+        : registry.detail
+          ? html`<${JobDetailsCard} job=${registry.detail} dashboards=${dashboards} />`
+          : html`<div class="inline-registry-message">Loading registry details…</div>`}
+    </div>
+  </td></tr>`;
+}
 
 function StatusDot({ rate, runs }) {
   return html`<span class=${`status-dot ${statusClass(rate, runs)}`}></span>`;
@@ -35,12 +88,13 @@ function ProwIcon() {
   </svg>`;
 }
 
-function JobLinks({ job, release, presubmit = false }) {
+function JobLinks({ job, release, presubmit = false, registry }) {
   const sippy = !presubmit || job.sippy_ingestion_enabled ? sippyJobURL(job.prow, release) : "";
   return html`<td class="job-links">
     ${sippy && html`<a class="job-link-icon" href=${sippy} target="_blank" rel="noopener" title="Sippy analysis" aria-label=${`Sippy analysis for ${job.prow}`}><${SippyIcon} /></a>`}
     ${job.prow_job_history_url && html`<a class="job-link-icon" href=${job.prow_job_history_url} target="_blank" rel="noopener" title="Prow job history" aria-label=${`Prow history for ${job.prow}`}><${ProwIcon} /></a>`}
-    ${(job.id || job.prow) && html`<a class="job-link-icon registry-link-icon" href=${`/registry?job=${encodeURIComponent(job.id || job.prow)}`} title="Registry details" aria-label=${`Registry details for ${job.prow}`}>i</a>`}
+    ${(job.id || job.prow) && registry && html`<button type="button" class="job-link-icon registry-link-icon" title="Registry details" aria-label=${`Registry details for ${job.prow}`}
+      aria-expanded=${registry.expanded} aria-controls=${registry.panelID} onClick=${registry.toggle}>i</button>`}
   </td>`;
 }
 
@@ -62,6 +116,7 @@ function RateCell({ job, slots, color }) {
 function PresubmitRow({ job, slots, window }) {
   const hasPeriodics = job.periodics?.length > 0;
   const enabled = job.sippy_ingestion_enabled;
+  const registry = useRegistryDetail(job.id || job.prow, `presubmit-${job.id || job.prow}`);
   return html`<${Fragment}>
     <tr>
       <td class="job-name">
@@ -75,9 +130,17 @@ function PresubmitRow({ job, slots, window }) {
       </td>
       <${RateCell} job=${job} slots=${slots} color="pre" />
       <td class="sparkline-cell"><${Sparkline} data=${job.sparkline} slots=${slots} correlated=${job.correlation?.indices} showDates=${!hasPeriodics} dateEvery=${WINDOWS[window].dateEvery} /></td>
-      <${JobLinks} job=${job} release="Presubmits" presubmit=${true} />
+      <${JobLinks} job=${job} release="Presubmits" presubmit=${true} registry=${registry} />
     </tr>
-    ${(job.periodics || []).map(periodic => html`<tr class="periodic-row" key=${periodic.id}>
+    <${RegistryDetailRow} registry=${registry} dashboards=${["presubmit_health"]} />
+    ${(job.periodics || []).map(periodic => html`<${PresubmitPeriodicRow} key=${periodic.id} periodic=${periodic} slots=${slots} window=${window} />`)}
+  <//>`;
+}
+
+function PresubmitPeriodicRow({ periodic, slots, window }) {
+  const registry = useRegistryDetail(periodic.id || periodic.prow, `presubmit-periodic-${periodic.id || periodic.prow}`);
+  return html`<${Fragment}>
+    <tr class="periodic-row">
       <td class="job-name periodic-name">
         <${StatusDot} rate=${periodic.rate} runs=${periodic.runs} />
         <a class="periodic-link" href=${sippyJobURL(periodic.prow, periodic.release)} target="_blank" rel="noopener">${periodic.name}</a>
@@ -85,8 +148,9 @@ function PresubmitRow({ job, slots, window }) {
       </td>
       <${RateCell} job=${periodic} slots=${slots} color="per" />
       <td class="sparkline-cell"><${Sparkline} data=${periodic.sparkline} slots=${slots} dateEvery=${WINDOWS[window].dateEvery} /></td>
-      <${JobLinks} job=${periodic} release=${periodic.release} />
-    </tr>`)}
+      <${JobLinks} job=${periodic} release=${periodic.release} registry=${registry} />
+    </tr>
+    <${RegistryDetailRow} registry=${registry} dashboards=${["presubmit_health"]} />
   <//>`;
 }
 
@@ -103,18 +167,24 @@ function Participation({ items }) {
 }
 
 function PeriodicHealthRow({ job, slots, window, kind }) {
-  return html`<tr class="periodic-row">
-    <td class="job-name">
-      <${StatusDot} rate=${job.rate} runs=${job.runs} />
-      <a href=${sippyJobURL(job.prow, job.release)} target="_blank" rel="noopener">${job.name}</a>
-      ${kind === "component" && job.registry_missing && html`<${Tooltip} content="Sippy classifies this job as standard, but the generated registry has no current definition." className="infra-badge">registry missing<//>`}
-      <${InfraBadge} job=${job} />
-      ${kind === "payload" && html`<${Participation} items=${job.participations} />`}
-    </td>
-    <${RateCell} job=${job} slots=${slots} color="per" />
-    <td class="sparkline-cell"><${Sparkline} data=${job.sparkline} slots=${slots} dateEvery=${WINDOWS[window].dateEvery} /></td>
-    <${JobLinks} job=${job} release=${job.release} />
-  </tr>`;
+  const registry = useRegistryDetail(job.id || job.prow, `${kind}-${job.release}-${job.id || job.prow}`);
+  const availableRegistry = job.registry_missing ? null : registry;
+  const dashboards = kind === "payload" ? ["release_payload"] : ["component_readiness"];
+  return html`<${Fragment}>
+    <tr class="periodic-row">
+      <td class="job-name">
+        <${StatusDot} rate=${job.rate} runs=${job.runs} />
+        <a href=${sippyJobURL(job.prow, job.release)} target="_blank" rel="noopener">${job.name}</a>
+        ${kind === "component" && job.registry_missing && html`<${Tooltip} content="Sippy classifies this job as standard, but the generated registry has no current definition." className="infra-badge">registry missing<//>`}
+        <${InfraBadge} job=${job} />
+        ${kind === "payload" && html`<${Participation} items=${job.participations} />`}
+      </td>
+      <${RateCell} job=${job} slots=${slots} color="per" />
+      <td class="sparkline-cell"><${Sparkline} data=${job.sparkline} slots=${slots} dateEvery=${WINDOWS[window].dateEvery} /></td>
+      <${JobLinks} job=${job} release=${job.release} registry=${availableRegistry} />
+    </tr>
+    <${RegistryDetailRow} registry=${availableRegistry} dashboards=${dashboards} />
+  <//>`;
 }
 
 function Legend({ explainFailures }) {

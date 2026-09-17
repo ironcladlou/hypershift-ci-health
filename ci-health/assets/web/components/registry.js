@@ -96,9 +96,9 @@ function DetailValue({ label: name, children }) {
   return html`<div><dt>${name}</dt><dd>${children || "—"}</dd></div>`;
 }
 
-function RegistryDetails({ job, dashboards, onRelatedSelect }) {
+export function JobDetailsCard({ job, dashboards = null, onRelatedSelect, elementID }) {
   const ingestion = job.presubmit?.sippy_ingestion;
-  return html`<div class="registry-details" id=${`registry-details-${job.id}`}>
+  return html`<div class="registry-details" id=${elementID}>
     <section>
       <h3>Identity and source</h3>
       <dl>
@@ -123,16 +123,16 @@ function RegistryDetails({ job, dashboards, onRelatedSelect }) {
       </dl>
     </section>`}
     <section>
-      <h3>Analysis and dashboard</h3>
+      <h3>${dashboards !== null ? "Analysis and dashboard" : "Analysis"}</h3>
       <dl>
         <${DetailValue} label="Sippy ingestion">${ingestion ? `${ingestion.enabled ? "Enabled" : "Disabled"} · ${ingestion.basis}` : "Not applicable"}<//>
-        <${DetailValue} label="CI Health"><${DashboardLinks} values=${dashboards} id=${job.id} /><//>
+        ${dashboards !== null && html`<${DetailValue} label="CI Health"><${DashboardLinks} values=${dashboards} id=${job.id} /><//>`}
       </dl>
     </section>
     ${job.presubmit?.periodic_counterparts?.length ? html`<section class="registry-detail-wide">
       <h3>Periodic counterparts</h3>
       <ul class="registry-relationships">${job.presubmit.periodic_counterparts.map(item => html`<li key=${item.job_id}>
-        <a href=${registryJobURL(item.job_id, true)} onClick=${event => { event.preventDefault(); onRelatedSelect(item.job_id); }}>${item.job_id}</a>
+        <a href=${registryJobURL(item.job_id, true)} onClick=${onRelatedSelect ? event => { event.preventDefault(); onRelatedSelect(item.job_id); } : undefined}>${item.job_id}</a>
         <span><${Tag}>${item.tested_release}<//> <${Tag}>${label(item.verification)}<//></span>
         <p>${item.rationale}</p>
       </li>`)}</ul>
@@ -172,7 +172,7 @@ function RegistryEntry({ job, dashboards, expanded, onSelect, onRelatedSelect })
       <td><${Tags} values=${configurations} empty="—" /></td>
       <td><${DashboardLinks} values=${dashboards} id=${job.id} /></td>
     </tr>
-    ${expanded && html`<tr class="registry-detail-row"><td colspan="4"><${RegistryDetails} job=${job} dashboards=${dashboards} onRelatedSelect=${onRelatedSelect} /></td></tr>`}
+    ${expanded && html`<tr class="registry-detail-row"><td colspan="4"><${JobDetailsCard} job=${job} dashboards=${dashboards} onRelatedSelect=${onRelatedSelect} elementID=${`registry-details-${job.id}`} /></td></tr>`}
   <//>`;
 }
 
@@ -238,6 +238,7 @@ export function RegistryView({ registry, snapshot, query, selectedJob, filters, 
   })), [facetValues, jobs]);
   const visible = useMemo(() => {
     const value = query.trim();
+    const exact = value.toLocaleLowerCase();
     let result = value
       ? fuse
         ? fuse.search(value).map(match => match.item.job)
@@ -252,7 +253,12 @@ export function RegistryView({ registry, snapshot, query, selectedJob, filters, 
       if (sort === "dashboard") return values.dashboard.join(" ");
       return job.name || job.id;
     };
-    result.sort((left, right) => sortValue(left).localeCompare(sortValue(right), undefined, { numeric: true }) * (order === "desc" ? -1 : 1));
+    result.sort((left, right) => {
+      const leftExact = exact && [left.name, left.id].some(candidate => candidate?.toLocaleLowerCase() === exact);
+      const rightExact = exact && [right.name, right.id].some(candidate => candidate?.toLocaleLowerCase() === exact);
+      if (leftExact !== rightExact) return leftExact ? -1 : 1;
+      return sortValue(left).localeCompare(sortValue(right), undefined, { numeric: true }) * (order === "desc" ? -1 : 1);
+    });
     return result;
   }, [facetValues, filters, fuse, jobs, order, query, searchable, sort]);
   const pages = Math.max(1, Math.ceil(visible.length / PAGE_SIZE));
@@ -264,7 +270,11 @@ export function RegistryView({ registry, snapshot, query, selectedJob, filters, 
   }, [onState, page, pages, selectedIndex]);
   useEffect(() => {
     if (!selectedJob) return;
-    requestAnimationFrame(() => document.getElementById(`registry-job-${selectedJob}`)?.scrollIntoView({ block: "nearest" }));
+    requestAnimationFrame(() => {
+      const row = document.getElementById(`registry-job-${selectedJob}`);
+      row?.scrollIntoView({ block: "center" });
+      row?.querySelector(".registry-job-link")?.focus({ preventScroll: true });
+    });
   }, [currentPage, selectedJob]);
   const pageJobs = visible.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
   const activeFilters = FACET_ORDER.flatMap(name => (filters[name] || []).map(value => ({ name, value })));

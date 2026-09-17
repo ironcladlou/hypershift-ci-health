@@ -47,6 +47,18 @@ test("renders the health dashboard and changes perspectives", async ({ page }) =
 
   await expect(page.getByRole("link", { name: /Sippy analysis for/ }).first().locator("svg")).toBeVisible();
   await expect(page.getByRole("link", { name: /Prow history for/ }).first().locator("svg")).toBeVisible();
+  const passRateBefore = await page.getByRole("columnheader", { name: "Pass Rate" }).boundingBox();
+  const timelineBefore = await page.getByRole("columnheader", { name: "Last 2w" }).boundingBox();
+  const registryInfo = page.getByRole("button", { name: /Registry details for/ }).first();
+  const healthURL = page.url();
+  await registryInfo.click();
+  await expect(page.getByRole("heading", { name: "Identity and source" })).toBeVisible();
+  expect(page.url()).toBe(healthURL);
+  await expect(registryInfo).toHaveAttribute("aria-expanded", "true");
+  const passRateAfter = await page.getByRole("columnheader", { name: "Pass Rate" }).boundingBox();
+  const timelineAfter = await page.getByRole("columnheader", { name: "Last 2w" }).boundingBox();
+  expect(Math.abs(passRateAfter.x - passRateBefore.x)).toBeLessThan(0.1);
+  expect(Math.abs(timelineAfter.x - timelineBefore.x)).toBeLessThan(0.1);
 
   const payloadTab = page.getByRole("button", { name: "Release Payload" });
   const payloadWidth = (await payloadTab.boundingBox()).width;
@@ -145,6 +157,7 @@ test("browses, filters, and deep-links the job registry", async ({ page }) => {
   await search.fill("pull-ci-openshift-hypershift-main-e2e-aks");
   const job = page.getByRole("link", { name: "pull-ci-openshift-hypershift-main-e2e-aks", exact: true });
   await expect(job).toBeVisible();
+  await expect(page.locator(".registry-job-link").first()).toHaveText("pull-ci-openshift-hypershift-main-e2e-aks");
   await expect(page).toHaveURL(/\/registry(?:\?|$)/);
   await expect.poll(() => new URL(page.url()).searchParams.get("q")).toBe("pull-ci-openshift-hypershift-main-e2e-aks");
   await job.click();
@@ -162,5 +175,12 @@ test("browses, filters, and deep-links the job registry", async ({ page }) => {
   await expect(page.locator("tbody tr").filter({ hasText: "e2e-aks" }).first()).toBeVisible();
   await page.getByRole("link", { name: "Registry details", exact: true }).first().click();
   await expect(page.getByRole("heading", { name: "Presubmit behavior" })).toBeVisible();
+  const selectedRow = page.locator("tr.registry-job.expanded");
+  await expect(selectedRow).toBeVisible();
+  await expect.poll(async () => {
+    const rowBox = await selectedRow.boundingBox();
+    return Math.abs(rowBox.y + rowBox.height / 2 - page.viewportSize().height / 2);
+  }).toBeLessThan(2);
+  await expect(selectedRow.locator(".registry-job-link")).toBeFocused();
   expect(await page.evaluate(() => localStorage.length)).toBe(0);
 });
