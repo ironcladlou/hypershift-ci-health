@@ -15,7 +15,7 @@ import (
 
 func TestEmbeddedFuseAsset(t *testing.T) {
 	handler := newHTTPHandler("", false, newApplicationState(&jobregistry.Registry{}, nil, sippy.CollectionStatus{}))
-	request := httptest.NewRequest(http.MethodGet, "/assets/fuse.min.mjs", nil)
+	request := httptest.NewRequest(http.MethodGet, fuseAssetPath, nil)
 	response := httptest.NewRecorder()
 	handler.ServeHTTP(response, request)
 
@@ -24,6 +24,9 @@ func TestEmbeddedFuseAsset(t *testing.T) {
 	}
 	if got := response.Header().Get("Content-Type"); !strings.HasPrefix(got, "text/javascript") {
 		t.Errorf("Content-Type = %q, want JavaScript", got)
+	}
+	if got := response.Header().Get("Cache-Control"); got != immutableAssetCacheControl {
+		t.Errorf("Cache-Control = %q, want %q", got, immutableAssetCacheControl)
 	}
 	if !bytes.Equal(response.Body.Bytes(), webassets.FuseJS) {
 		t.Error("response does not contain the embedded Fuse.js asset")
@@ -113,6 +116,54 @@ func TestJobRegistryDocumentationAPI(t *testing.T) {
 				}
 			}
 		})
+	}
+}
+
+func TestAPIResponseCaching(t *testing.T) {
+	registry, err := jobregistry.LoadFile("../jobregistry/testdata/job-registry.json")
+	if err != nil {
+		t.Fatalf("load golden registry: %v", err)
+	}
+	handler := newHTTPHandler("", false, newApplicationState(registry, &sippy.HealthSnapshot{}, sippy.CollectionStatus{}))
+	const id = "pull-ci-openshift-hypershift-release-4.22-e2e-v2-aws"
+	paths := []string{
+		"/api/health",
+		"/api/job-registry",
+		"/api/job-registry/jobs/" + id,
+		"/api/openapi.json",
+		"/api/schemas/Job.json",
+	}
+	for _, path := range paths {
+		t.Run(path, func(t *testing.T) {
+			response := httptest.NewRecorder()
+			handler.ServeHTTP(response, httptest.NewRequest(http.MethodGet, path, nil))
+			if response.Code != http.StatusOK {
+				t.Fatalf("initial status = %d, want 200", response.Code)
+			}
+			if got := response.Header().Get("Cache-Control"); got != apiCacheControl {
+				t.Errorf("Cache-Control = %q, want %q", got, apiCacheControl)
+			}
+			etag := response.Header().Get("ETag")
+			if etag == "" {
+				t.Fatal("initial response has no ETag")
+			}
+
+			request := httptest.NewRequest(http.MethodGet, path, nil)
+			request.Header.Set("If-None-Match", etag)
+			response = httptest.NewRecorder()
+			handler.ServeHTTP(response, request)
+			if response.Code != http.StatusNotModified {
+				t.Errorf("conditional status = %d, want 304", response.Code)
+			}
+			if response.Body.Len() != 0 {
+				t.Errorf("conditional response body has %d bytes, want 0", response.Body.Len())
+			}
+		})
+	}
+	response := httptest.NewRecorder()
+	handler.ServeHTTP(response, httptest.NewRequest(http.MethodGet, "/api/health/status", nil))
+	if response.Header().Get("Cache-Control") != "" || response.Header().Get("ETag") != "" {
+		t.Error("mutable collection status response must not be cached")
 	}
 }
 

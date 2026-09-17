@@ -2,10 +2,14 @@ package cmd
 
 import (
 	"context"
+	"crypto/sha256"
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"net/url"
 	"os"
+	"strings"
+	"time"
 
 	"github.com/danielgtaylor/huma/v2"
 	"github.com/danielgtaylor/huma/v2/adapters/humago"
@@ -72,25 +76,43 @@ func newServeCommand(indexHTML string) *cobra.Command {
 }
 
 type applicationState struct {
-	registry      *jobregistry.Registry
-	registryIndex map[string]*jobregistry.Job
-	health        *sippy.HealthSnapshot
-	status        sippy.CollectionStatus
+	registry           *jobregistry.Registry
+	registryIndex      map[string]*jobregistry.Job
+	registryETag       string
+	jobETags           map[string]string
+	health             *sippy.HealthSnapshot
+	healthETag         string
+	apiDescriptionETag string
+	status             sippy.CollectionStatus
 }
 
 func newApplicationState(registry *jobregistry.Registry, health *sippy.HealthSnapshot, status sippy.CollectionStatus) *applicationState {
+	registryIndex := registry.Index()
+	jobETags := make(map[string]string, len(registryIndex))
+	for id, job := range registryIndex {
+		jobETags[id] = contentETag(job)
+	}
+	healthETag := ""
+	if health != nil {
+		healthETag = contentETag(health)
+	}
 	return &applicationState{
-		registry:      registry,
-		registryIndex: registry.Index(),
-		health:        health,
-		status:        status,
+		registry:           registry,
+		registryIndex:      registryIndex,
+		registryETag:       contentETag(registry),
+		jobETags:           jobETags,
+		health:             health,
+		healthETag:         healthETag,
+		apiDescriptionETag: contentETag(struct{ Instance int64 }{time.Now().UnixNano()}),
+		status:             status,
 	}
 }
 
 func newHTTPHandler(indexHTML string, dev bool, state *applicationState) http.Handler {
 	mux := http.NewServeMux()
-	mux.HandleFunc("GET /assets/fuse.min.mjs", func(w http.ResponseWriter, r *http.Request) {
+	mux.HandleFunc("GET "+fuseAssetPath, func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "text/javascript; charset=utf-8")
+		w.Header().Set("Cache-Control", immutableAssetCacheControl)
 		_, _ = w.Write(webassets.FuseJS)
 	})
 	if dev {
@@ -127,7 +149,69 @@ func newHTTPHandler(indexHTML string, dev bool, state *applicationState) http.Ha
 		writeJSON(w, state.status)
 	})
 	registerJobRegistryAPI(mux, state)
-	return mux
+	return withAPICaching(mux, state)
+}
+
+const apiCacheControl = "public, max-age=300, must-revalidate"
+
+const (
+	fuseAssetPath              = "/assets/fuse-7.5.0.min.mjs"
+	immutableAssetCacheControl = "public, max-age=31536000, immutable"
+)
+
+func withAPICaching(next http.Handler, state *applicationState) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodGet && r.URL.RawQuery == "" {
+			if etag := state.etagForPath(r.URL.Path); etag != "" {
+				w.Header().Set("Cache-Control", apiCacheControl)
+				w.Header().Set("ETag", etag)
+				if etagMatches(r.Header.Get("If-None-Match"), etag) {
+					w.WriteHeader(http.StatusNotModified)
+					return
+				}
+			}
+		}
+		next.ServeHTTP(w, r)
+	})
+}
+
+func (state *applicationState) etagForPath(path string) string {
+	switch path {
+	case "/api/health":
+		return state.healthETag
+	case "/api/job-registry":
+		return state.registryETag
+	case "/api/openapi.json", "/api/openapi.yaml", "/api/schemas/Job.json", "/api/schemas/Registry.json":
+		return state.apiDescriptionETag
+	}
+	const jobPath = "/api/job-registry/jobs/"
+	if !strings.HasPrefix(path, jobPath) {
+		return ""
+	}
+	id, err := url.PathUnescape(strings.TrimPrefix(path, jobPath))
+	if err != nil {
+		return ""
+	}
+	return state.jobETags[id]
+}
+
+func contentETag(value any) string {
+	data, err := json.Marshal(value)
+	if err != nil {
+		return ""
+	}
+	return fmt.Sprintf(`"%x"`, sha256.Sum256(data))
+}
+
+func etagMatches(header, etag string) bool {
+	etag = strings.TrimPrefix(etag, "W/")
+	for _, candidate := range strings.Split(header, ",") {
+		candidate = strings.TrimSpace(candidate)
+		if candidate == "*" || strings.TrimPrefix(candidate, "W/") == etag {
+			return true
+		}
+	}
+	return false
 }
 
 type getJobRegistryOutput struct {

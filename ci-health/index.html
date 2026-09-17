@@ -614,7 +614,7 @@ let registryLoadPending = false;
 let registryFuse = null;
 let registrySearchJobs = [];
 let fuseClass = null;
-import("/assets/fuse.min.mjs").then(module => {
+import("/assets/fuse-7.5.0.min.mjs").then(module => {
   fuseClass = module.default;
   initializeRegistrySearch();
 }).catch(err => console.error("Fuse.js load failed:", err));
