@@ -4,7 +4,7 @@ BIN := $(BIN_DIR)/$(APP)
 NAMESPACE := ci-health
 ROUTE_PREFIX := hypershift-ci-health
 
-.PHONY: build fmt test generate-job-registry update-golden image setup deploy
+.PHONY: build fmt test check generate-job-registry generate-report-plan generate-sippy-observation generate-health-report generate-artifacts update-golden image setup deploy
 
 build:
 	mkdir -p $(BIN_DIR)
@@ -16,9 +16,34 @@ fmt:
 test:
 	go test ./...
 
+check: test build
+	git diff --check
+	@if rg -n '\t' deploy --glob '*.yaml'; then echo "tabs are not allowed in deployment YAML" >&2; exit 1; fi
+
 generate-job-registry: build
 	@test -n "$(RELEASE_DIR)" || (echo "RELEASE_DIR is required" >&2; exit 1)
 	./$(BIN) job-registry --release-dir=$(RELEASE_DIR) > job-registry.json
+
+generate-report-plan: build
+	@test -f job-registry.json || (echo "job-registry.json is required" >&2; exit 1)
+	./$(BIN) report-plan --job-registry=job-registry.json > report-plan.json
+
+generate-sippy-observation: build
+	@test -f job-registry.json || (echo "job-registry.json is required" >&2; exit 1)
+	@test -f report-plan.json || (echo "report-plan.json is required" >&2; exit 1)
+	./$(BIN) sippy-observation --job-registry=job-registry.json --report-plan=report-plan.json > sippy-observation.json
+
+generate-health-report: build
+	@test -f job-registry.json || (echo "job-registry.json is required" >&2; exit 1)
+	@test -f report-plan.json || (echo "report-plan.json is required" >&2; exit 1)
+	@test -f sippy-observation.json || (echo "sippy-observation.json is required" >&2; exit 1)
+	./$(BIN) health-report --job-registry=job-registry.json --report-plan=report-plan.json --sippy-observation=sippy-observation.json > health-report.json
+
+generate-artifacts:
+	$(MAKE) generate-job-registry
+	$(MAKE) generate-report-plan
+	$(MAKE) generate-sippy-observation
+	$(MAKE) generate-health-report
 
 update-golden: build
 	@test -n "$(RELEASE_DIR)" || (echo "RELEASE_DIR is required" >&2; exit 1)

@@ -1,9 +1,6 @@
 package cmd
 
 import (
-	"encoding/json"
-	"fmt"
-
 	"github.com/ironcladlou/hypershift-ci-health/ci-health/jobregistry"
 	"github.com/spf13/cobra"
 )
@@ -32,12 +29,7 @@ func newJobRegistryCommand() *cobra.Command {
 				return err
 			}
 
-			encoder := json.NewEncoder(command.OutOrStdout())
-			encoder.SetIndent("", "  ")
-			if err := encoder.Encode(registry); err != nil {
-				return fmt.Errorf("render JSON registry: %w", err)
-			}
-			return nil
+			return writeIndentedJSON(command, registry, "job registry")
 		},
 	}
 

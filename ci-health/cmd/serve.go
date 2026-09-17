@@ -14,19 +14,21 @@ import (
 	"github.com/danielgtaylor/huma/v2"
 	"github.com/danielgtaylor/huma/v2/adapters/humago"
 	webassets "github.com/ironcladlou/hypershift-ci-health/ci-health/assets"
+	"github.com/ironcladlou/hypershift-ci-health/ci-health/healthreport"
 	"github.com/ironcladlou/hypershift-ci-health/ci-health/jobregistry"
-	"github.com/ironcladlou/hypershift-ci-health/ci-health/jobs"
+	"github.com/ironcladlou/hypershift-ci-health/ci-health/reportplan"
 	"github.com/ironcladlou/hypershift-ci-health/ci-health/sippy"
 	"github.com/spf13/cobra"
 )
 
 func newServeCommand(indexHTML string) *cobra.Command {
 	var (
-		addr               string
-		dev                bool
-		jobRegistryPath    string
-		developmentBranch  string
-		developmentRelease string
+		addr             string
+		dev              bool
+		jobRegistryPath  string
+		reportPlanPath   string
+		healthReportPath string
+		observationPath  string
 	)
 
 	command := &cobra.Command{
@@ -37,19 +39,23 @@ func newServeCommand(indexHTML string) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			catalog, err := jobs.NewCatalog(registry, jobs.CatalogOptions{
-				DevelopmentBranch:  developmentBranch,
-				DevelopmentRelease: developmentRelease,
-			})
+			plan, err := reportplan.LoadFile(reportPlanPath, registry)
 			if err != nil {
-				return fmt.Errorf("validate dashboard job configuration: %w", err)
+				return err
 			}
-
-			health, status, err := sippy.CollectSnapshot(command.Context(), sippy.NewClient(), catalog)
+			planDigest, err := reportplan.Digest(plan)
 			if err != nil {
-				return fmt.Errorf("collect Sippy health snapshot: %w", err)
+				return err
 			}
-			state := newApplicationState(registry, health, status)
+			observation, err := sippy.LoadObservationFile(observationPath, planDigest)
+			if err != nil {
+				return err
+			}
+			health, err := healthreport.LoadFile(healthReportPath, registry, plan, observation)
+			if err != nil {
+				return err
+			}
+			state := newApplicationState(registry, plan, health)
 			server := &http.Server{Addr: addr, Handler: newHTTPHandler(indexHTML, dev, state)}
 			go func() {
 				<-command.Context().Done()
@@ -58,7 +64,7 @@ func newServeCommand(indexHTML string) *cobra.Command {
 
 			fmt.Fprintf(os.Stderr, "http://localhost%s\n", addr)
 			fmt.Fprintf(os.Stderr, "Job registry: %s (%d jobs)\n", jobRegistryPath, len(registry.Jobs))
-			fmt.Fprintf(os.Stderr, "Sippy snapshot: %s\n", health.GeneratedAt.Format("2006-01-02T15:04:05Z"))
+			fmt.Fprintf(os.Stderr, "Health report: %s (complete=%t)\n", health.GeneratedAt.Format("2006-01-02T15:04:05Z"), health.Complete)
 			if err := server.ListenAndServe(); err != http.ErrServerClosed {
 				return err
 			}
@@ -68,25 +74,26 @@ func newServeCommand(indexHTML string) *cobra.Command {
 
 	command.Flags().StringVar(&addr, "addr", ":8080", "Listen address")
 	command.Flags().BoolVar(&dev, "dev", false, "Serve index.html from filesystem instead of embedded copy")
-	command.Flags().StringVar(&jobRegistryPath, "job-registry", "", "Path to a generated job registry JSON file")
-	command.Flags().StringVar(&developmentBranch, "development-branch", "main", "Development branch represented by the dashboard")
-	command.Flags().StringVar(&developmentRelease, "development-release", "5.1", "Development release represented by the dashboard")
-	command.MarkFlagRequired("job-registry")
+	command.Flags().StringVar(&jobRegistryPath, "job-registry", "job-registry.json", "Path to a generated job registry JSON file")
+	command.Flags().StringVar(&reportPlanPath, "report-plan", "report-plan.json", "Path to a generated report plan JSON file")
+	command.Flags().StringVar(&healthReportPath, "health-report", "health-report.json", "Path to an evaluated health report JSON file")
+	command.Flags().StringVar(&observationPath, "sippy-observation", "sippy-observation.json", "Path to the Sippy observation used by the health report")
 	return command
 }
 
 type applicationState struct {
 	registry           *jobregistry.Registry
+	plan               *reportplan.Plan
 	registryIndex      map[string]*jobregistry.Job
 	registryETag       string
 	jobETags           map[string]string
-	health             *sippy.HealthSnapshot
+	health             *healthreport.Report
+	planETag           string
 	healthETag         string
 	apiDescriptionETag string
-	status             sippy.CollectionStatus
 }
 
-func newApplicationState(registry *jobregistry.Registry, health *sippy.HealthSnapshot, status sippy.CollectionStatus) *applicationState {
+func newApplicationState(registry *jobregistry.Registry, plan *reportplan.Plan, health *healthreport.Report) *applicationState {
 	registryIndex := registry.Index()
 	jobETags := make(map[string]string, len(registryIndex))
 	for id, job := range registryIndex {
@@ -98,13 +105,14 @@ func newApplicationState(registry *jobregistry.Registry, health *sippy.HealthSna
 	}
 	return &applicationState{
 		registry:           registry,
+		plan:               plan,
 		registryIndex:      registryIndex,
 		registryETag:       contentETag(registry),
 		jobETags:           jobETags,
 		health:             health,
+		planETag:           contentETag(plan),
 		healthETag:         healthETag,
 		apiDescriptionETag: contentETag(struct{ Instance int64 }{time.Now().UnixNano()}),
-		status:             status,
 	}
 }
 
@@ -145,9 +153,7 @@ func newHTTPHandler(indexHTML string, dev bool, state *applicationState) http.Ha
 		}
 		writeJSON(w, state.health)
 	})
-	mux.HandleFunc("/api/health/status", func(w http.ResponseWriter, r *http.Request) {
-		writeJSON(w, state.status)
-	})
+	mux.HandleFunc("/api/report-plan", func(w http.ResponseWriter, r *http.Request) { writeJSON(w, state.plan) })
 	registerJobRegistryAPI(mux, state)
 	return withAPICaching(mux, state)
 }
@@ -179,6 +185,8 @@ func (state *applicationState) etagForPath(path string) string {
 	switch path {
 	case "/api/health":
 		return state.healthETag
+	case "/api/report-plan":
+		return state.planETag
 	case "/api/job-registry":
 		return state.registryETag
 	case "/api/openapi.json", "/api/openapi.yaml", "/api/schemas/Job.json", "/api/schemas/Registry.json":
@@ -226,7 +234,7 @@ type getJobOutput struct {
 	Body jobregistry.Job
 }
 
-const jobRegistryAPIDescription = `The HyperShift job registry is the versioned, generated catalog of Prow jobs used by CI Health and other consumers. It provides one stable record per job and brings together:
+const jobRegistryAPIDescription = `The HyperShift job registry is the versioned, generated inventory of Prow jobs used by CI Health and other consumers. It provides one stable record per job and brings together:
 
 - the job identity and source definition in ` + "`openshift/release`" + `;
 - job type, repository, context, branch, version, and platform metadata;

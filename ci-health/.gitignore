@@ -2,4 +2,7 @@
 deploy/route-patch.yaml
 deploy/.github-token
 job-registry.json
+report-plan.json
+sippy-observation.json
+health-report.json
 !jobregistry/testdata/job-registry.json

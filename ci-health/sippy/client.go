@@ -9,8 +9,6 @@ import (
 	"strconv"
 	"strings"
 	"time"
-
-	"github.com/ironcladlou/hypershift-ci-health/ci-health/jobs"
 )
 
 const DefaultBaseURL = "https://sippy.dptools.openshift.org"
@@ -126,7 +124,7 @@ func waitForRetry(ctx context.Context, delay time.Duration) error {
 	}
 }
 
-func (c *Client) FetchJobAnalysis(ctx context.Context, release, jobName string, start, boundary, end time.Time) (*SippyJobAnalysisResponse, error) {
+func (c *Client) fetchJobAnalysis(ctx context.Context, release, jobName string, start, boundary, end time.Time) (*jobAnalysisResponse, error) {
 	params := url.Values{
 		"release":  {release},
 		"filter":   {exactMatchFilter("name", []string{jobName})},
@@ -141,14 +139,14 @@ func (c *Client) FetchJobAnalysis(ctx context.Context, release, jobName string, 
 	}
 	defer resp.Body.Close()
 
-	var result SippyJobAnalysisResponse
+	var result jobAnalysisResponse
 	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
 		return nil, fmt.Errorf("decoding job analysis: %w", err)
 	}
 	return &result, nil
 }
 
-func (c *Client) FetchComponentReadinessMembership(ctx context.Context, release string) ([]jobs.ComponentReadinessMembership, error) {
+func (c *Client) fetchComponentReadinessMembership(ctx context.Context, release string) ([]ComponentReadinessMembership, error) {
 	params := url.Values{
 		"release": {release},
 		"filter":  {fieldFilter("name", "starts with", "periodic-ci-openshift-hypershift-")},
@@ -159,20 +157,20 @@ func (c *Client) FetchComponentReadinessMembership(ctx context.Context, release 
 	}
 	defer resp.Body.Close()
 
-	var result []SippyJobListItem
+	var result []jobListItem
 	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
 		return nil, fmt.Errorf("decoding component readiness jobs: %w", err)
 	}
 
-	memberships := make([]jobs.ComponentReadinessMembership, 0, len(result))
+	memberships := make([]ComponentReadinessMembership, 0, len(result))
 	for _, item := range result {
-		var tier jobs.JobTier
+		var tier JobTier
 		for _, variant := range item.Variants {
 			value, found := strings.CutPrefix(variant, "JobTier:")
 			if !found {
 				continue
 			}
-			candidate := jobs.JobTier(value)
+			candidate := JobTier(value)
 			if tier != "" && tier != candidate {
 				return nil, fmt.Errorf("job %q has conflicting JobTier variants %q and %q", item.Name, tier, candidate)
 			}
@@ -181,7 +179,7 @@ func (c *Client) FetchComponentReadinessMembership(ctx context.Context, release 
 		if tier == "" {
 			continue
 		}
-		memberships = append(memberships, jobs.ComponentReadinessMembership{
+		memberships = append(memberships, ComponentReadinessMembership{
 			Release:     release,
 			ProwJobName: item.Name,
 			Tier:        tier,
@@ -190,7 +188,7 @@ func (c *Client) FetchComponentReadinessMembership(ctx context.Context, release 
 	return memberships, nil
 }
 
-func (c *Client) FetchRecentFailures(ctx context.Context, release, period, previousPeriod string, perPage int) ([]SippyTestFailure, error) {
+func (c *Client) fetchRecentFailures(ctx context.Context, release, period, previousPeriod string, perPage int) ([]RecentFailure, error) {
 	params := url.Values{
 		"release":        {release},
 		"period":         {period},
@@ -204,7 +202,7 @@ func (c *Client) FetchRecentFailures(ctx context.Context, release, period, previ
 	}
 	defer resp.Body.Close()
 
-	var result SippyRecentFailuresResponse
+	var result recentFailuresResponse
 	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
 		return nil, fmt.Errorf("decoding recent failures: %w", err)
 	}

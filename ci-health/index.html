@@ -606,7 +606,6 @@ if (["version", "role"].includes(activeGroupBy)) activeGroupBy = "release";
 if (!["", "platform", "release", "platform-release"].includes(activeGroupBy)) activeGroupBy = "platform-release";
 let activePlatform = localStorage.getItem("sippy_platform") || "";
 let healthSnapshot = null;
-let collectionStatus = null;
 let healthLoadPending = false;
 let jobRegistry = null;
 let jobRegistryIndex = new Map();
@@ -1545,7 +1544,12 @@ async function loadDashboard(forceRefresh = false) {
     initializePlatformFilter(healthSnapshot.platforms || []);
     renderDashboard();
     const age = Date.now() - new Date(healthSnapshot.generated_at).getTime();
-    setStatus(`Updated ${formatAge(age)}`, "cache-fresh");
+    if (healthSnapshot.complete === false) {
+      const failed = (healthSnapshot.collection || []).filter(result => result.error).length;
+      setStatus(`Partial report · ${failed} failed request${failed === 1 ? "" : "s"}`, "cache-error");
+    } else {
+      setStatus(`Updated ${formatAge(age)}`, "cache-fresh");
+    }
   } catch (err) {
     console.error("Dashboard refresh failed:", err);
     if (!healthSnapshot && activeView !== "registry") {
@@ -1557,46 +1561,6 @@ async function loadDashboard(forceRefresh = false) {
   } finally {
     healthLoadPending = false;
     btn.classList.remove("spinning");
-  }
-}
-
-async function loadCollectionStatus() {
-  try {
-    const resp = await fetch("/api/health/status");
-    if (!resp.ok) throw new Error(`${resp.status} ${resp.statusText}`);
-    collectionStatus = await resp.json();
-    renderCollectionStatus();
-    if (collectionStatus.has_data && !healthSnapshot) loadDashboard();
-  } catch (err) {
-    console.error("Collection status refresh failed:", err);
-  }
-}
-
-function renderCollectionStatus() {
-  if (!collectionStatus) return;
-  const s = collectionStatus;
-  if (s.state === "collecting") {
-    const total = s.total || 0;
-    const completed = s.completed || 0;
-    const detail = s.last_completed
-      ? `Last completed: ${s.last_completed}${s.failed ? ` · ${s.failed} failed` : ""}`
-      : "Waiting for Sippy responses…";
-    setStatus(`Collecting ${completed}/${total}…`, s.failed ? "cache-error" : "cache-stale");
-    if (!healthSnapshot && activeView !== "registry") {
-      document.getElementById("dashboard").innerHTML = `<div class="loading">
-        Loading Sippy data… ${completed}/${total}
-        <progress value="${completed}" max="${total || 1}"></progress>
-        <div class="loading-detail">${esc(detail)}</div>
-      </div>`;
-    }
-    return;
-  }
-  if (s.state === "error") {
-    setStatus("Collection failed", "cache-error");
-    if (!healthSnapshot && activeView !== "registry") {
-      document.getElementById("dashboard").innerHTML =
-        `<div class="loading" style="color:var(--critical)">Sippy collection failed<div class="loading-detail">${esc(s.error || s.last_error || "Unknown error")}</div></div>`;
-    }
   }
 }
 
@@ -1647,7 +1611,6 @@ document.querySelectorAll("#group-toggle button").forEach(b => {
   b.classList.toggle("active", b.dataset.group === activeGroupBy);
 });
 loadDashboard();
-loadCollectionStatus();
 loadJobRegistry();
 setInterval(() => loadDashboard(), 15 * 60 * 1000);
 

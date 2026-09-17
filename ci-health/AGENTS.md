@@ -1,0 +1,1 @@
+Always use `make` to build, test, and format code.

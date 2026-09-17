@@ -22,7 +22,7 @@ spec:
         app: ci-health
     spec:
       initContainers:
-        - name: generate-job-registry
+        - name: generate-report-artifacts
           image: image-registry.openshift-image-registry.svc:5000/ci-health/ci-health:latest
           command:
             - /bin/sh
@@ -36,15 +36,30 @@ spec:
                 core-services/release-controller/_releases
               ci-health job-registry --release-dir=/tmp/openshift-release \
                 > /var/lib/ci-health/job-registry.json
+              ci-health report-plan \
+                --job-registry=/var/lib/ci-health/job-registry.json \
+                > /var/lib/ci-health/report-plan.json
+              ci-health sippy-observation \
+                --job-registry=/var/lib/ci-health/job-registry.json \
+                --report-plan=/var/lib/ci-health/report-plan.json \
+                > /var/lib/ci-health/sippy-observation.json
+              ci-health health-report \
+                --job-registry=/var/lib/ci-health/job-registry.json \
+                --report-plan=/var/lib/ci-health/report-plan.json \
+                --sippy-observation=/var/lib/ci-health/sippy-observation.json \
+                > /var/lib/ci-health/health-report.json
           volumeMounts:
-            - name: job-registry
+            - name: report-artifacts
               mountPath: /var/lib/ci-health
       containers:
         - name: ci-health
           image: image-registry.openshift-image-registry.svc:5000/ci-health/ci-health:latest
           args:
             - serve
-            - --job-registry=/etc/ci-health/job-registry/job-registry.json
+            - --job-registry=/etc/ci-health/artifacts/job-registry.json
+            - --report-plan=/etc/ci-health/artifacts/report-plan.json
+            - --health-report=/etc/ci-health/artifacts/health-report.json
+            - --sippy-observation=/etc/ci-health/artifacts/sippy-observation.json
           ports:
             - containerPort: 8080
           startupProbe:
@@ -64,9 +79,9 @@ spec:
               port: 8080
             periodSeconds: 10
           volumeMounts:
-            - name: job-registry
-              mountPath: /etc/ci-health/job-registry
+            - name: report-artifacts
+              mountPath: /etc/ci-health/artifacts
               readOnly: true
       volumes:
-        - name: job-registry
+        - name: report-artifacts
           emptyDir: {}

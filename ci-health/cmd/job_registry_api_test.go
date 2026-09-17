@@ -9,12 +9,13 @@ import (
 	"testing"
 
 	webassets "github.com/ironcladlou/hypershift-ci-health/ci-health/assets"
+	"github.com/ironcladlou/hypershift-ci-health/ci-health/healthreport"
 	"github.com/ironcladlou/hypershift-ci-health/ci-health/jobregistry"
-	"github.com/ironcladlou/hypershift-ci-health/ci-health/sippy"
+	"github.com/ironcladlou/hypershift-ci-health/ci-health/reportplan"
 )
 
 func TestEmbeddedFuseAsset(t *testing.T) {
-	handler := newHTTPHandler("", false, newApplicationState(&jobregistry.Registry{}, nil, sippy.CollectionStatus{}))
+	handler := newHTTPHandler("", false, newApplicationState(&jobregistry.Registry{}, nil, nil))
 	request := httptest.NewRequest(http.MethodGet, fuseAssetPath, nil)
 	response := httptest.NewRecorder()
 	handler.ServeHTTP(response, request)
@@ -33,12 +34,28 @@ func TestEmbeddedFuseAsset(t *testing.T) {
 	}
 }
 
+func TestServeArtifactDefaults(t *testing.T) {
+	command := newServeCommand("")
+	tests := map[string]string{
+		"job-registry":      "job-registry.json",
+		"report-plan":       "report-plan.json",
+		"sippy-observation": "sippy-observation.json",
+		"health-report":     "health-report.json",
+	}
+	for name, want := range tests {
+		flag := command.Flags().Lookup(name)
+		if flag == nil || flag.DefValue != want {
+			t.Errorf("--%s default = %v, want %q", name, flag, want)
+		}
+	}
+}
+
 func TestGoldenRegistrySingleJobAPI(t *testing.T) {
 	registry, err := jobregistry.LoadFile("../jobregistry/testdata/job-registry.json")
 	if err != nil {
 		t.Fatalf("load golden registry: %v", err)
 	}
-	handler := newHTTPHandler("", false, newApplicationState(registry, nil, sippy.CollectionStatus{}))
+	handler := newHTTPHandler("", false, newApplicationState(registry, nil, nil))
 	const id = "pull-ci-openshift-hypershift-release-4.22-e2e-v2-aws"
 	tests := []struct {
 		name        string
@@ -86,7 +103,7 @@ func TestJobRegistryDocumentationAPI(t *testing.T) {
 	if err != nil {
 		t.Fatalf("load golden registry: %v", err)
 	}
-	handler := newHTTPHandler("", false, newApplicationState(registry, nil, sippy.CollectionStatus{}))
+	handler := newHTTPHandler("", false, newApplicationState(registry, nil, nil))
 	tests := []struct {
 		name        string
 		path        string
@@ -95,7 +112,7 @@ func TestJobRegistryDocumentationAPI(t *testing.T) {
 	}{
 		{"registry", "/api/job-registry", "application/json", []string{`"api_version":"job-registry/v7"`, `"$schema":`}},
 		{"Scalar docs", "/api/docs", "text/html", []string{"@scalar/api-reference", "/api/openapi.json", `data-configuration="{&#34;agent&#34;:{&#34;disabled&#34;:true},&#34;showDeveloperTools&#34;:&#34;never&#34;}"`}},
-		{"OpenAPI JSON", "/api/openapi.json", "application/openapi+json", []string{`"openapi":"3.1.0"`, `"description":"The HyperShift job registry is the versioned, generated catalog`, `"description":"Browse the complete generated registry`, `"/api/job-registry"`, `"/api/job-registry/jobs/{id}"`}},
+		{"OpenAPI JSON", "/api/openapi.json", "application/openapi+json", []string{`"openapi":"3.1.0"`, `"description":"The HyperShift job registry is the versioned, generated inventory`, `"description":"Browse the complete generated registry`, `"/api/job-registry"`, `"/api/job-registry/jobs/{id}"`}},
 		{"OpenAPI YAML", "/api/openapi.yaml", "application/openapi+yaml", []string{"openapi: 3.1.0", "/api/job-registry:"}},
 		{"Registry schema", "/api/schemas/Registry.json", "application/json", []string{`"api_version"`, `"jobs"`}},
 		{"Job schema", "/api/schemas/Job.json", "application/json", []string{`"description":"Globally unique, stable identity of the Prow job"`, `"enum":["none","v1","v2"]`}},
@@ -124,10 +141,15 @@ func TestAPIResponseCaching(t *testing.T) {
 	if err != nil {
 		t.Fatalf("load golden registry: %v", err)
 	}
-	handler := newHTTPHandler("", false, newApplicationState(registry, &sippy.HealthSnapshot{}, sippy.CollectionStatus{}))
+	plan, err := reportplan.Build(registry, reportplan.DefaultSelectionPolicy("main", "5.1"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	handler := newHTTPHandler("", false, newApplicationState(registry, plan, &healthreport.Report{}))
 	const id = "pull-ci-openshift-hypershift-release-4.22-e2e-v2-aws"
 	paths := []string{
 		"/api/health",
+		"/api/report-plan",
 		"/api/job-registry",
 		"/api/job-registry/jobs/" + id,
 		"/api/openapi.json",
@@ -160,11 +182,6 @@ func TestAPIResponseCaching(t *testing.T) {
 			}
 		})
 	}
-	response := httptest.NewRecorder()
-	handler.ServeHTTP(response, httptest.NewRequest(http.MethodGet, "/api/health/status", nil))
-	if response.Header().Get("Cache-Control") != "" || response.Header().Get("ETag") != "" {
-		t.Error("mutable collection status response must not be cached")
-	}
 }
 
 func TestHealthProbes(t *testing.T) {
@@ -175,16 +192,16 @@ func TestHealthProbes(t *testing.T) {
 	tests := []struct {
 		name   string
 		path   string
-		health *sippy.HealthSnapshot
+		health *healthreport.Report
 		want   int
 	}{
 		{"live before data", "/livez", nil, http.StatusOK},
 		{"not ready before data", "/readyz", nil, http.StatusServiceUnavailable},
-		{"ready with data", "/readyz", &sippy.HealthSnapshot{}, http.StatusOK},
+		{"ready with data", "/readyz", &healthreport.Report{}, http.StatusOK},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			handler := newHTTPHandler("", false, newApplicationState(registry, test.health, sippy.CollectionStatus{}))
+			handler := newHTTPHandler("", false, newApplicationState(registry, nil, test.health))
 			response := httptest.NewRecorder()
 			handler.ServeHTTP(response, httptest.NewRequest(http.MethodGet, test.path, nil))
 			if response.Code != test.want {
