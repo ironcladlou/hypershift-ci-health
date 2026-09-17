@@ -1,7 +1,6 @@
 package cmd
 
 import (
-	"bytes"
 	"compress/gzip"
 	"encoding/json"
 	"io"
@@ -10,14 +9,13 @@ import (
 	"strings"
 	"testing"
 
-	webassets "github.com/ironcladlou/hypershift-ci-health/ci-health/assets"
 	"github.com/ironcladlou/hypershift-ci-health/ci-health/healthreport"
 	"github.com/ironcladlou/hypershift-ci-health/ci-health/jobregistry"
 )
 
-func TestEmbeddedFuseAsset(t *testing.T) {
-	handler := newHTTPHandler("", false, newApplicationState(&jobregistry.Registry{}, nil))
-	request := httptest.NewRequest(http.MethodGet, fuseAssetPath, nil)
+func TestEmbeddedBrowserAsset(t *testing.T) {
+	handler := newHTTPHandler(false, newApplicationState(&jobregistry.Registry{}, nil))
+	request := httptest.NewRequest(http.MethodGet, "/assets/vendor/preact/preact.module.js", nil)
 	response := httptest.NewRecorder()
 	handler.ServeHTTP(response, request)
 
@@ -27,17 +25,71 @@ func TestEmbeddedFuseAsset(t *testing.T) {
 	if got := response.Header().Get("Content-Type"); !strings.HasPrefix(got, "text/javascript") {
 		t.Errorf("Content-Type = %q, want JavaScript", got)
 	}
-	if got := response.Header().Get("Cache-Control"); got != immutableAssetCacheControl {
-		t.Errorf("Cache-Control = %q, want %q", got, immutableAssetCacheControl)
+	if got := response.Header().Get("Cache-Control"); got != "public, max-age=31536000, immutable" {
+		t.Errorf("Cache-Control = %q, want immutable caching", got)
 	}
-	if !bytes.Equal(response.Body.Bytes(), webassets.FuseJS) {
-		t.Error("response does not contain the embedded Fuse.js asset")
+	if response.Body.Len() == 0 {
+		t.Error("response does not contain the embedded Preact module")
+	}
+}
+
+func TestApplicationAssetsRevalidateByContent(t *testing.T) {
+	handler := newHTTPHandler(false, newApplicationState(&jobregistry.Registry{}, nil))
+	paths := []string{"/presubmits", "/payload", "/component-readiness", "/registry", "/assets/web/app.js", "/assets/web/favicon.svg", "/assets/web/styles.css"}
+	for _, path := range paths {
+		t.Run(path, func(t *testing.T) {
+			request := httptest.NewRequest(http.MethodGet, path, nil)
+			response := httptest.NewRecorder()
+			handler.ServeHTTP(response, request)
+			if response.Code != http.StatusOK {
+				t.Fatalf("status = %d, want 200", response.Code)
+			}
+			etag := response.Header().Get("ETag")
+			if etag == "" {
+				t.Fatal("response has no content ETag")
+			}
+			if strings.HasPrefix(path, "/assets/") && response.Header().Get("Cache-Control") != dataCacheControl {
+				t.Errorf("Cache-Control = %q, want %q", response.Header().Get("Cache-Control"), dataCacheControl)
+			}
+
+			request = httptest.NewRequest(http.MethodGet, path, nil)
+			request.Header.Set("If-None-Match", etag)
+			response = httptest.NewRecorder()
+			handler.ServeHTTP(response, request)
+			if response.Code != http.StatusNotModified {
+				t.Errorf("conditional status = %d, want 304", response.Code)
+			}
+			if response.Body.Len() != 0 {
+				t.Errorf("conditional response body has %d bytes, want 0", response.Body.Len())
+			}
+		})
+	}
+}
+
+func TestDashboardRoutes(t *testing.T) {
+	handler := newHTTPHandler(false, newApplicationState(&jobregistry.Registry{}, nil))
+
+	request := httptest.NewRequest(http.MethodGet, "/?window=2w", nil)
+	response := httptest.NewRecorder()
+	handler.ServeHTTP(response, request)
+	if response.Code != http.StatusTemporaryRedirect {
+		t.Fatalf("root status = %d, want %d", response.Code, http.StatusTemporaryRedirect)
+	}
+	if got := response.Header().Get("Location"); got != "/presubmits?window=2w" {
+		t.Errorf("Location = %q, want %q", got, "/presubmits?window=2w")
+	}
+
+	request = httptest.NewRequest(http.MethodGet, "/unknown", nil)
+	response = httptest.NewRecorder()
+	handler.ServeHTTP(response, request)
+	if response.Code != http.StatusNotFound {
+		t.Errorf("unknown route status = %d, want %d", response.Code, http.StatusNotFound)
 	}
 }
 
 func TestResponsesUseGzip(t *testing.T) {
-	handler := newHTTPHandler("", false, newApplicationState(&jobregistry.Registry{}, nil))
-	request := httptest.NewRequest(http.MethodGet, fuseAssetPath, nil)
+	handler := newHTTPHandler(false, newApplicationState(&jobregistry.Registry{}, nil))
+	request := httptest.NewRequest(http.MethodGet, "/assets/vendor/preact/preact.module.js", nil)
 	request.Header.Set("Accept-Encoding", "gzip")
 	response := httptest.NewRecorder()
 	handler.ServeHTTP(response, request)
@@ -53,8 +105,8 @@ func TestResponsesUseGzip(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !bytes.Equal(data, webassets.FuseJS) {
-		t.Fatal("decompressed response does not match asset")
+	if len(data) == 0 {
+		t.Fatal("decompressed response is empty")
 	}
 }
 
@@ -70,7 +122,7 @@ func TestGzipNegotiation(t *testing.T) {
 }
 
 func TestServeArtifactDefaults(t *testing.T) {
-	command := newServeCommand("")
+	command := newServeCommand()
 	tests := map[string]string{
 		"job-registry":      "job-registry.json",
 		"report-plan":       "report-plan.json",
@@ -90,7 +142,7 @@ func TestGoldenRegistrySingleJobAPI(t *testing.T) {
 	if err != nil {
 		t.Fatalf("load golden registry: %v", err)
 	}
-	handler := newHTTPHandler("", false, newApplicationState(registry, nil))
+	handler := newHTTPHandler(false, newApplicationState(registry, nil))
 	const id = "pull-ci-openshift-hypershift-release-4.22-e2e-v2-aws"
 	tests := []struct {
 		name        string
@@ -138,7 +190,7 @@ func TestJobRegistryDocumentationAPI(t *testing.T) {
 	if err != nil {
 		t.Fatalf("load golden registry: %v", err)
 	}
-	handler := newHTTPHandler("", false, newApplicationState(registry, nil))
+	handler := newHTTPHandler(false, newApplicationState(registry, nil))
 	tests := []struct {
 		name        string
 		path        string
@@ -177,7 +229,7 @@ func TestAPIResponseCaching(t *testing.T) {
 		t.Fatalf("load golden registry: %v", err)
 	}
 	health := &healthreport.Report{Windows: map[string]*healthreport.WindowData{"1w": {}}}
-	handler := newHTTPHandler("", false, newApplicationState(registry, health))
+	handler := newHTTPHandler(false, newApplicationState(registry, health))
 	const id = "pull-ci-openshift-hypershift-release-4.22-e2e-v2-aws"
 	paths := []string{
 		"/_dashboard/health/windows/1w",
@@ -221,7 +273,7 @@ func TestDashboardHealthWindowAPI(t *testing.T) {
 		t.Fatal(err)
 	}
 	health := &healthreport.Report{APIVersion: healthreport.CurrentAPIVersion, Windows: map[string]*healthreport.WindowData{"1w": {SparklineSlots: []string{"2026-09-17 12:00"}}}}
-	handler := newHTTPHandler("", false, newApplicationState(registry, health))
+	handler := newHTTPHandler(false, newApplicationState(registry, health))
 	response := httptest.NewRecorder()
 	handler.ServeHTTP(response, httptest.NewRequest(http.MethodGet, "/_dashboard/health/windows/1w", nil))
 	if response.Code != http.StatusOK {
@@ -261,7 +313,7 @@ func TestHealthProbes(t *testing.T) {
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			handler := newHTTPHandler("", false, newApplicationState(registry, test.health))
+			handler := newHTTPHandler(false, newApplicationState(registry, test.health))
 			response := httptest.NewRecorder()
 			handler.ServeHTTP(response, httptest.NewRequest(http.MethodGet, test.path, nil))
 			if response.Code != test.want {

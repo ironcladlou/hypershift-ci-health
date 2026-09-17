@@ -4,17 +4,38 @@ BIN := $(BIN_DIR)/$(APP)
 NAMESPACE := ci-health
 ROUTE_PREFIX := hypershift-ci-health
 
-.PHONY: build fmt test check generate-job-registry generate-report-plan generate-sippy-observation generate-health-report generate-artifacts update-golden image setup deploy
+.PHONY: build dev fmt test test-ui test-e2e install-e2e serve-e2e check generate-job-registry generate-report-plan generate-sippy-observation generate-health-report generate-artifacts update-golden image setup deploy
 
 build:
 	mkdir -p $(BIN_DIR)
 	go build -o $(BIN) .
 
+dev: build
+	./$(BIN) serve --dev
+
 fmt:
 	gofmt -w $$(rg --files --glob '*.go')
 
-test:
+test: test-ui
 	go test ./...
+
+test-ui:
+	@if command -v node >/dev/null 2>&1; then \
+		for file in $$(rg --files assets/web --glob '*.js'); do node --check "$$file" || exit 1; done; \
+	else \
+		echo "node not found; skipping browser module syntax checks"; \
+	fi
+
+install-e2e:
+	npm ci
+	./node_modules/.bin/playwright install chromium
+
+test-e2e: build
+	@test -f health-report.json || (echo "health-report.json is required; run make generate-artifacts first" >&2; exit 1)
+	./node_modules/.bin/playwright test
+
+serve-e2e: build
+	./$(BIN) serve --addr=127.0.0.1:18080
 
 check: test build
 	git diff --check

@@ -1,4 +1,7 @@
 /bin/
+/node_modules/
+/test-results/
+/playwright-report/
 deploy/route-patch.yaml
 deploy/.github-token
 job-registry.json

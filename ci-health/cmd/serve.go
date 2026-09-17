@@ -6,6 +6,7 @@ import (
 	"crypto/sha256"
 	"encoding/json"
 	"fmt"
+	"io/fs"
 	"net/http"
 	"net/url"
 	"os"
@@ -23,7 +24,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
-func newServeCommand(indexHTML string) *cobra.Command {
+func newServeCommand() *cobra.Command {
 	var (
 		addr             string
 		dev              bool
@@ -58,13 +59,17 @@ func newServeCommand(indexHTML string) *cobra.Command {
 				return err
 			}
 			state := newApplicationState(registry, health)
-			server := &http.Server{Addr: addr, Handler: newHTTPHandler(indexHTML, dev, state)}
+			server := &http.Server{Addr: addr, Handler: newHTTPHandler(dev, state)}
 			go func() {
 				<-command.Context().Done()
 				server.Close()
 			}()
 
-			fmt.Fprintf(os.Stderr, "http://localhost%s\n", addr)
+			displayAddress := addr
+			if strings.HasPrefix(displayAddress, ":") {
+				displayAddress = "localhost" + displayAddress
+			}
+			fmt.Fprintf(os.Stderr, "http://%s\n", displayAddress)
 			fmt.Fprintf(os.Stderr, "Job registry: %s (%d jobs)\n", jobRegistryPath, len(registry.Jobs))
 			fmt.Fprintf(os.Stderr, "Health report: %s (complete=%t)\n", health.GeneratedAt.Format("2006-01-02T15:04:05Z"), health.Complete)
 			if err := server.ListenAndServe(); err != http.ErrServerClosed {
@@ -137,30 +142,52 @@ func newApplicationState(registry *jobregistry.Registry, health *healthreport.Re
 	}
 }
 
-func newHTTPHandler(indexHTML string, dev bool, state *applicationState) http.Handler {
+func newHTTPHandler(dev bool, state *applicationState) http.Handler {
 	mux := http.NewServeMux()
-	mux.HandleFunc("GET "+fuseAssetPath, func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "text/javascript; charset=utf-8")
-		w.Header().Set("Cache-Control", immutableAssetCacheControl)
-		_, _ = w.Write(webassets.FuseJS)
-	})
+	var browserFiles fs.FS = webassets.Files
 	if dev {
-		fmt.Fprintln(os.Stderr, "Dev mode: serving index.html from filesystem")
-		mux.Handle("/", http.FileServer(http.Dir(".")))
-	} else {
-		mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-			if r.URL.Path != "/" {
-				http.NotFound(w, r)
+		fmt.Fprintln(os.Stderr, "Dev mode: serving browser assets from assets/")
+		browserFiles = os.DirFS("assets")
+	}
+	mux.Handle("GET /assets/", http.StripPrefix("/assets/", browserAssetHandler(browserFiles, dev)))
+	mux.HandleFunc("GET /", func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/" {
+			target := "/presubmits"
+			if r.URL.RawQuery != "" {
+				target += "?" + r.URL.RawQuery
+			}
+			http.Redirect(w, r, target, http.StatusTemporaryRedirect)
+			return
+		}
+		switch r.URL.Path {
+		case "/presubmits", "/payload", "/component-readiness", "/registry":
+		default:
+			http.NotFound(w, r)
+			return
+		}
+		data, err := fs.ReadFile(browserFiles, "web/index.html")
+		if err != nil {
+			http.Error(w, "dashboard unavailable", http.StatusInternalServerError)
+			return
+		}
+		w.Header().Set("Content-Type", "text/html; charset=utf-8")
+		if dev {
+			w.Header().Set("Cache-Control", "no-store")
+		} else {
+			etag := contentETagBytes(data)
+			w.Header().Set("Cache-Control", "no-cache")
+			w.Header().Set("ETag", etag)
+			if etagMatches(r.Header.Get("If-None-Match"), etag) {
+				w.WriteHeader(http.StatusNotModified)
 				return
 			}
-			w.Header().Set("Content-Type", "text/html; charset=utf-8")
-			_, _ = w.Write([]byte(indexHTML))
-		})
-	}
-	mux.HandleFunc("/livez", func(w http.ResponseWriter, r *http.Request) {
+		}
+		_, _ = w.Write(data)
+	})
+	mux.HandleFunc("GET /livez", func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
 	})
-	mux.HandleFunc("/readyz", func(w http.ResponseWriter, r *http.Request) {
+	mux.HandleFunc("GET /readyz", func(w http.ResponseWriter, r *http.Request) {
 		if state.health == nil {
 			http.Error(w, "health snapshot unavailable", http.StatusServiceUnavailable)
 			return
@@ -185,10 +212,23 @@ func newHTTPHandler(indexHTML string, dev bool, state *applicationState) http.Ha
 
 const dataCacheControl = "public, max-age=300, must-revalidate"
 
-const (
-	fuseAssetPath              = "/assets/fuse-7.5.0.min.mjs"
-	immutableAssetCacheControl = "public, max-age=31536000, immutable"
-)
+func browserAssetHandler(files fs.FS, dev bool) http.Handler {
+	server := http.FileServerFS(files)
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if dev {
+			w.Header().Set("Cache-Control", "no-store")
+		} else if strings.HasPrefix(strings.TrimPrefix(r.URL.Path, "/"), "vendor/") {
+			w.Header().Set("Cache-Control", "public, max-age=31536000, immutable")
+		} else {
+			w.Header().Set("Cache-Control", dataCacheControl)
+			path := strings.TrimPrefix(r.URL.Path, "/")
+			if data, err := fs.ReadFile(files, path); err == nil {
+				w.Header().Set("ETag", contentETagBytes(data))
+			}
+		}
+		server.ServeHTTP(w, r)
+	})
+}
 
 func withResponseCaching(next http.Handler, state *applicationState) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

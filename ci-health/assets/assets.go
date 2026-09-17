@@ -1,8 +1,8 @@
 package assets
 
-import _ "embed"
+import "embed"
 
-// FuseJS is the pinned Fuse.js browser module used by the registry search.
+// Files contains the browser application and its pinned third-party modules.
 //
-//go:embed vendor/fuse/fuse.min.mjs
-var FuseJS []byte
+//go:embed web vendor
+var Files embed.FS

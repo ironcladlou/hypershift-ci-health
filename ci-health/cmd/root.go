@@ -6,16 +6,16 @@ import (
 	"github.com/spf13/cobra"
 )
 
-func ExecuteContext(ctx context.Context, indexHTML string) error {
-	return NewRootCommand(indexHTML).ExecuteContext(ctx)
+func ExecuteContext(ctx context.Context) error {
+	return NewRootCommand().ExecuteContext(ctx)
 }
 
-func NewRootCommand(indexHTML string) *cobra.Command {
+func NewRootCommand() *cobra.Command {
 	root := &cobra.Command{
 		Use:   "ci-health",
 		Short: "HyperShift CI health dashboard",
 	}
-	root.AddCommand(newServeCommand(indexHTML))
+	root.AddCommand(newServeCommand())
 	root.AddCommand(newJobRegistryCommand())
 	root.AddCommand(newReportPlanCommand())
 	root.AddCommand(newSippyObservationCommand())
