@@ -40,6 +40,7 @@ function JobLinks({ job, release, presubmit = false }) {
   return html`<td class="job-links">
     ${sippy && html`<a class="job-link-icon" href=${sippy} target="_blank" rel="noopener" title="Sippy analysis" aria-label=${`Sippy analysis for ${job.prow}`}><${SippyIcon} /></a>`}
     ${job.prow_job_history_url && html`<a class="job-link-icon" href=${job.prow_job_history_url} target="_blank" rel="noopener" title="Prow job history" aria-label=${`Prow history for ${job.prow}`}><${ProwIcon} /></a>`}
+    ${(job.id || job.prow) && html`<a class="job-link-icon registry-link-icon" href=${`/registry?job=${encodeURIComponent(job.id || job.prow)}`} title="Registry details" aria-label=${`Registry details for ${job.prow}`}>i</a>`}
   </td>`;
 }
 
@@ -138,7 +139,7 @@ function AlertBanner({ alerts }) {
   </section>`;
 }
 
-export function HealthView({ snapshot, view, group, platforms, selectedReleases, window }) {
+export function HealthView({ snapshot, view, group, platforms, selectedReleases, window, focus, onClearFocus }) {
   const data = snapshot.data;
   const selected = new Set(selectedReleases);
   let jobs;
@@ -161,9 +162,19 @@ export function HealthView({ snapshot, view, group, platforms, selectedReleases,
     empty = "No presubmit jobs found for the selected filters.";
     row = job => html`<${PresubmitRow} key=${job.id} job=${job} slots=${data.sparkline_slots} window=${window} />`;
   }
-  jobs = jobs.filter(job => selected.has(jobRelease(job)) && (!platforms.length || platforms.some(platform => (job.platforms || []).includes(platform))));
+  const matchesFocus = job => !focus || job.id === focus || job.prow === focus || (job.periodics || []).some(periodic => periodic.id === focus || periodic.prow === focus);
+  jobs = jobs.filter(job => {
+    if (!matchesFocus(job)) return false;
+    if (focus) return true;
+    return selected.has(jobRelease(job)) && (!platforms.length || platforms.some(platform => (job.platforms || []).includes(platform)));
+  });
   const grouped = groupJobs(jobs, group, releasesInOrder(snapshot.releases));
   return html`<${Fragment}>
+    ${focus && html`<div class="job-focus-banner">
+      <span>Showing CI Health context for <code>${focus}</code></span>
+      <a href=${`/registry?job=${encodeURIComponent(focus)}`}>Registry details</a>
+      <button onClick=${onClearFocus}>Show all jobs</button>
+    </div>`}
     ${view === "presubmit" && html`<${AlertBanner} alerts=${data.alerts} />`}
     <table>
       <thead><tr><th>${title}</th><th>Pass Rate</th><th>${WINDOWS[window].label}</th><th class="job-links-header">Links</th></tr></thead>

@@ -49,7 +49,7 @@ function GroupFilter({ selected, onChange }) {
   </details>`;
 }
 
-export function Header({ state, platforms, status, refreshing, onWindow, onGroup, onPlatforms, onRefresh }) {
+export function Header({ state, platforms, status, onWindow, onGroup, onPlatforms }) {
   const registry = state.view === "registry";
   return html`<header class="header">
     <div>
@@ -57,6 +57,7 @@ export function Header({ state, platforms, status, refreshing, onWindow, onGroup
       <nav class="header-links" aria-label="Project links">
         <a href="https://github.com/ironcladlou/hypershift-ci-health" target="_blank" rel="noopener">Source code</a>
         <span aria-hidden="true">·</span><a href="/api/docs" target="_blank" rel="noopener">Job Registry API docs</a>
+        <span aria-hidden="true">·</span><span class=${status.className}>${status.text}</span>
       </nav>
     </div>
     <div class="header-meta">
@@ -65,8 +66,6 @@ export function Header({ state, platforms, status, refreshing, onWindow, onGroup
       ${!registry && html`<${Toggle} label="Health window" active=${state.window} onChange=${onWindow} values=${[
         { value: "1w", label: "1w" }, { value: "2w", label: "2w" }, { value: "1m", label: "1m" },
       ]} />`}
-      <span class=${status.className}>${status.text}</span>
-      <button class=${`refresh-btn ${refreshing ? "spinning" : ""}`} onClick=${onRefresh} aria-label="Refresh">↻</button>
     </div>
   </header>`;
 }

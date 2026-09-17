@@ -16,6 +16,7 @@ const PATHS = {
   registry: "/registry",
 };
 const VIEWS_BY_PATH = Object.fromEntries(Object.entries(PATHS).map(([view, path]) => [path, view]));
+const REGISTRY_FILTERS = ["type", "platform", "release", "framework", "repository", "configuration", "payload-role", "dashboard"];
 
 function stateFromURL() {
   const query = new URLSearchParams(location.search);
@@ -30,6 +31,12 @@ function stateFromURL() {
     releaseStart: query.get("release-newest") || "",
     releaseEnd: query.get("release-oldest") || "",
     search: query.get("q") || "",
+    selectedJob: query.get("job") || "",
+    focus: view === "registry" ? "" : query.get("job") || "",
+    registryFilters: Object.fromEntries(REGISTRY_FILTERS.map(key => [key, [...new Set(query.getAll(key).filter(Boolean))]])),
+    registrySort: query.get("sort") || "name",
+    registryOrder: query.get("order") === "desc" ? "desc" : "asc",
+    registryPage: Math.max(1, Number(query.get("page")) || 1),
   };
 }
 
@@ -37,6 +44,11 @@ function stateURL(state) {
   const query = new URLSearchParams();
   if (state.view === "registry") {
     if (state.search) query.set("q", state.search);
+    if (state.selectedJob) query.set("job", state.selectedJob);
+    for (const key of REGISTRY_FILTERS) for (const value of state.registryFilters[key] || []) query.append(key, value);
+    if (state.registrySort !== "name") query.set("sort", state.registrySort);
+    if (state.registryOrder !== "asc") query.set("order", state.registryOrder);
+    if (state.registryPage > 1) query.set("page", state.registryPage);
     return `${PATHS.registry}${query.size ? `?${query}` : ""}`;
   }
   if (state.window !== DEFAULT_WINDOW) query.set("window", state.window);
@@ -44,6 +56,7 @@ function stateURL(state) {
   for (const platform of state.platforms) query.append("platform", platform);
   if (state.releaseStart) query.set("release-newest", state.releaseStart);
   if (state.releaseEnd) query.set("release-oldest", state.releaseEnd);
+  if (state.focus) query.set("job", state.focus);
   return `${PATHS[state.view]}${query.size ? `?${query}` : ""}`;
 }
 
@@ -54,15 +67,14 @@ function App() {
   const [registryError, setRegistryError] = useState("");
   const [healthError, setHealthError] = useState("");
   const [displayedWindow, setDisplayedWindow] = useState(null);
-  const [loadingWindow, setLoadingWindow] = useState(null);
   const snapshotsRef = useRef({});
   const requestsRef = useRef(new Map());
   const requestedWindowRef = useRef(state.window);
   const snapshot = displayedWindow ? snapshots[displayedWindow] : null;
   const releases = useMemo(() => releasesInOrder(snapshot?.releases), [snapshot]);
 
-  const fetchHealthWindow = useCallback((window, force = false) => {
-    if (!force && snapshotsRef.current[window]) return Promise.resolve(snapshotsRef.current[window]);
+  const fetchHealthWindow = useCallback(window => {
+    if (snapshotsRef.current[window]) return Promise.resolve(snapshotsRef.current[window]);
     if (requestsRef.current.has(window)) return requestsRef.current.get(window);
     const request = fetch(`/_dashboard/health/windows/${encodeURIComponent(window)}`).then(async response => {
       if (!response.ok) throw new Error(response.status === 503 ? "Waiting for data…" : `${response.status} ${response.statusText}`);
@@ -75,16 +87,13 @@ function App() {
     return request;
   }, []);
 
-  const presentHealthWindow = useCallback(async (window, force = false) => {
-    setLoadingWindow(window);
+  const presentHealthWindow = useCallback(async window => {
     setHealthError("");
     try {
-      await fetchHealthWindow(window, force);
+      await fetchHealthWindow(window);
       if (requestedWindowRef.current === window) setDisplayedWindow(window);
     } catch (cause) {
       if (requestedWindowRef.current === window) setHealthError(cause.message);
-    } finally {
-      setLoadingWindow(current => current === window ? null : current);
     }
   }, [fetchHealthWindow]);
 
@@ -93,16 +102,11 @@ function App() {
     const cached = snapshotsRef.current[state.window];
     if (cached) {
       setHealthError("");
-      setLoadingWindow(null);
       setDisplayedWindow(state.window);
       return;
     }
     presentHealthWindow(state.window);
   }, [presentHealthWindow, state.window]);
-  useEffect(() => {
-    const timer = setInterval(() => presentHealthWindow(requestedWindowRef.current, true), 15 * 60 * 1000);
-    return () => clearInterval(timer);
-  }, [presentHealthWindow]);
   useEffect(() => {
     if (!displayedWindow) return;
     for (const window of Object.keys(WINDOWS)) {
@@ -110,12 +114,12 @@ function App() {
     }
   }, [displayedWindow, fetchHealthWindow]);
   useEffect(() => {
-    if (state.view !== "registry" || registry) return;
-    fetch("/api/job-registry").then(response => {
+    if (state.view !== "registry" || registry || registryError) return;
+    fetch("/api/job-registry", { headers: { Accept: "application/json" } }).then(response => {
       if (!response.ok) throw new Error(`${response.status} ${response.statusText}`);
       return response.json();
     }).then(setRegistry).catch(cause => setRegistryError(cause.message));
-  }, [registry, state.view]);
+  }, [registry, registryError, state.view]);
 
   useEffect(() => {
     if (!releases.length) return;
@@ -159,20 +163,21 @@ function App() {
       : snapshot
         ? { text: `Updated ${formatAge(snapshot.generated_at)}`, className: "cache-fresh" }
         : { text: "Loading…", className: "cache-stale" };
-
   return html`<div class="page">
-    <${Header} state=${state} platforms=${snapshot?.platforms || []} status=${status} refreshing=${loadingWindow !== null}
+    <${Header} state=${state} platforms=${snapshot?.platforms || []} status=${status}
       onWindow=${window => update({ window }, true)} onGroup=${group => update({ group })}
-      onPlatforms=${platforms => update({ platforms })} onRefresh=${() => presentHealthWindow(state.window, true)} />
-    <${Navigation} view=${state.view} onView=${view => update({ view }, true)} releases=${releases}
+      onPlatforms=${platforms => update({ platforms })} />
+    <${Navigation} view=${state.view} onView=${view => update({ view, focus: "", selectedJob: "" }, true)} releases=${releases}
       start=${state.releaseStart} end=${state.releaseEnd} onRange=${setRange} />
     ${state.view === "registry"
       ? registry
-        ? html`<${RegistryView} registry=${registry} query=${state.search} onQuery=${search => update({ search })} />`
+        ? html`<${RegistryView} registry=${registry} snapshot=${snapshot} query=${state.search} selectedJob=${state.selectedJob}
+            filters=${state.registryFilters} sort=${state.registrySort} order=${state.registryOrder} page=${state.registryPage}
+            onState=${values => update(values)} />`
         : html`<div class=${`loading ${registryError ? "error" : ""}`}>${registryError ? `Failed to load job registry: ${registryError}` : "Loading job registry…"}</div>`
       : snapshot
         ? html`<${HealthView} snapshot=${snapshot} view=${state.view} group=${state.group} platforms=${state.platforms}
-            selectedReleases=${selectedReleases} window=${displayedWindow} />`
+            selectedReleases=${selectedReleases} window=${displayedWindow} focus=${state.focus} onClearFocus=${() => update({ focus: "" })} />`
         : html`<div class=${`loading ${healthError ? "error" : ""}`}>${healthError || "Loading health window…"}</div>`}
   </div>`;
 }

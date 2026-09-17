@@ -74,7 +74,7 @@ test("keeps the current table visible while an uncached window loads", async ({ 
 
   await expect(requestedWindow).toHaveClass(/active/);
   await expect(page.getByRole("columnheader", { name: "Last 2w" })).toBeVisible();
-  await expect(page.locator(".refresh-btn")).toHaveClass(/spinning/);
+  await expect(page.locator(".refresh-btn")).toHaveCount(0);
 
   page.releaseWindowResponse();
   await expect(page.getByRole("columnheader", { name: "Last 1w" })).toBeVisible();
@@ -129,18 +129,38 @@ test("filters and groups without a page navigation", async ({ page }) => {
   await expect(page.locator(".release-range-ticks span").first()).toHaveText(releases[0]);
 });
 
-test("loads and searches the job registry", async ({ page }) => {
+test("browses, filters, and deep-links the job registry", async ({ page }) => {
   await page.getByRole("button", { name: "Job Registry" }).click();
-  const search = page.getByRole("searchbox", { name: "Fuzzy search job registry" });
+  const search = page.getByRole("searchbox", { name: "Search job registry" });
   await expect(search).toBeVisible();
-  await search.fill("karpenter");
-  await expect(page.locator("tr.registry-job").first()).toBeVisible();
+  await expect(page.getByText(/^Updated /)).toBeVisible();
+  await expect(page.locator(".refresh-btn")).toHaveCount(0);
+  await expect(page.locator("tr.registry-job")).toHaveCount(100);
+
+  await page.getByText("Type", { exact: true }).click();
+  await page.getByRole("checkbox", { name: /Presubmit/ }).check();
+  await expect.poll(() => new URL(page.url()).searchParams.getAll("type")).toEqual(["presubmit"]);
+  await expect(page.getByRole("button", { name: /Type: Presubmit/ })).toBeVisible();
+
+  await search.fill("pull-ci-openshift-hypershift-main-e2e-aks");
+  const job = page.getByRole("link", { name: "pull-ci-openshift-hypershift-main-e2e-aks", exact: true });
+  await expect(job).toBeVisible();
   await expect(page).toHaveURL(/\/registry(?:\?|$)/);
-  await expect.poll(() => new URL(page.url()).searchParams.get("q")).toBe("karpenter");
-  expect([...new URL(page.url()).searchParams.keys()]).toEqual(["q"]);
+  await expect.poll(() => new URL(page.url()).searchParams.get("q")).toBe("pull-ci-openshift-hypershift-main-e2e-aks");
+  await job.click();
+  await expect(page.getByRole("heading", { name: "Presubmit behavior" })).toBeVisible();
+  await expect(page.getByText("Sippy presubmit ingestion is enabled for the development branch.")).toBeVisible();
+  await expect.poll(() => new URL(page.url()).searchParams.get("job")).toBe("pull-ci-openshift-hypershift-main-e2e-aks");
 
   await page.reload();
-  await expect(page.getByRole("searchbox", { name: "Fuzzy search job registry" })).toHaveValue("karpenter");
-  await expect(page.locator("tr.registry-job").first()).toBeVisible();
+  await expect(page.getByRole("searchbox", { name: "Search job registry" })).toHaveValue("pull-ci-openshift-hypershift-main-e2e-aks");
+  await expect(page.getByRole("heading", { name: "Presubmit behavior" })).toBeVisible();
+
+  await page.getByRole("link", { name: "Presubmit Health", exact: true }).first().click();
+  await expect(page).toHaveURL(/\/presubmits\?.*job=pull-ci-openshift-hypershift-main-e2e-aks/);
+  await expect(page.getByText("Showing CI Health context for")).toBeVisible();
+  await expect(page.locator("tbody tr").filter({ hasText: "e2e-aks" }).first()).toBeVisible();
+  await page.getByRole("link", { name: "Registry details", exact: true }).first().click();
+  await expect(page.getByRole("heading", { name: "Presubmit behavior" })).toBeVisible();
   expect(await page.evaluate(() => localStorage.length)).toBe(0);
 });
