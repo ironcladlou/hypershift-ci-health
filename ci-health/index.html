@@ -495,16 +495,16 @@ tr:has(+ .periodic-row) td { border-bottom: none; }
   color: var(--text-primary);
 }
 .registry-detail { color: var(--text-muted); font-size: 11px; }
-.registry-yaml-row td {
+.registry-json-row td {
   border-top: 0;
 }
-.registry-yaml-row .registry-yaml-cell {
+.registry-json-row .registry-json-cell {
   padding: 0 12px 12px 12px;
 }
-.registry-yaml-row .registry-yaml-spacer {
+.registry-json-row .registry-json-spacer {
   padding: 0;
 }
-.registry-yaml-panel {
+.registry-json-panel {
   position: relative;
   width: 100%;
   max-width: 100%;
@@ -515,7 +515,7 @@ tr:has(+ .periodic-row) td { border-bottom: none; }
   border-radius: 4px;
   overflow: hidden;
 }
-.registry-yaml-panel pre {
+.registry-json-panel pre {
   max-height: 420px;
   margin: 0;
   padding: 12px 14px;
@@ -526,10 +526,6 @@ tr:has(+ .periodic-row) td { border-bottom: none; }
   overflow-wrap: anywhere;
   word-break: break-word;
 }
-.yaml-key { color: var(--series-1); font-weight: 600; }
-.yaml-string { color: var(--text-primary); }
-.yaml-scalar { color: var(--delta-good); }
-.yaml-null { color: var(--text-muted); font-style: italic; }
 </style>
 </head>
 <body>
@@ -538,7 +534,7 @@ tr:has(+ .periodic-row) td { border-bottom: none; }
   <div>
     <h1>HyperShift CI Health</h1>
     <nav class="header-links" aria-label="Project links">
-      <a href="https://github.com/ironcladlou/hypershift-ci-health" target="_blank" rel="noopener"><svg width="12" height="12" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.01 8.01 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>Source code</a>
+      <a href="https://github.com/ironcladlou/hypershift-ci-health" target="_blank" rel="noopener">Source code</a>
       <span aria-hidden="true">·</span>
       <a href="/api/docs">API reference</a>
     </nav>
@@ -615,6 +611,13 @@ let healthLoadPending = false;
 let jobRegistry = null;
 let jobRegistryIndex = new Map();
 let registryLoadPending = false;
+let registryFuse = null;
+let registrySearchJobs = [];
+let fuseClass = null;
+import("/assets/fuse.min.mjs").then(module => {
+  fuseClass = module.default;
+  initializeRegistrySearch();
+}).catch(err => console.error("Fuse.js load failed:", err));
 let releaseVersions = [];
 let releaseMinIndex = 0;
 let releaseMaxIndex = 0;
@@ -1114,10 +1117,24 @@ function buildComponentReadinessTable(jobs) {
 
 function buildRegistryTable(registry) {
   const jobs = [...(registry.jobs || [])].sort((a, b) => (a.name || "").localeCompare(b.name || ""));
+  registrySearchJobs = jobs.map(job => ({
+    id: job.id,
+    name: job.name || "",
+    type: job.type || "",
+    repository: job.repository || "",
+    context: job.context || "",
+    versions: (job.versions || []).join(" "),
+    platforms: (job.platforms || []).join(" "),
+    releases: (job.release_controller || []).flatMap(participation => [
+      participation.stream && participation.stream.name,
+      participation.stream && participation.stream.release,
+      participation.verification && participation.verification.role,
+    ]).filter(Boolean).join(" "),
+  }));
+  initializeRegistrySearch();
   let html = `<div class="registry-toolbar">
-    <input type="search" placeholder="Filter jobs…" aria-label="Filter job registry" oninput="filterRegistryJobs(this.value)">
+    <input type="search" placeholder="Search jobs (fuzzy)…" aria-label="Fuzzy search job registry" oninput="filterRegistryJobs(this.value)">
     <span id="registry-count">${jobs.length} jobs</span>
-    <a href="/api/job-registry" target="_blank" rel="noopener">Raw JSON API</a>
   </div>
   <table>
     <thead><tr>
@@ -1150,12 +1167,11 @@ function buildRegistryTable(registry) {
     const detailLinks = [
       sippyDetail,
       job.source && job.source.url ? `<a href="${esc(job.source.url)}" target="_blank" rel="noopener">source</a>` : "",
-      `<a href="${registryEntryURL}?format=yaml" data-job-id="${esc(job.id)}" aria-expanded="false" onclick="toggleRegistryYAML(this); return false">registry YAML</a>`,
+      `<a href="${registryEntryURL}" data-job-id="${esc(job.id)}" aria-expanded="false" onclick="toggleRegistryJSON(this); return false">API JSON</a>`,
+      `<a href="${registryEntryURL}" target="_blank" rel="noopener">raw API</a>`,
+      `<a href="/api/schemas/Job.json" target="_blank" rel="noopener">schema</a>`,
     ].filter(Boolean).join(" · ");
-    const search = [job.name, job.type, job.repository, context, versions, platforms]
-      .concat((job.release_controller || []).flatMap(p => [p.stream && p.stream.name, p.stream && p.stream.release, p.verification && p.verification.role]))
-      .filter(Boolean).join(" ").toLowerCase();
-    html += `<tr class="registry-job" data-search="${esc(search)}">
+    html += `<tr class="registry-job" data-job-id="${esc(job.id)}">
       <td class="job-name">${jobLink ? `<a href="${esc(jobLink)}" target="_blank" rel="noopener">${esc(job.name)}</a>` : esc(job.name)}<br><span class="registry-detail">${detailLinks}</span></td>
       <td><span class="job-type" style="margin-left:0">${esc(job.type)}</span></td>
       <td>${esc(job.repository || "—")}<br><span class="registry-detail">${esc(context)}</span></td>
@@ -1166,60 +1182,87 @@ function buildRegistryTable(registry) {
   return html + "</tbody></table>";
 }
 
+function initializeRegistrySearch() {
+  if (!fuseClass || registrySearchJobs.length === 0) return;
+  registryFuse = new fuseClass(registrySearchJobs, {
+    threshold: 0.4,
+    ignoreLocation: true,
+    useTokenSearch: true,
+    keys: [
+      {name: "name", weight: 0.35},
+      {name: "context", weight: 0.2},
+      {name: "repository", weight: 0.1},
+      {name: "type", weight: 0.05},
+      {name: "versions", weight: 0.1},
+      {name: "platforms", weight: 0.1},
+      {name: "releases", weight: 0.1},
+    ],
+  });
+  const input = document.querySelector(".registry-toolbar input");
+  if (input && input.value) filterRegistryJobs(input.value);
+}
+
 function filterRegistryJobs(value) {
   const query = value.trim().toLowerCase();
-  let visible = 0;
-  document.querySelectorAll(".registry-job").forEach(row => {
-    const match = !query || row.dataset.search.includes(query);
+  const rows = new Map([...document.querySelectorAll(".registry-job")].map(row => [row.dataset.jobId, row]));
+  let rankedIDs;
+  if (!query) {
+    rankedIDs = registrySearchJobs.map(job => job.id);
+  } else if (registryFuse) {
+    rankedIDs = registryFuse.search(query).map(result => result.item.id);
+    const exact = registrySearchJobs.find(job =>
+      job.name.toLowerCase() === query || job.id.toLowerCase() === query
+    );
+    if (exact) rankedIDs = [exact.id, ...rankedIDs.filter(id => id !== exact.id)];
+  } else {
+    rankedIDs = registrySearchJobs.filter(job =>
+      Object.values(job).some(value => String(value).toLowerCase().includes(query))
+    ).map(job => job.id);
+  }
+  const matchedIDs = new Set(rankedIDs);
+  const orderedIDs = query
+    ? rankedIDs.concat(registrySearchJobs.map(job => job.id).filter(id => !matchedIDs.has(id)))
+    : rankedIDs;
+  const body = document.querySelector(".registry-job")?.parentElement;
+  const reordered = document.createDocumentFragment();
+  orderedIDs.forEach(id => {
+    const row = rows.get(id);
+    if (!row) return;
+    const match = matchedIDs.has(id);
     row.style.display = match ? "" : "none";
     const detail = row.nextElementSibling;
-    if (detail && detail.classList.contains("registry-yaml-row")) {
+    if (detail && detail.classList.contains("registry-json-row")) {
       detail.hidden = !match || detail.dataset.expanded !== "true";
     }
-    if (match) visible++;
+    reordered.appendChild(row);
+    if (detail && detail.classList.contains("registry-json-row")) reordered.appendChild(detail);
   });
+  if (body) body.appendChild(reordered);
   const count = document.getElementById("registry-count");
-  if (count) count.textContent = `${visible} job${visible === 1 ? "" : "s"}`;
+  if (count) count.textContent = `${matchedIDs.size} job${matchedIDs.size === 1 ? "" : "s"}`;
 }
 
-function highlightRegistryYAML(yaml) {
-  return yaml.split("\n").map(line => {
-    const field = line.match(/^(\s*(?:-\s+)?)([A-Za-z0-9_-]+):(.*)$/);
-    if (field) {
-      const value = field[3];
-      const trimmed = value.trim();
-      let valueClass = "yaml-string";
-      if (trimmed === "null" || trimmed === "~") valueClass = "yaml-null";
-      else if (/^(true|false|-?\d+(?:\.\d+)?)$/.test(trimmed)) valueClass = "yaml-scalar";
-      return `${esc(field[1])}<span class="yaml-key">${esc(field[2])}</span>:${trimmed ? `<span class="${valueClass}">${esc(value)}</span>` : ""}`;
-    }
-    const item = line.match(/^(\s*-\s+)(.*)$/);
-    if (item) return `${esc(item[1])}<span class="yaml-string">${esc(item[2])}</span>`;
-    return esc(line);
-  }).join("\n");
-}
-
-async function toggleRegistryYAML(control) {
+async function toggleRegistryJSON(control) {
   const jobRow = control.closest("tr");
   let detail = jobRow.nextElementSibling;
-  if (detail && detail.classList.contains("registry-yaml-row")) {
+  if (detail && detail.classList.contains("registry-json-row")) {
     const expanding = detail.dataset.expanded !== "true";
     detail.dataset.expanded = expanding ? "true" : "false";
     detail.hidden = !expanding;
-    control.textContent = expanding ? "Hide Registry YAML" : "Registry YAML";
+    control.textContent = expanding ? "Hide API JSON" : "API JSON";
     control.setAttribute("aria-expanded", String(expanding));
     return;
   }
 
-  jobRow.insertAdjacentHTML("afterend", `<tr class="registry-yaml-row" data-expanded="true"><td class="registry-yaml-cell"><div class="registry-yaml-panel"><pre>Loading registry entry…</pre></div></td><td class="registry-yaml-spacer" colspan="4"></td></tr>`);
+  jobRow.insertAdjacentHTML("afterend", `<tr class="registry-json-row" data-expanded="true"><td class="registry-json-cell"><div class="registry-json-panel"><pre>Loading registry entry…</pre></div></td><td class="registry-json-spacer" colspan="4"></td></tr>`);
   detail = jobRow.nextElementSibling;
-  control.textContent = "Hide Registry YAML";
+  control.textContent = "Hide API JSON";
   control.setAttribute("aria-expanded", "true");
   const pre = detail.querySelector("pre");
   try {
-    const resp = await fetch(control.href, {headers: {Accept: "application/yaml"}});
+    const resp = await fetch(control.href, {headers: {Accept: "application/json"}});
     if (!resp.ok) throw new Error(`${resp.status} ${resp.statusText}`);
-    pre.innerHTML = `<code>${highlightRegistryYAML(await resp.text())}</code>`;
+    pre.innerHTML = `<code>${esc(JSON.stringify(await resp.json(), null, 2))}</code>`;
   } catch (err) {
     pre.textContent = `Failed to load registry entry: ${err.message}`;
   }
@@ -1607,7 +1650,6 @@ loadDashboard();
 loadCollectionStatus();
 loadJobRegistry();
 setInterval(() => loadDashboard(), 15 * 60 * 1000);
-setInterval(() => loadCollectionStatus(), 1000);
 
 const sparkTip = document.getElementById("spark-tip");
 document.addEventListener("mouseover", e => {

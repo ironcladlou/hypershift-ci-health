@@ -1,15 +1,34 @@
 package cmd
 
 import (
+	"bytes"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"strings"
 	"testing"
 
+	webassets "github.com/ironcladlou/hypershift-ci-health/ci-health/assets"
 	"github.com/ironcladlou/hypershift-ci-health/ci-health/jobregistry"
 	"github.com/ironcladlou/hypershift-ci-health/ci-health/sippy"
 )
+
+func TestEmbeddedFuseAsset(t *testing.T) {
+	handler := newHTTPHandler("", false, newApplicationState(&jobregistry.Registry{}, nil, sippy.CollectionStatus{}))
+	request := httptest.NewRequest(http.MethodGet, "/assets/fuse.min.mjs", nil)
+	response := httptest.NewRecorder()
+	handler.ServeHTTP(response, request)
+
+	if response.Code != http.StatusOK {
+		t.Fatalf("status = %d, want %d", response.Code, http.StatusOK)
+	}
+	if got := response.Header().Get("Content-Type"); !strings.HasPrefix(got, "text/javascript") {
+		t.Errorf("Content-Type = %q, want JavaScript", got)
+	}
+	if !bytes.Equal(response.Body.Bytes(), webassets.FuseJS) {
+		t.Error("response does not contain the embedded Fuse.js asset")
+	}
+}
 
 func TestGoldenRegistrySingleJobAPI(t *testing.T) {
 	registry, err := jobregistry.LoadFile("../jobregistry/testdata/job-registry.json")

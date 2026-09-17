@@ -9,6 +9,7 @@ import (
 
 	"github.com/danielgtaylor/huma/v2"
 	"github.com/danielgtaylor/huma/v2/adapters/humago"
+	webassets "github.com/ironcladlou/hypershift-ci-health/ci-health/assets"
 	"github.com/ironcladlou/hypershift-ci-health/ci-health/jobregistry"
 	"github.com/ironcladlou/hypershift-ci-health/ci-health/jobs"
 	"github.com/ironcladlou/hypershift-ci-health/ci-health/sippy"
@@ -88,6 +89,10 @@ func newApplicationState(registry *jobregistry.Registry, health *sippy.HealthSna
 
 func newHTTPHandler(indexHTML string, dev bool, state *applicationState) http.Handler {
 	mux := http.NewServeMux()
+	mux.HandleFunc("GET /assets/fuse.min.mjs", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "text/javascript; charset=utf-8")
+		_, _ = w.Write(webassets.FuseJS)
+	})
 	if dev {
 		fmt.Fprintln(os.Stderr, "Dev mode: serving index.html from filesystem")
 		mux.Handle("/", http.FileServer(http.Dir(".")))
