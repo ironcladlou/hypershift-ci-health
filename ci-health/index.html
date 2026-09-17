@@ -398,6 +398,12 @@ tr:has(+ .periodic-row) td { border-bottom: none; }
   pointer-events: none;
   background: transparent;
 }
+.release-range-control.release-range-collapsed #release-min {
+  top: -5px;
+}
+.release-range-control.release-range-collapsed #release-max {
+  top: 5px;
+}
 .release-range-control input[type="range"]::-webkit-slider-runnable-track {
   height: 4px;
   background: transparent;
@@ -706,10 +712,12 @@ function updateReleaseRangeUI() {
   if (releaseVersions.length === 0) return;
   const minInput = document.getElementById("release-min");
   const maxInput = document.getElementById("release-max");
+  const collapsed = releaseMinIndex === releaseMaxIndex;
   minInput.value = releaseMinIndex;
   maxInput.value = releaseMaxIndex;
-  minInput.style.zIndex = releaseMinIndex === releaseMaxIndex ? "3" : "2";
+  minInput.style.zIndex = collapsed ? "3" : "2";
   maxInput.style.zIndex = "2";
+  document.querySelector(".release-range-control").classList.toggle("release-range-collapsed", collapsed);
 
   const denominator = Math.max(1, releaseVersions.length - 1);
   const left = 100 * releaseMinIndex / denominator;
