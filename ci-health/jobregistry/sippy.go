@@ -5,9 +5,9 @@ import "fmt"
 // populateSippyIngestion decorates presubmits with the registry's intended
 // Sippy availability. It does not probe Sippy or claim that an enabled job has
 // produced data.
-func populateSippyIngestion(registry *Registry) {
-	allowedReleases := make(map[string]struct{}, len(registry.PresubmitPolicy.SippyReleaseBranchAllowlist))
-	for _, release := range registry.PresubmitPolicy.SippyReleaseBranchAllowlist {
+func populateSippyIngestion(registry *Registry, policy presubmitPolicy) {
+	allowedReleases := make(map[string]struct{}, len(policy.sippyReleaseBranchAllowlist))
+	for _, release := range policy.sippyReleaseBranchAllowlist {
 		allowedReleases[release] = struct{}{}
 	}
 	for i := range registry.Jobs {
@@ -16,7 +16,7 @@ func populateSippyIngestion(registry *Registry) {
 			continue
 		}
 		switch {
-		case job.Presubmit.TargetBranch == registry.PresubmitPolicy.DevelopmentBranch:
+		case job.Presubmit.TargetBranch == policy.developmentBranch:
 			job.Presubmit.SippyIngestion = SippyIngestion{
 				Enabled: true,
 				Basis:   "Sippy presubmit ingestion is enabled for the development branch.",

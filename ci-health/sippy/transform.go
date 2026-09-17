@@ -284,7 +284,7 @@ func transformWindow(raw *rawData, windowKey string, now time.Time, catalog *job
 		for _, participation := range cfg.Participations {
 			participations = append(participations, ReleasePayloadParticipation{
 				StreamName:       participation.Stream.Name,
-				StreamKind:       participation.Stream.Kind,
+				StreamKind:       string(participation.Stream.Kind),
 				Architecture:     participation.Stream.Architecture,
 				VerificationName: participation.Verification.Name,
 				StreamSippyURL:   participation.Stream.SippyURL,

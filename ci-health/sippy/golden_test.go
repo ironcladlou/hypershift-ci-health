@@ -14,7 +14,7 @@ func TestGoldenRegistryPresubmitHealthQueries(t *testing.T) {
 	if err != nil {
 		t.Fatalf("load golden registry: %v", err)
 	}
-	catalog, err := jobs.NewCatalog(registry)
+	catalog, err := jobs.NewCatalog(registry, jobs.CatalogOptions{DevelopmentBranch: "main", DevelopmentRelease: "5.1"})
 	if err != nil {
 		t.Fatalf("build catalog: %v", err)
 	}

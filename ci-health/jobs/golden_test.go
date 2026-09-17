@@ -14,11 +14,21 @@ func goldenCatalog(t *testing.T) *Catalog {
 	if err != nil {
 		t.Fatalf("load golden registry: %v", err)
 	}
-	catalog, err := NewCatalog(registry)
+	catalog, err := NewCatalog(registry, CatalogOptions{DevelopmentBranch: "main", DevelopmentRelease: "5.1"})
 	if err != nil {
 		t.Fatalf("build catalog: %v", err)
 	}
 	return catalog
+}
+
+func TestCatalogRequiresDevelopmentOptions(t *testing.T) {
+	registry, err := jobregistry.LoadFile("../jobregistry/testdata/job-registry.json")
+	if err != nil {
+		t.Fatalf("load golden registry: %v", err)
+	}
+	if _, err := NewCatalog(registry, CatalogOptions{}); err == nil || err.Error() != "development branch and release are required" {
+		t.Fatalf("NewCatalog() error = %v, want required development options", err)
+	}
 }
 
 func TestGoldenRegistryCatalogQueries(t *testing.T) {

@@ -54,5 +54,7 @@ make deploy
 - `GET /api/health` — job health snapshot for the 1-week, 2-week, and 1-month windows
 - `GET /api/health/status` — current Sippy collection progress and errors
 - `GET /api/job-registry` — complete generated job registry
-- `GET /api/job-registry/jobs/{id}` — one job registry entry; add
-  `?format=yaml` for block-formatted YAML
+- `GET /api/job-registry/jobs/{id}` — one job registry entry
+- `GET /api/docs` — interactive Scalar API reference
+- `GET /api/openapi.json` or `/api/openapi.yaml` — machine-readable OpenAPI description
+- `GET /api/schemas/{schema}.json` — generated JSON Schema for an API resource

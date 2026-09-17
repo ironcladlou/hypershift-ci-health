@@ -1,23 +1,27 @@
 package cmd
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"net/http"
 	"os"
 
+	"github.com/danielgtaylor/huma/v2"
+	"github.com/danielgtaylor/huma/v2/adapters/humago"
 	"github.com/ironcladlou/hypershift-ci-health/ci-health/jobregistry"
 	"github.com/ironcladlou/hypershift-ci-health/ci-health/jobs"
 	"github.com/ironcladlou/hypershift-ci-health/ci-health/sippy"
 	"github.com/spf13/cobra"
-	"go.yaml.in/yaml/v3"
 )
 
 func newServeCommand(indexHTML string) *cobra.Command {
 	var (
-		addr            string
-		dev             bool
-		jobRegistryPath string
+		addr               string
+		dev                bool
+		jobRegistryPath    string
+		developmentBranch  string
+		developmentRelease string
 	)
 
 	command := &cobra.Command{
@@ -28,7 +32,10 @@ func newServeCommand(indexHTML string) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			catalog, err := jobs.NewCatalog(registry)
+			catalog, err := jobs.NewCatalog(registry, jobs.CatalogOptions{
+				DevelopmentBranch:  developmentBranch,
+				DevelopmentRelease: developmentRelease,
+			})
 			if err != nil {
 				return fmt.Errorf("validate dashboard job configuration: %w", err)
 			}
@@ -57,6 +64,8 @@ func newServeCommand(indexHTML string) *cobra.Command {
 	command.Flags().StringVar(&addr, "addr", ":8080", "Listen address")
 	command.Flags().BoolVar(&dev, "dev", false, "Serve index.html from filesystem instead of embedded copy")
 	command.Flags().StringVar(&jobRegistryPath, "job-registry", "", "Path to a generated job registry JSON file")
+	command.Flags().StringVar(&developmentBranch, "development-branch", "main", "Development branch represented by the dashboard")
+	command.Flags().StringVar(&developmentRelease, "development-release", "5.1", "Development release represented by the dashboard")
 	command.MarkFlagRequired("job-registry")
 	return command
 }
@@ -112,58 +121,67 @@ func newHTTPHandler(indexHTML string, dev bool, state *applicationState) http.Ha
 	mux.HandleFunc("/api/health/status", func(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, state.status)
 	})
-	mux.HandleFunc("/api/job-registry", func(w http.ResponseWriter, r *http.Request) {
-		writeJSON(w, state.registry)
-	})
-	mux.HandleFunc("GET /api/job-registry/jobs/{id}", func(w http.ResponseWriter, r *http.Request) {
-		job := state.registryIndex[r.PathValue("id")]
-		if job == nil {
-			http.NotFound(w, r)
-			return
-		}
-		switch r.URL.Query().Get("format") {
-		case "", "json":
-			writeJSON(w, job)
-		case "yaml":
-			writeYAML(w, job)
-		default:
-			http.Error(w, "unsupported registry entry format", http.StatusBadRequest)
-		}
-	})
+	registerJobRegistryAPI(mux, state)
 	return mux
+}
+
+type getJobRegistryOutput struct {
+	Body jobregistry.Registry
+}
+
+type getJobInput struct {
+	ID string `path:"id" doc:"Globally unique, stable Prow job identifier"`
+}
+
+type getJobOutput struct {
+	Body jobregistry.Job
+}
+
+func registerJobRegistryAPI(mux *http.ServeMux, state *applicationState) {
+	config := huma.DefaultConfig("HyperShift Job Registry API", jobregistry.CurrentAPIVersion)
+	config.OpenAPIPath = "/api/openapi"
+	config.SchemasPath = "/api/schemas"
+	config.DocsPath = "/api/docs"
+	config.DocsRenderer = huma.DocsRendererScalar
+	config.DocsRendererConfig = map[string]any{
+		"agent": map[string]any{
+			"disabled": true,
+		},
+		"showDeveloperTools": "never",
+	}
+	config.RejectUnknownQueryParameters = true
+	api := humago.New(mux, config)
+
+	huma.Register(api, huma.Operation{
+		OperationID: "get-job-registry",
+		Method:      http.MethodGet,
+		Path:        "/api/job-registry",
+		Summary:     "Get the complete job registry",
+		Description: "Returns the generated registry contract and every discovered HyperShift Prow job.",
+		Tags:        []string{"Job registry"},
+	}, func(_ context.Context, _ *struct{}) (*getJobRegistryOutput, error) {
+		return &getJobRegistryOutput{Body: *state.registry}, nil
+	})
+
+	huma.Register(api, huma.Operation{
+		OperationID: "get-job",
+		Method:      http.MethodGet,
+		Path:        "/api/job-registry/jobs/{id}",
+		Summary:     "Get one registry job",
+		Description: "Returns the registry entry identified by its stable Prow job ID.",
+		Tags:        []string{"Job registry"},
+		Errors:      []int{http.StatusNotFound},
+	}, func(_ context.Context, input *getJobInput) (*getJobOutput, error) {
+		job := state.registryIndex[input.ID]
+		if job == nil {
+			return nil, huma.Error404NotFound("job not found")
+		}
+		return &getJobOutput{Body: *job}, nil
+	})
 }
 
 func writeJSON(w http.ResponseWriter, value any) {
 	w.Header().Set("Content-Type", "application/json")
 	w.Header().Set("Access-Control-Allow-Origin", "*")
 	_ = json.NewEncoder(w).Encode(value)
-}
-
-func writeYAML(w http.ResponseWriter, value any) {
-	jsonData, err := json.Marshal(value)
-	if err != nil {
-		http.Error(w, "encode registry entry", http.StatusInternalServerError)
-		return
-	}
-	var document yaml.Node
-	if err := yaml.Unmarshal(jsonData, &document); err != nil {
-		http.Error(w, "encode registry entry", http.StatusInternalServerError)
-		return
-	}
-	clearYAMLStyle(&document)
-	w.Header().Set("Content-Type", "application/yaml; charset=utf-8")
-	w.Header().Set("Access-Control-Allow-Origin", "*")
-	encoder := yaml.NewEncoder(w)
-	encoder.SetIndent(2)
-	defer encoder.Close()
-	if len(document.Content) > 0 {
-		_ = encoder.Encode(document.Content[0])
-	}
-}
-
-func clearYAMLStyle(node *yaml.Node) {
-	node.Style = 0
-	for _, child := range node.Content {
-		clearYAMLStyle(child)
-	}
 }

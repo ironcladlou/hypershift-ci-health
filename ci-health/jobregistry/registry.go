@@ -18,7 +18,8 @@ import (
 )
 
 const (
-	currentAPIVersion           = "job-registry/v6"
+	// CurrentAPIVersion identifies the schema emitted by the registry generator.
+	CurrentAPIVersion           = "job-registry/v7"
 	releaseRepository           = "openshift/release"
 	releaseMainURL              = "https://github.com/openshift/release/blob/main/"
 	defaultSippyURL             = "https://sippy.dptools.openshift.org"
@@ -104,6 +105,9 @@ type Options struct {
 
 // Discover builds a registry from an openshift/release checkout.
 func Discover(releaseDir string, options Options) (Registry, error) {
+	if err := defaultPresubmitPolicy.validate(); err != nil {
+		return Registry{}, fmt.Errorf("validate presubmit generator policy: %w", err)
+	}
 	if options.SippyBaseURL == "" {
 		options.SippyBaseURL = defaultSippyURL
 	}
@@ -126,10 +130,10 @@ func Discover(releaseDir string, options Options) (Registry, error) {
 	if err := populateReleaseController(&registry, releaseDir, options.SippyStreamBaseURL, options.ReleaseStatusBaseURL); err != nil {
 		return Registry{}, fmt.Errorf("discover release-controller participation: %w", err)
 	}
-	if err := populatePeriodicCounterparts(&registry); err != nil {
+	if err := populatePeriodicCounterparts(&registry, defaultPresubmitPolicy); err != nil {
 		return Registry{}, fmt.Errorf("discover periodic counterparts: %w", err)
 	}
-	populateSippyIngestion(&registry)
+	populateSippyIngestion(&registry, defaultPresubmitPolicy)
 	if err := registry.Validate(); err != nil {
 		return Registry{}, fmt.Errorf("validate decorated registry: %w", err)
 	}
@@ -231,7 +235,7 @@ func releaseControllerParticipation(config releaseControllerConfig, verification
 		Stream: ReleaseControllerStream{
 			Name:             config.Name,
 			Release:          release,
-			Kind:             kind,
+			Kind:             ReleaseControllerStreamKind(kind),
 			Architecture:     architecture,
 			EndOfLife:        config.EndOfLife,
 			SippyURL:         sippyURL,
@@ -276,16 +280,16 @@ func parseReleaseStream(name string) (release, kind, architecture string, ok boo
 	return match[1], match[2], architecture, true
 }
 
-func releaseControllerRole(verification releaseControllerVerification) string {
+func releaseControllerRole(verification releaseControllerVerification) ReleaseControllerRole {
 	switch {
 	case verification.Disabled:
-		return "disabled"
+		return ReleaseControllerRoleDisabled
 	case verification.Async:
-		return "async"
+		return ReleaseControllerRoleAsync
 	case verification.Optional:
-		return "informing"
+		return ReleaseControllerRoleInforming
 	default:
-		return "blocking"
+		return ReleaseControllerRoleBlocking
 	}
 }
 
@@ -293,7 +297,7 @@ func populateProwJobHistoryURLs(registry *Registry, baseURL string) {
 	baseURL = strings.TrimRight(baseURL, "/") + "/job-history/gs/test-platform-results/"
 	for i := range registry.Jobs {
 		job := &registry.Jobs[i]
-		if job.Type == "presubmit" {
+		if job.Type == JobTypePresubmit {
 			job.ProwJobHistoryURL = baseURL + "pr-logs/directory/" + url.PathEscape(job.Name)
 			continue
 		}
@@ -304,7 +308,7 @@ func populateProwJobHistoryURLs(registry *Registry, baseURL string) {
 func populateSippyURLs(registry *Registry, baseURL string) {
 	for i := range registry.Jobs {
 		job := &registry.Jobs[i]
-		if job.Type == "presubmit" {
+		if job.Type == JobTypePresubmit {
 			link := sippyJobURL(baseURL, sippyPresubmits, job.Name, true)
 			job.SippyURL = &link
 			continue
@@ -338,15 +342,8 @@ func discover(releaseDir string) (Registry, error) {
 	}
 
 	registry := Registry{
-		APIVersion: currentAPIVersion,
-		PresubmitPolicy: PresubmitPolicy{
-			DevelopmentBranch:           developmentBranch,
-			DevelopmentRelease:          developmentRelease,
-			SippyReleaseBranchAllowlist: []string{},
-			Provisional:                 true,
-			Description:                 "Maps pull requests targeting main to the configured development release until Prow publishes a release identity for the branch.",
-		},
-		Jobs: []Job{},
+		APIVersion: CurrentAPIVersion,
+		Jobs:       []Job{},
 	}
 	seen := map[string]Source{}
 	err := filepath.WalkDir(root, func(path string, entry fs.DirEntry, walkErr error) error {
@@ -381,7 +378,7 @@ func discover(releaseDir string) (Registry, error) {
 		source := Source{Repository: releaseRepository, Path: rel, URL: releaseMainURL + rel}
 		for _, candidate := range config.Periodics {
 			if isHypershiftConfig || isHypershiftConformance(candidate) {
-				if err := addJob(&registry, seen, candidate, "periodic", repositoryFromJob(candidate), source); err != nil {
+				if err := addJob(&registry, seen, candidate, JobTypePeriodic, repositoryFromJob(candidate), source); err != nil {
 					return err
 				}
 			}
@@ -389,7 +386,7 @@ func discover(releaseDir string) (Registry, error) {
 		for repository, candidates := range config.Presubmits {
 			for _, candidate := range candidates {
 				if isHypershiftConfig || isHypershiftConformance(candidate) {
-					if err := addJob(&registry, seen, candidate, "presubmit", repository, source); err != nil {
+					if err := addJob(&registry, seen, candidate, JobTypePresubmit, repository, source); err != nil {
 						return err
 					}
 				}
@@ -423,7 +420,7 @@ func isHypershiftConformance(job prowJob) bool {
 	return false
 }
 
-func addJob(registry *Registry, seen map[string]Source, candidate prowJob, jobType, repository string, source Source) error {
+func addJob(registry *Registry, seen map[string]Source, candidate prowJob, jobType JobType, repository string, source Source) error {
 	if candidate.Name == "" {
 		return errors.New("encountered a job without a name in " + source.Path)
 	}
@@ -445,7 +442,7 @@ func addJob(registry *Registry, seen map[string]Source, candidate prowJob, jobTy
 		ReleaseController: []ReleaseControllerParticipation{},
 		SippyURL:          nil, // Populated after all jobs are discovered.
 	}
-	if jobType == "presubmit" {
+	if jobType == JobTypePresubmit {
 		job.Presubmit = &Presubmit{
 			Required:             !candidate.Optional,
 			AlwaysRun:            candidate.AlwaysRun,
@@ -522,15 +519,15 @@ func platforms(job prowJob) []string {
 	return sortedKeys(values)
 }
 
-func framework(job prowJob) string {
+func framework(job prowJob) E2EFramework {
 	text := strings.ToLower(job.Name + " " + job.Context)
 	if strings.Contains(text, "e2e-v2") {
-		return "v2"
+		return E2EFrameworkV2
 	}
 	if strings.Contains(text, "e2e") || strings.Contains(text, "conformance") {
-		return "v1"
+		return E2EFrameworkV1
 	}
-	return "none"
+	return E2EFrameworkNone
 }
 
 func sortedKeys(values map[string]struct{}) []string {

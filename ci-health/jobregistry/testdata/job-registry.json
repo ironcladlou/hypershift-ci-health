@@ -1,12 +1,5 @@
 {
-  "api_version": "job-registry/v6",
-  "presubmit_policy": {
-    "development_branch": "main",
-    "development_release": "5.1",
-    "sippy_release_branch_allowlist": [],
-    "provisional": true,
-    "description": "Maps pull requests targeting main to the configured development release until Prow publishes a release identity for the branch."
-  },
+  "api_version": "job-registry/v7",
   "jobs": [
     {
       "id": "periodic-ci-openshift-hypershift-main-azure-deprovision-azure-deprovision",

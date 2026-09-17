@@ -66,9 +66,18 @@ type Catalog struct {
 	registryIndex       map[string]*jobregistry.Job
 }
 
-func NewCatalog(registry *jobregistry.Registry) (*Catalog, error) {
+// CatalogOptions controls dashboard-specific interpretation of registry data.
+type CatalogOptions struct {
+	DevelopmentBranch  string
+	DevelopmentRelease string
+}
+
+func NewCatalog(registry *jobregistry.Registry, options CatalogOptions) (*Catalog, error) {
 	if err := registry.Validate(); err != nil {
 		return nil, fmt.Errorf("validate job registry: %w", err)
+	}
+	if options.DevelopmentBranch == "" || options.DevelopmentRelease == "" {
+		return nil, fmt.Errorf("development branch and release are required")
 	}
 	index := registry.Index()
 	catalog := &Catalog{
@@ -78,16 +87,16 @@ func NewCatalog(registry *jobregistry.Registry) (*Catalog, error) {
 
 	for i := range registry.Jobs {
 		presubmit := &registry.Jobs[i]
-		if presubmit.Type != "presubmit" || presubmit.Presubmit == nil || !presubmit.Presubmit.Required || presubmit.E2EFramework == "none" || presubmit.Presubmit.TargetRelease == "" {
+		if presubmit.Type != jobregistry.JobTypePresubmit || presubmit.Presubmit == nil || !presubmit.Presubmit.Required || presubmit.E2EFramework == jobregistry.E2EFrameworkNone || presubmit.Presubmit.TargetRelease == "" {
 			continue
 		}
 		if slices.Contains(presubmit.Versions, "4.23") {
 			continue
 		}
-		if presubmit.Presubmit.TargetRelease == registry.PresubmitPolicy.DevelopmentRelease && presubmit.Presubmit.TargetBranch != registry.PresubmitPolicy.DevelopmentBranch {
+		if presubmit.Presubmit.TargetRelease == options.DevelopmentRelease && presubmit.Presubmit.TargetBranch != options.DevelopmentBranch {
 			continue
 		}
-		if releaseRank(presubmit.Presubmit.TargetRelease) > releaseRank(registry.PresubmitPolicy.DevelopmentRelease) {
+		if releaseRank(presubmit.Presubmit.TargetRelease) > releaseRank(options.DevelopmentRelease) {
 			continue
 		}
 
@@ -114,11 +123,11 @@ func NewCatalog(registry *jobregistry.Registry) (*Catalog, error) {
 	payloadIndices := make(map[payloadKey]int)
 	for i := range registry.Jobs {
 		job := &registry.Jobs[i]
-		if job.Type != "periodic" {
+		if job.Type != jobregistry.JobTypePeriodic {
 			continue
 		}
 		for _, participation := range job.ReleaseController {
-			if participation.Verification.Role != "blocking" {
+			if participation.Verification.Role != jobregistry.ReleaseControllerRoleBlocking {
 				continue
 			}
 			if participation.Stream.EndOfLife {

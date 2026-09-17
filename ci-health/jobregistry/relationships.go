@@ -14,6 +14,38 @@ const (
 	proposalRationale  = "Proposed by applying a human-verified main-branch scenario mapping to jobs on the same release branch; requires human review."
 )
 
+type presubmitPolicy struct {
+	developmentBranch           string
+	developmentRelease          string
+	sippyReleaseBranchAllowlist []string
+}
+
+var defaultPresubmitPolicy = presubmitPolicy{
+	developmentBranch:           developmentBranch,
+	developmentRelease:          developmentRelease,
+	sippyReleaseBranchAllowlist: []string{},
+}
+
+// TODO: Publish structured, per-field derivation and metadata-gap records so
+// consumers can audit registry inferences and automate upstream gap analysis.
+// Keep generator policy private; expose the evidence, method, authority, and
+// resolution state of derived facts instead.
+
+func (p presubmitPolicy) validate() error {
+	if p.developmentBranch == "" || p.developmentRelease == "" {
+		return fmt.Errorf("development branch and release are required")
+	}
+	if !sort.StringsAreSorted(p.sippyReleaseBranchAllowlist) {
+		return fmt.Errorf("Sippy release branch allowlist is not sorted")
+	}
+	for i, release := range p.sippyReleaseBranchAllowlist {
+		if release == "" || i > 0 && release == p.sippyReleaseBranchAllowlist[i-1] {
+			return fmt.Errorf("Sippy release branch allowlist contains an empty or duplicate release")
+		}
+	}
+	return nil
+}
+
 var presubmitReleaseBranchRE = regexp.MustCompile(`^release-(\d+\.\d+)-(.+)$`)
 
 type periodicMapping struct {
@@ -67,7 +99,7 @@ var manualPeriodicMappings = []periodicMapping{
 
 var proposedPeriodicMappings = []periodicMapping{}
 
-func populatePeriodicCounterparts(registry *Registry) error {
+func populatePeriodicCounterparts(registry *Registry, policy presubmitPolicy) error {
 	index := registry.Index()
 	for i := range registry.Jobs {
 		job := &registry.Jobs[i]
@@ -75,7 +107,7 @@ func populatePeriodicCounterparts(registry *Registry) error {
 			continue
 		}
 		job.Presubmit.PeriodicCounterparts = []PeriodicCounterpart{}
-		branch, release, _, ok := presubmitTarget(job.Name, registry.PresubmitPolicy)
+		branch, release, _, ok := presubmitTarget(job.Name, policy)
 		if ok {
 			job.Presubmit.TargetBranch = branch
 			job.Presubmit.TargetRelease = release
@@ -123,14 +155,14 @@ func populatePeriodicCounterparts(registry *Registry) error {
 	return nil
 }
 
-func presubmitTarget(name string, policy PresubmitPolicy) (branch, release, scenario string, ok bool) {
+func presubmitTarget(name string, policy presubmitPolicy) (branch, release, scenario string, ok bool) {
 	const prefix = "pull-ci-openshift-hypershift-"
 	value, found := strings.CutPrefix(name, prefix)
 	if !found {
 		return "", "", "", false
 	}
-	if scenario, found = strings.CutPrefix(value, policy.DevelopmentBranch+"-"); found && scenario != "" {
-		return policy.DevelopmentBranch, policy.DevelopmentRelease, scenario, true
+	if scenario, found = strings.CutPrefix(value, policy.developmentBranch+"-"); found && scenario != "" {
+		return policy.developmentBranch, policy.developmentRelease, scenario, true
 	}
 	match := presubmitReleaseBranchRE.FindStringSubmatch(value)
 	if match == nil {
@@ -140,24 +172,6 @@ func presubmitTarget(name string, policy PresubmitPolicy) (branch, release, scen
 }
 
 func validatePeriodicCounterparts(registry *Registry, index map[string]*Job) error {
-	if registry.PresubmitPolicy.DevelopmentBranch == "" || registry.PresubmitPolicy.DevelopmentRelease == "" || registry.PresubmitPolicy.Description == "" {
-		return fmt.Errorf("presubmit policy is incomplete")
-	}
-	if !registry.PresubmitPolicy.Provisional {
-		return fmt.Errorf("presubmit policy is not marked provisional")
-	}
-	if !sort.StringsAreSorted(registry.PresubmitPolicy.SippyReleaseBranchAllowlist) {
-		return fmt.Errorf("Sippy release branch allowlist is not sorted")
-	}
-	for i, release := range registry.PresubmitPolicy.SippyReleaseBranchAllowlist {
-		if release == "" || i > 0 && release == registry.PresubmitPolicy.SippyReleaseBranchAllowlist[i-1] {
-			return fmt.Errorf("Sippy release branch allowlist contains an empty or duplicate release")
-		}
-	}
-	allowedReleases := make(map[string]struct{}, len(registry.PresubmitPolicy.SippyReleaseBranchAllowlist))
-	for _, release := range registry.PresubmitPolicy.SippyReleaseBranchAllowlist {
-		allowedReleases[release] = struct{}{}
-	}
 	for i := range registry.Jobs {
 		presubmit := &registry.Jobs[i]
 		if presubmit.Presubmit == nil {
@@ -165,11 +179,6 @@ func validatePeriodicCounterparts(registry *Registry, index map[string]*Job) err
 		}
 		if presubmit.Presubmit.SippyIngestion.Basis == "" {
 			return fmt.Errorf("presubmit %q has no Sippy ingestion basis", presubmit.ID)
-		}
-		_, releaseIsAllowed := allowedReleases[presubmit.Presubmit.TargetRelease]
-		expectedEnabled := presubmit.Presubmit.TargetBranch == registry.PresubmitPolicy.DevelopmentBranch || releaseIsAllowed
-		if presubmit.Presubmit.SippyIngestion.Enabled != expectedEnabled {
-			return fmt.Errorf("presubmit %q has Sippy ingestion enabled=%t, expected %t from registry policy", presubmit.ID, presubmit.Presubmit.SippyIngestion.Enabled, expectedEnabled)
 		}
 		seen := make(map[string]struct{}, len(presubmit.Presubmit.PeriodicCounterparts))
 		for _, counterpart := range presubmit.Presubmit.PeriodicCounterparts {

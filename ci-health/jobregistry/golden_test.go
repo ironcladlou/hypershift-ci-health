@@ -124,7 +124,7 @@ func TestGoldenRegistryJobQueries(t *testing.T) {
 	tests := []struct {
 		name              string
 		id                string
-		jobType           string
+		jobType           JobType
 		versions          []string
 		platforms         []string
 		counterpartID     string
@@ -237,8 +237,9 @@ func TestSippyIngestionReleaseAllowlist(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			registry := cloneRegistry(t, golden)
-			registry.PresubmitPolicy.SippyReleaseBranchAllowlist = append([]string(nil), test.allowlist...)
-			populateSippyIngestion(registry)
+			policy := defaultPresubmitPolicy
+			policy.sippyReleaseBranchAllowlist = append([]string(nil), test.allowlist...)
+			populateSippyIngestion(registry, policy)
 			job := registry.Index()[test.jobID]
 			if job == nil || job.Presubmit == nil {
 				t.Fatalf("presubmit %q not found", test.jobID)
@@ -279,9 +280,6 @@ func TestValidateRejectsBrokenInvariants(t *testing.T) {
 		{"missing Sippy ingestion basis", func(r *Registry) {
 			r.Index()["pull-ci-openshift-hypershift-main-e2e-aws"].Presubmit.SippyIngestion.Basis = ""
 		}, "no Sippy ingestion basis"},
-		{"Sippy ingestion policy mismatch", func(r *Registry) {
-			r.Index()["pull-ci-openshift-hypershift-release-4.22-e2e-v2-aws"].Presubmit.SippyIngestion.Enabled = true
-		}, "expected false from registry policy"},
 		{"duplicate counterpart", func(r *Registry) {
 			j, c := withCounterpart(r)
 			j.Presubmit.PeriodicCounterparts = append(j.Presubmit.PeriodicCounterparts, *c)

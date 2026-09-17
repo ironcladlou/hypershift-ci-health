@@ -33,7 +33,7 @@ func Load(data []byte) (*Registry, error) {
 
 // Validate checks the registry contract required by consumers.
 func (r *Registry) Validate() error {
-	if r.APIVersion != currentAPIVersion {
+	if r.APIVersion != CurrentAPIVersion {
 		return fmt.Errorf("unsupported job registry API version %q", r.APIVersion)
 	}
 	seen := make(map[string]struct{}, len(r.Jobs))
@@ -47,11 +47,11 @@ func (r *Registry) Validate() error {
 		}
 		seen[job.ID] = struct{}{}
 		switch job.Type {
-		case "presubmit":
+		case JobTypePresubmit:
 			if job.Presubmit == nil {
 				return fmt.Errorf("presubmit job %q has no presubmit configuration", job.ID)
 			}
-		case "periodic":
+		case JobTypePeriodic:
 			if job.Presubmit != nil {
 				return fmt.Errorf("periodic job %q has presubmit configuration", job.ID)
 			}
