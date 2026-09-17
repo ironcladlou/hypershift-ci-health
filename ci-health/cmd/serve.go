@@ -226,8 +226,37 @@ type getJobOutput struct {
 	Body jobregistry.Job
 }
 
+const jobRegistryAPIDescription = `The HyperShift job registry is the versioned, generated catalog of Prow jobs used by CI Health and other consumers. It provides one stable record per job and brings together:
+
+- the job identity and source definition in ` + "`openshift/release`" + `;
+- job type, repository, context, branch, version, and platform metadata;
+- presubmit behavior and explicitly recorded periodic counterparts;
+- release-controller participation; and
+- deterministic navigation links to Prow, Sippy, and release status pages.
+
+## Scope and authority
+
+The registry is generated solely from a selected ` + "`openshift/release`" + ` checkout. Generation does not query live Prow, Sippy, or release-controller services. Source references identify the configuration behind each record; service URLs are navigation hints rather than evidence of current data availability.
+
+## Using the contract
+
+The top-level ` + "`api_version`" + ` identifies the registry schema. A job is the unit of record, identifiers are globally unique and stable, and multi-valued facts remain arrays. Unknown or inapplicable values are empty, null, or omitted rather than represented by sentinel strings.
+
+Use the collection endpoint for discovery and local analysis, or the individual-job endpoint when a stable ID is already known. Each response links to its JSON Schema for machine discovery and validation.`
+
+const jobRegistryTagDescription = `Browse the complete generated registry or retrieve one job by its stable Prow identifier. Both operations return the same versioned job contract and include links to discoverable JSON Schemas.`
+
 func registerJobRegistryAPI(mux *http.ServeMux, state *applicationState) {
 	config := huma.DefaultConfig("HyperShift Job Registry API", jobregistry.CurrentAPIVersion)
+	config.Info.Description = jobRegistryAPIDescription
+	config.Tags = []*huma.Tag{{
+		Name:        "Job registry",
+		Description: jobRegistryTagDescription,
+		ExternalDocs: &huma.ExternalDocs{
+			Description: "Registry design, discovery scope, and invariants",
+			URL:         "https://github.com/ironcladlou/hypershift-ci-health/blob/main/ci-health/jobregistry/README.md",
+		},
+	}}
 	config.OpenAPIPath = "/api/openapi"
 	config.SchemasPath = "/api/schemas"
 	config.DocsPath = "/api/docs"

@@ -95,7 +95,7 @@ func TestJobRegistryDocumentationAPI(t *testing.T) {
 	}{
 		{"registry", "/api/job-registry", "application/json", []string{`"api_version":"job-registry/v7"`, `"$schema":`}},
 		{"Scalar docs", "/api/docs", "text/html", []string{"@scalar/api-reference", "/api/openapi.json", `data-configuration="{&#34;agent&#34;:{&#34;disabled&#34;:true},&#34;showDeveloperTools&#34;:&#34;never&#34;}"`}},
-		{"OpenAPI JSON", "/api/openapi.json", "application/openapi+json", []string{`"openapi":"3.1.0"`, `"/api/job-registry"`, `"/api/job-registry/jobs/{id}"`}},
+		{"OpenAPI JSON", "/api/openapi.json", "application/openapi+json", []string{`"openapi":"3.1.0"`, `"description":"The HyperShift job registry is the versioned, generated catalog`, `"description":"Browse the complete generated registry`, `"/api/job-registry"`, `"/api/job-registry/jobs/{id}"`}},
 		{"OpenAPI YAML", "/api/openapi.yaml", "application/openapi+yaml", []string{"openapi: 3.1.0", "/api/job-registry:"}},
 		{"Registry schema", "/api/schemas/Registry.json", "application/json", []string{`"api_version"`, `"jobs"`}},
 		{"Job schema", "/api/schemas/Job.json", "application/json", []string{`"description":"Globally unique, stable identity of the Prow job"`, `"enum":["none","v1","v2"]`}},
