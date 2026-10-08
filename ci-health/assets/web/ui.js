@@ -7,6 +7,8 @@ export { Fragment };
 export const SIPPY = "https://sippy.dptools.openshift.org";
 
 export const WINDOWS = {
+  "24h": { label: "Last 24h", dateEvery: 1 },
+  "48h": { label: "Last 48h", dateEvery: 1 },
   "1w": { label: "Last 1w", dateEvery: 1 },
   "2w": { label: "Last 2w", dateEvery: 2 },
   "1m": { label: "Last 1m", dateEvery: 5 },

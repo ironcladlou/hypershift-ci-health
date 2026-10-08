@@ -38,6 +38,64 @@ func TestEvaluateJoinsSippyMembershipWithoutMutatingPlan(t *testing.T) {
 	if len(plan.Presubmits) != 69 {
 		t.Fatalf("plan mutated: %d presubmits", len(plan.Presubmits))
 	}
+	for _, window := range []string{"24h", "48h"} {
+		data := report.Windows[window]
+		if data == nil || len(data.SparklineSlots) != 24 || len(data.ComponentReadinessJobs) != 1 {
+			t.Fatalf("%s window = %+v", window, data)
+		}
+	}
+}
+
+func TestShortWindowAnalysis(t *testing.T) {
+	now := time.Date(2026, 9, 16, 12, 0, 0, 0, time.UTC)
+	for _, tc := range []struct {
+		window string
+		hours  int
+		step   int
+	}{
+		{window: "24h", hours: 24, step: 1},
+		{window: "48h", hours: 48, step: 2},
+	} {
+		t.Run(tc.window, func(t *testing.T) {
+			analysis := &analysisData{ByPeriod: map[string]sippy.AnalysisPeriod{}}
+			add := func(hoursAgo, runs, passes int) {
+				period := now.Add(-time.Duration(hoursAgo) * time.Hour).Format("2006-01-02 15:00")
+				analysis.ByPeriod[period] = sippy.AnalysisPeriod{TotalRuns: runs, ResultCount: map[string]int{"S": passes, "F": runs - passes}}
+			}
+			add(1, 4, 3)
+			add(tc.hours, 2, 0) // The current period includes its start boundary.
+			add(tc.hours+1, 4, 4)
+			add(2*tc.hours, 2, 2) // The previous period includes its start boundary.
+			add(2*tc.hours+1, 100, 0)
+			summary := summarizeAnalysis(analysis, tc.window, now)
+			if summary.CurrentRuns != 6 || summary.CurrentFails != 3 || summary.PreviousRuns != 6 || summary.CurrentPassPercentage != 50 || summary.PreviousPassPercentage != 100 || summary.NetImprovement != -50 {
+				t.Fatalf("summary = %+v", summary)
+			}
+
+			win := WindowConfigs[tc.window]
+			slots := slotKeys(now, win)
+			if len(slots) != 24 {
+				t.Fatalf("slot count = %d, want 24", len(slots))
+			}
+			for index, key := range slots {
+				want := now.Add(-time.Duration((23-index)*tc.step) * time.Hour).Format("2006-01-02 15:00")
+				if key != want {
+					t.Fatalf("slot %d = %s, want %s", index, key, want)
+				}
+			}
+			sparkline := orderedSparkline(analysisSparkline(analysis, win, now), slots)
+			var runs, passes int
+			for _, slot := range sparkline {
+				if slot != nil {
+					runs += slot.TotalRuns
+					passes += slot.Passes
+				}
+			}
+			if runs != 4 || passes != 3 {
+				t.Fatalf("sparkline runs = %d, passes = %d; want 4, 3", runs, passes)
+			}
+		})
+	}
 }
 
 func TestSerializedReportIsCanonical(t *testing.T) {

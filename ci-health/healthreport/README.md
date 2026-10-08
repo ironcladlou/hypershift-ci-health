@@ -13,3 +13,7 @@ an unmatched Sippy member remains in the report with `registry_missing: true`.
 Each window owns one shared ordered timestamp list. Job sparklines align to that
 list and encode slots as `[total, passes, testFailures, infraFailures]` tuples.
 The serving API returns one window at a time.
+
+Available windows are `24h`, `48h`, `1w`, `2w`, and `1m`. The short windows use
+24 hourly slots and 24 two-hour slots, respectively. Pass-rate trends compare
+each window with the immediately preceding period of the same duration.

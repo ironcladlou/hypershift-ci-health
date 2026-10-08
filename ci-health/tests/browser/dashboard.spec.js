@@ -79,6 +79,19 @@ test("renders the health dashboard and changes perspectives", async ({ page }) =
   await expect(page.getByRole("columnheader", { name: "Release payload job" })).toBeVisible();
 });
 
+test("selects short windows and restores them from the URL", async ({ page }) => {
+  for (const window of ["24h", "48h"]) {
+    const button = page.getByRole("button", { name: window, exact: true });
+    await button.click();
+    await expect(button).toHaveClass(/active/);
+    await expect(page.getByRole("columnheader", { name: `Last ${window}` })).toBeVisible();
+    await expect.poll(() => new URL(page.url()).searchParams.get("window")).toBe(window);
+    await page.reload();
+    await expect(button).toHaveClass(/active/);
+    await expect(page.getByRole("columnheader", { name: `Last ${window}` })).toBeVisible();
+  }
+});
+
 test("keeps the current table visible while an uncached window loads", async ({ page }) => {
   await expect(page.getByRole("columnheader", { name: "Last 2w" })).toBeVisible();
   const requestedWindow = page.getByRole("button", { name: "1w", exact: true });

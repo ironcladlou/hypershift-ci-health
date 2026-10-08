@@ -64,6 +64,7 @@ export function Header({ state, platforms, status, onWindow, onGroup, onPlatform
       ${!registry && html`<${PlatformFilter} platforms=${platforms} selected=${state.platforms} onChange=${onPlatforms} />`}
       ${!registry && html`<${GroupFilter} selected=${state.group} onChange=${onGroup} />`}
       ${!registry && html`<${Toggle} label="Health window" active=${state.window} onChange=${onWindow} values=${[
+        { value: "24h", label: "24h" }, { value: "48h", label: "48h" },
         { value: "1w", label: "1w" }, { value: "2w", label: "2w" }, { value: "1m", label: "1m" },
       ]} />`}
     </div>

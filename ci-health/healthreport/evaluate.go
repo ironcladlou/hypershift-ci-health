@@ -19,9 +19,11 @@ type WindowConfig struct {
 }
 
 var WindowConfigs = map[string]WindowConfig{
-	"1w": {SparkSlotHours: 6, SparkSlots: 28, CurrentDays: 7},
-	"2w": {SparkSlotHours: 12, SparkSlots: 28, CurrentDays: 14},
-	"1m": {SparkSlotHours: 24, SparkSlots: 30, CurrentDays: 30},
+	"24h": {SparkSlotHours: 1, SparkSlots: 24, CurrentDays: 1},
+	"48h": {SparkSlotHours: 2, SparkSlots: 24, CurrentDays: 2},
+	"1w":  {SparkSlotHours: 6, SparkSlots: 28, CurrentDays: 7},
+	"2w":  {SparkSlotHours: 12, SparkSlots: 28, CurrentDays: 14},
+	"1m":  {SparkSlotHours: 24, SparkSlots: 30, CurrentDays: 30},
 }
 
 type rawData struct {
