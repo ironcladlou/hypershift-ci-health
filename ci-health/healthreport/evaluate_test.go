@@ -4,6 +4,8 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"reflect"
+	"strings"
 	"testing"
 	"time"
 
@@ -11,6 +13,29 @@ import (
 	"github.com/ironcladlou/hypershift-ci-health/ci-health/reportplan"
 	"github.com/ironcladlou/hypershift-ci-health/ci-health/sippy"
 )
+
+func TestRejectPartialHealthReports(t *testing.T) {
+	registry, err := jobregistry.LoadFile("../jobregistry/testdata/job-registry.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	plan, err := reportplan.Build(registry, reportplan.DefaultSelectionPolicy("main", "5.1"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	digest, err := reportplan.Digest(plan)
+	if err != nil {
+		t.Fatal(err)
+	}
+	observation := &sippy.Observation{APIVersion: sippy.CurrentObservationAPIVersion, PlanDigest: digest, SourceBaseURL: "https://sippy.example.test", Complete: false, Collection: []sippy.CollectionResult{{Kind: "membership", Release: "5.1", Error: "timeout"}}}
+	if _, err := Evaluate(registry, plan, observation); err == nil || !strings.Contains(err.Error(), "incomplete Sippy observation") {
+		t.Fatalf("expected incomplete observation rejection, got %v", err)
+	}
+	report := &Report{APIVersion: CurrentAPIVersion, RegistryDigest: plan.RegistryDigest, PlanDigest: digest, ObservationDigest: "observation", Complete: false, Collection: []CollectionResult{{Kind: "membership", Release: "5.1", Error: "timeout"}}}
+	if err := report.Validate(plan.RegistryDigest, digest, "observation"); err == nil || !strings.Contains(err.Error(), "partial health reports are invalid") {
+		t.Fatalf("expected partial report rejection, got %v", err)
+	}
+}
 
 func TestEvaluateJoinsSippyMembershipWithoutMutatingPlan(t *testing.T) {
 	registry, err := jobregistry.LoadFile("../jobregistry/testdata/job-registry.json")
@@ -35,7 +60,7 @@ func TestEvaluateJoinsSippyMembershipWithoutMutatingPlan(t *testing.T) {
 	if len(component) != 1 || !component[0].RegistryMissing || component[0].Prow != "not-in-registry" {
 		t.Fatalf("component readiness join = %+v", component)
 	}
-	if len(plan.Presubmits) != 69 {
+	if len(plan.Presubmits) != 99 {
 		t.Fatalf("plan mutated: %d presubmits", len(plan.Presubmits))
 	}
 	for _, window := range []string{"24h", "48h"} {
@@ -43,6 +68,84 @@ func TestEvaluateJoinsSippyMembershipWithoutMutatingPlan(t *testing.T) {
 		if data == nil || len(data.SparklineSlots) != 24 || len(data.ComponentReadinessJobs) != 1 {
 			t.Fatalf("%s window = %+v", window, data)
 		}
+	}
+}
+
+func TestPeriodicMappingNotesReachHealthReport(t *testing.T) {
+	registry, err := jobregistry.LoadFile("../jobregistry/testdata/job-registry.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	const jobID = "pull-ci-openshift-hypershift-main-e2e-azure-kubevirt-ovn"
+	job := registry.Index()[jobID]
+	notes := job.Presubmit.PeriodicCounterparts[0].Notes
+	if notes == "" {
+		t.Fatal("fixture must contain mapping notes")
+	}
+	plan, err := reportplan.Build(registry, reportplan.DefaultSelectionPolicy("main", "5.1"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	planData, err := json.Marshal(plan)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var decodedPlan reportplan.Plan
+	if err := json.Unmarshal(planData, &decodedPlan); err != nil {
+		t.Fatal(err)
+	}
+	digest, err := reportplan.Digest(&decodedPlan)
+	if err != nil {
+		t.Fatal(err)
+	}
+	now := time.Date(2026, 10, 12, 15, 0, 0, 0, time.UTC)
+	observation := &sippy.Observation{APIVersion: sippy.CurrentObservationAPIVersion, PlanDigest: digest, SourceBaseURL: "https://sippy.example.test", Releases: plan.Releases, StartedAt: now, ObservedAt: now, Complete: true}
+	report, err := Evaluate(registry, &decodedPlan, observation)
+	if err != nil {
+		t.Fatal(err)
+	}
+	data, err := json.Marshal(report)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var decodedReport Report
+	if err := json.Unmarshal(data, &decodedReport); err != nil {
+		t.Fatal(err)
+	}
+	for window, result := range decodedReport.Windows {
+		found := false
+		for _, health := range result.Jobs {
+			if health.ID == jobID {
+				found = true
+				if health.Required || len(health.Periodics) != 1 || health.Periodics[0].RelationshipNotes != notes || health.Periodics[0].RelationshipVerification != "human-verified" {
+					t.Fatalf("%s mapping notes or verification lost: %+v", window, health.Periodics)
+				}
+			}
+		}
+		if !found {
+			t.Fatalf("%s selected job missing", window)
+		}
+	}
+}
+
+func TestAlertsPreservePerJobCountsAndClassification(t *testing.T) {
+	registry, err := jobregistry.LoadFile("../jobregistry/testdata/job-registry.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	requiredID := "pull-ci-openshift-hypershift-main-e2e-aws"
+	optionalID := "pull-ci-openshift-hypershift-main-e2e-aws-metrics"
+	index := registry.Index()
+	jobs := map[string]*jobregistry.Job{requiredID: index[requiredID], optionalID: index[optionalID]}
+	alerts := buildAlerts([]sippy.RecentFailure{{TestName: "shared failure", Outputs: []sippy.TestOutput{
+		{ProwJobName: requiredID}, {ProwJobName: optionalID}, {ProwJobName: optionalID}, {ProwJobName: "unrelated-job"},
+	}}}, jobs)
+	want := []Alert{{TestName: "shared failure", FailureCount: 3, Jobs: []AlertJob{
+		{ID: requiredID, Name: "e2e-aws", TargetRelease: "5.1", Required: true, FailureCount: 1},
+		{ID: optionalID, Name: "e2e-aws-metrics", TargetRelease: "5.1", Required: false, FailureCount: 2},
+	}}}
+	if !reflect.DeepEqual(alerts, want) {
+		t.Fatalf("alerts = %+v, want %+v", alerts, want)
 	}
 }
 

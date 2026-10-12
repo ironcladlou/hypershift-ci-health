@@ -85,6 +85,9 @@ func Evaluate(registry *jobregistry.Registry, plan *reportplan.Plan, observation
 	if err := observation.Validate(planDigest); err != nil {
 		return nil, err
 	}
+	if !observation.Complete {
+		return nil, fmt.Errorf("cannot evaluate a health report from an incomplete Sippy observation")
+	}
 	observationDigest, err := sippy.ObservationDigest(observation)
 	if err != nil {
 		return nil, err
@@ -354,9 +357,9 @@ func transformWindow(raw *rawData, windowKey string, now time.Time, inputs repor
 		sparklines[key] = analysisSparkline(analysis, win, now)
 	}
 
-	blockingProwNames := make(map[string]bool)
+	presubmitJobs := make(map[string]*jobregistry.Job)
 	for _, bj := range inputs.Presubmits {
-		blockingProwNames[bj.Job.Name] = true
+		presubmitJobs[bj.Job.Name] = bj.Job
 	}
 
 	var jobHealths []JobHealth
@@ -367,12 +370,14 @@ func transformWindow(raw *rawData, windowKey string, now time.Time, inputs repor
 		var periodics []PeriodicJobHealth
 		for _, cfgPer := range cfg.Periodics {
 			periodicKey := analysisKey{release: cfgPer.Counterpart.TestedRelease, jobID: cfgPer.Job.Name}
-			periodics = append(periodics, buildPeriodicHealth(
+			health := buildPeriodicHealth(
 				periodicKey,
 				cfgPer.Job.ID, displayName(cfgPer.Job.Name), cfgPer.Job.Name, cfgPer.Counterpart.TestedRelease, cfgPer.Counterpart.TestedRelease,
 				string(cfgPer.Counterpart.Source), string(cfgPer.Counterpart.Verification), cfgPer.Counterpart.Rationale, cfgPer.Job.ProwJobHistoryURL,
 				summaries, sparklines, slots,
-			))
+			)
+			health.RelationshipNotes = cfgPer.Counterpart.Notes
+			periodics = append(periodics, health)
 		}
 
 		var correlation *Correlation
@@ -394,6 +399,7 @@ func transformWindow(raw *rawData, windowKey string, now time.Time, inputs repor
 			Prow:                  cfg.Job.Name,
 			TargetBranch:          cfg.Job.Presubmit.TargetBranch,
 			TargetRelease:         cfg.Job.Presubmit.TargetRelease,
+			Required:              cfg.Job.Presubmit.Required,
 			Platforms:             cfg.Job.Platforms,
 			Role:                  string(cfg.Role),
 			RoleLabel:             roleLabel(cfg.Role, cfg.Job.Presubmit.TargetRelease),
@@ -470,7 +476,7 @@ func transformWindow(raw *rawData, windowKey string, now time.Time, inputs repor
 		})
 	}
 
-	alerts := buildAlerts(raw.recentFailures, blockingProwNames)
+	alerts := buildAlerts(raw.recentFailures, presubmitJobs)
 
 	return &WindowData{
 		SparklineSlots:         slots,
@@ -481,21 +487,23 @@ func transformWindow(raw *rawData, windowKey string, now time.Time, inputs repor
 	}
 }
 
-func buildAlerts(failures []sippy.RecentFailure, blockingProwNames map[string]bool) []Alert {
+func buildAlerts(failures []sippy.RecentFailure, presubmitJobs map[string]*jobregistry.Job) []Alert {
 	var alerts []Alert
 	for _, f := range failures {
-		var matching []string
-		seen := make(map[string]bool)
+		var matching []AlertJob
+		seen := make(map[string]int)
 		matchCount := 0
 		for _, o := range f.Outputs {
-			if !blockingProwNames[o.ProwJobName] {
+			job := presubmitJobs[o.ProwJobName]
+			if job == nil {
 				continue
 			}
 			matchCount++
-			shortName := strings.TrimPrefix(o.ProwJobName, "pull-ci-openshift-hypershift-main-")
-			if !seen[shortName] {
-				seen[shortName] = true
-				matching = append(matching, shortName)
+			if at, found := seen[job.ID]; found {
+				matching[at].FailureCount++
+			} else {
+				seen[job.ID] = len(matching)
+				matching = append(matching, AlertJob{ID: job.ID, Name: displayName(job.Name), TargetRelease: job.Presubmit.TargetRelease, Required: job.Presubmit.Required, FailureCount: 1})
 			}
 		}
 		if matchCount == 0 {

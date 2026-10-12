@@ -11,7 +11,6 @@ const (
 	developmentBranch  = "main"
 	developmentRelease = "5.1"
 	manualRationale    = "A human reviewed the job definitions and verified that these jobs exercise corresponding test scenarios."
-	proposalRationale  = "Proposed by applying a human-verified main-branch scenario mapping to jobs on the same release branch; requires human review."
 )
 
 type presubmitPolicy struct {
@@ -51,53 +50,69 @@ var presubmitReleaseBranchRE = regexp.MustCompile(`^release-(\d+\.\d+)-(.+)$`)
 type periodicMapping struct {
 	PresubmitID string
 	PeriodicID  string
+	Notes       string
 }
 
-// The registry publishes only relationships explicitly listed below. Manual
-// mappings have been reviewed against job definitions; proposals are visible
-// candidates that still require that review.
-var manualPeriodicMappings = []periodicMapping{
-	{"pull-ci-openshift-hypershift-main-e2e-aws", "periodic-ci-openshift-hypershift-release-5.1-periodics-e2e-aws-ovn"},
-	{"pull-ci-openshift-hypershift-main-e2e-v2-aws", "periodic-ci-openshift-hypershift-release-5.1-periodics-e2e-v2-aws"},
-	{"pull-ci-openshift-hypershift-main-e2e-aks", "periodic-ci-openshift-hypershift-release-5.1-periodics-e2e-aks"},
-	{"pull-ci-openshift-hypershift-main-e2e-v2-azure-self-managed", "periodic-ci-openshift-hypershift-release-5.1-periodics-e2e-v2-azure-self-managed"},
-	{"pull-ci-openshift-hypershift-main-e2e-v2-gke", "periodic-ci-openshift-hypershift-release-5.1-periodics-e2e-v2-gke"},
-	{"pull-ci-openshift-hypershift-main-e2e-kubevirt-aws-ovn-reduced", "periodic-ci-openshift-hypershift-release-5.1-periodics-e2e-kubevirt-aws-ovn-csi"},
-	{"pull-ci-openshift-hypershift-release-4.22-e2e-aws", "periodic-ci-openshift-hypershift-release-4.22-periodics-e2e-aws-ovn"},
-	{"pull-ci-openshift-hypershift-release-4.22-e2e-aks", "periodic-ci-openshift-hypershift-release-4.22-periodics-e2e-aks"},
-	{"pull-ci-openshift-hypershift-release-4.21-e2e-aws", "periodic-ci-openshift-hypershift-release-4.21-periodics-e2e-aws-ovn"},
-	{"pull-ci-openshift-hypershift-release-4.21-e2e-aks", "periodic-ci-openshift-hypershift-release-4.21-periodics-e2e-aks"},
-	{"pull-ci-openshift-hypershift-release-4.20-e2e-aws", "periodic-ci-openshift-hypershift-release-4.20-periodics-e2e-aws-ovn"},
-	{"pull-ci-openshift-hypershift-release-4.20-e2e-aks", "periodic-ci-openshift-hypershift-release-4.20-periodics-e2e-aks"},
-	{"pull-ci-openshift-hypershift-release-4.19-e2e-aws", "periodic-ci-openshift-hypershift-release-4.19-periodics-e2e-aws-ovn"},
-	{"pull-ci-openshift-hypershift-release-4.19-e2e-aks", "periodic-ci-openshift-hypershift-release-4.19-periodics-e2e-aks"},
-	{"pull-ci-openshift-hypershift-release-4.19-e2e-conformance", "periodic-ci-openshift-hypershift-release-4.19-periodics-e2e-aws-ovn-conformance"},
-	{"pull-ci-openshift-hypershift-release-4.18-e2e-aws", "periodic-ci-openshift-hypershift-release-4.18-periodics-e2e-aws-ovn"},
-	{"pull-ci-openshift-hypershift-release-4.18-e2e-conformance", "periodic-ci-openshift-hypershift-release-4.18-periodics-e2e-aws-ovn-conformance"},
-	{"pull-ci-openshift-hypershift-release-4.17-e2e-aws", "periodic-ci-openshift-hypershift-release-4.17-periodics-e2e-aws-ovn"},
-	{"pull-ci-openshift-hypershift-release-4.17-e2e-conformance", "periodic-ci-openshift-hypershift-release-4.17-periodics-e2e-aws-ovn-conformance"},
-	{"pull-ci-openshift-hypershift-release-4.16-e2e-aws", "periodic-ci-openshift-hypershift-release-4.16-periodics-e2e-aws-ovn"},
-	{"pull-ci-openshift-hypershift-release-4.16-e2e-conformance", "periodic-ci-openshift-hypershift-release-4.16-periodics-e2e-aws-ovn-conformance"},
-	{"pull-ci-openshift-hypershift-release-4.15-e2e-aws", "periodic-ci-openshift-hypershift-release-4.15-periodics-e2e-aws-ovn"},
-	{"pull-ci-openshift-hypershift-release-4.14-e2e-aws", "periodic-ci-openshift-hypershift-release-4.14-periodics-e2e-aws-ovn"},
-	{"pull-ci-openshift-hypershift-release-4.15-e2e-kubevirt-aws-ovn-reduced", "periodic-ci-openshift-hypershift-release-4.15-periodics-e2e-kubevirt-aws-ovn-csi"},
-	{"pull-ci-openshift-hypershift-release-4.16-e2e-kubevirt-aws-ovn-reduced", "periodic-ci-openshift-hypershift-release-4.16-periodics-e2e-kubevirt-aws-ovn-csi"},
-	{"pull-ci-openshift-hypershift-release-4.17-e2e-kubevirt-aws-ovn-reduced", "periodic-ci-openshift-hypershift-release-4.17-periodics-e2e-kubevirt-aws-ovn-csi"},
-	{"pull-ci-openshift-hypershift-release-4.18-e2e-kubevirt-aws-ovn-reduced", "periodic-ci-openshift-hypershift-release-4.18-periodics-e2e-kubevirt-aws-ovn-csi"},
-	{"pull-ci-openshift-hypershift-release-4.19-e2e-kubevirt-aws-ovn-reduced", "periodic-ci-openshift-hypershift-release-4.19-periodics-e2e-kubevirt-aws-ovn-csi"},
-	{"pull-ci-openshift-hypershift-release-4.20-e2e-kubevirt-aws-ovn-reduced", "periodic-ci-openshift-hypershift-release-4.20-periodics-e2e-kubevirt-aws-ovn-csi"},
-	{"pull-ci-openshift-hypershift-release-4.21-e2e-kubevirt-aws-ovn-reduced", "periodic-ci-openshift-hypershift-release-4.21-periodics-e2e-kubevirt-aws-ovn-csi"},
-	{"pull-ci-openshift-hypershift-release-4.22-e2e-v2-aws", "periodic-ci-openshift-hypershift-release-4.22-periodics-e2e-v2-aws"},
-	{"pull-ci-openshift-hypershift-release-4.22-e2e-kubevirt-aws-ovn-reduced", "periodic-ci-openshift-hypershift-release-4.22-periodics-e2e-kubevirt-aws-ovn-csi"},
-	{"pull-ci-openshift-hypershift-release-5.0-e2e-aws", "periodic-ci-openshift-hypershift-release-5.0-periodics-e2e-aws-ovn"},
-	{"pull-ci-openshift-hypershift-release-5.0-e2e-v2-aws", "periodic-ci-openshift-hypershift-release-5.0-periodics-e2e-v2-aws"},
-	{"pull-ci-openshift-hypershift-release-5.0-e2e-aks", "periodic-ci-openshift-hypershift-release-5.0-periodics-e2e-aks"},
-	{"pull-ci-openshift-hypershift-release-5.0-e2e-v2-azure-self-managed", "periodic-ci-openshift-hypershift-release-5.0-periodics-e2e-v2-azure-self-managed"},
-	{"pull-ci-openshift-hypershift-release-5.0-e2e-v2-gke", "periodic-ci-openshift-hypershift-release-5.0-periodics-e2e-v2-gke"},
-	{"pull-ci-openshift-hypershift-release-5.0-e2e-kubevirt-aws-ovn-reduced", "periodic-ci-openshift-hypershift-release-5.0-periodics-e2e-kubevirt-aws-ovn-csi"},
+// The registry publishes only the verified relationships explicitly listed below.
+var verifiedPeriodicMappings = []periodicMapping{
+	{"pull-ci-openshift-hypershift-main-e2e-aws", "periodic-ci-openshift-hypershift-release-5.1-periodics-e2e-aws-ovn", ""},
+	{"pull-ci-openshift-hypershift-main-e2e-v2-aws", "periodic-ci-openshift-hypershift-release-5.1-periodics-e2e-v2-aws", ""},
+	{"pull-ci-openshift-hypershift-main-e2e-aks", "periodic-ci-openshift-hypershift-release-5.1-periodics-e2e-aks", ""},
+	{"pull-ci-openshift-hypershift-main-e2e-v2-azure-self-managed", "periodic-ci-openshift-hypershift-release-5.1-periodics-e2e-v2-azure-self-managed", ""},
+	{"pull-ci-openshift-hypershift-main-e2e-v2-gke", "periodic-ci-openshift-hypershift-release-5.1-periodics-e2e-v2-gke", ""},
+	{"pull-ci-openshift-hypershift-main-e2e-kubevirt-aws-ovn-reduced", "periodic-ci-openshift-hypershift-release-5.1-periodics-e2e-kubevirt-aws-ovn-csi", ""},
+	{"pull-ci-openshift-hypershift-release-4.22-e2e-aws", "periodic-ci-openshift-hypershift-release-4.22-periodics-e2e-aws-ovn", ""},
+	{"pull-ci-openshift-hypershift-release-4.22-e2e-aks", "periodic-ci-openshift-hypershift-release-4.22-periodics-e2e-aks", ""},
+	{"pull-ci-openshift-hypershift-release-4.21-e2e-aws", "periodic-ci-openshift-hypershift-release-4.21-periodics-e2e-aws-ovn", ""},
+	{"pull-ci-openshift-hypershift-release-4.21-e2e-aks", "periodic-ci-openshift-hypershift-release-4.21-periodics-e2e-aks", ""},
+	{"pull-ci-openshift-hypershift-release-4.20-e2e-aws", "periodic-ci-openshift-hypershift-release-4.20-periodics-e2e-aws-ovn", ""},
+	{"pull-ci-openshift-hypershift-release-4.20-e2e-aks", "periodic-ci-openshift-hypershift-release-4.20-periodics-e2e-aks", ""},
+	{"pull-ci-openshift-hypershift-release-4.19-e2e-aws", "periodic-ci-openshift-hypershift-release-4.19-periodics-e2e-aws-ovn", ""},
+	{"pull-ci-openshift-hypershift-release-4.19-e2e-aks", "periodic-ci-openshift-hypershift-release-4.19-periodics-e2e-aks", ""},
+	{"pull-ci-openshift-hypershift-release-4.19-e2e-conformance", "periodic-ci-openshift-hypershift-release-4.19-periodics-e2e-aws-ovn-conformance", ""},
+	{"pull-ci-openshift-hypershift-release-4.18-e2e-aws", "periodic-ci-openshift-hypershift-release-4.18-periodics-e2e-aws-ovn", ""},
+	{"pull-ci-openshift-hypershift-release-4.18-e2e-conformance", "periodic-ci-openshift-hypershift-release-4.18-periodics-e2e-aws-ovn-conformance", ""},
+	{"pull-ci-openshift-hypershift-release-4.17-e2e-aws", "periodic-ci-openshift-hypershift-release-4.17-periodics-e2e-aws-ovn", ""},
+	{"pull-ci-openshift-hypershift-release-4.17-e2e-conformance", "periodic-ci-openshift-hypershift-release-4.17-periodics-e2e-aws-ovn-conformance", ""},
+	{"pull-ci-openshift-hypershift-release-4.16-e2e-aws", "periodic-ci-openshift-hypershift-release-4.16-periodics-e2e-aws-ovn", ""},
+	{"pull-ci-openshift-hypershift-release-4.16-e2e-conformance", "periodic-ci-openshift-hypershift-release-4.16-periodics-e2e-aws-ovn-conformance", ""},
+	{"pull-ci-openshift-hypershift-release-4.15-e2e-aws", "periodic-ci-openshift-hypershift-release-4.15-periodics-e2e-aws-ovn", ""},
+	{"pull-ci-openshift-hypershift-release-4.14-e2e-aws", "periodic-ci-openshift-hypershift-release-4.14-periodics-e2e-aws-ovn", ""},
+	{"pull-ci-openshift-hypershift-release-4.15-e2e-kubevirt-aws-ovn-reduced", "periodic-ci-openshift-hypershift-release-4.15-periodics-e2e-kubevirt-aws-ovn-csi", ""},
+	{"pull-ci-openshift-hypershift-release-4.16-e2e-kubevirt-aws-ovn-reduced", "periodic-ci-openshift-hypershift-release-4.16-periodics-e2e-kubevirt-aws-ovn-csi", ""},
+	{"pull-ci-openshift-hypershift-release-4.17-e2e-kubevirt-aws-ovn-reduced", "periodic-ci-openshift-hypershift-release-4.17-periodics-e2e-kubevirt-aws-ovn-csi", ""},
+	{"pull-ci-openshift-hypershift-release-4.18-e2e-kubevirt-aws-ovn-reduced", "periodic-ci-openshift-hypershift-release-4.18-periodics-e2e-kubevirt-aws-ovn-csi", ""},
+	{"pull-ci-openshift-hypershift-release-4.19-e2e-kubevirt-aws-ovn-reduced", "periodic-ci-openshift-hypershift-release-4.19-periodics-e2e-kubevirt-aws-ovn-csi", ""},
+	{"pull-ci-openshift-hypershift-release-4.20-e2e-kubevirt-aws-ovn-reduced", "periodic-ci-openshift-hypershift-release-4.20-periodics-e2e-kubevirt-aws-ovn-csi", ""},
+	{"pull-ci-openshift-hypershift-release-4.21-e2e-kubevirt-aws-ovn-reduced", "periodic-ci-openshift-hypershift-release-4.21-periodics-e2e-kubevirt-aws-ovn-csi", ""},
+	{"pull-ci-openshift-hypershift-release-4.22-e2e-v2-aws", "periodic-ci-openshift-hypershift-release-4.22-periodics-e2e-v2-aws", ""},
+	{"pull-ci-openshift-hypershift-release-4.22-e2e-kubevirt-aws-ovn-reduced", "periodic-ci-openshift-hypershift-release-4.22-periodics-e2e-kubevirt-aws-ovn-csi", ""},
+	{"pull-ci-openshift-hypershift-release-5.0-e2e-aws", "periodic-ci-openshift-hypershift-release-5.0-periodics-e2e-aws-ovn", ""},
+	{"pull-ci-openshift-hypershift-release-5.0-e2e-v2-aws", "periodic-ci-openshift-hypershift-release-5.0-periodics-e2e-v2-aws", ""},
+	{"pull-ci-openshift-hypershift-release-5.0-e2e-aks", "periodic-ci-openshift-hypershift-release-5.0-periodics-e2e-aks", ""},
+	{"pull-ci-openshift-hypershift-release-5.0-e2e-v2-azure-self-managed", "periodic-ci-openshift-hypershift-release-5.0-periodics-e2e-v2-azure-self-managed", ""},
+	{"pull-ci-openshift-hypershift-release-5.0-e2e-v2-gke", "periodic-ci-openshift-hypershift-release-5.0-periodics-e2e-v2-gke", ""},
+	{"pull-ci-openshift-hypershift-release-5.0-e2e-kubevirt-aws-ovn-reduced", "periodic-ci-openshift-hypershift-release-5.0-periodics-e2e-kubevirt-aws-ovn-csi", ""},
+	{"pull-ci-openshift-hypershift-main-e2e-aks-managed-hsm", "periodic-ci-openshift-hypershift-release-5.1-periodics-e2e-aks-managed-hsm", "Matching Azure AKS workflow, cluster profile, and managed-HSM configuration."},
+	{"pull-ci-openshift-hypershift-main-e2e-aro-hcp", "periodic-ci-openshift-hypershift-release-5.1-periodics-e2e-aro-hcp", "Matching ARO HCP workflow and scenario configuration."},
+	{"pull-ci-openshift-hypershift-main-e2e-aws-autonode", "periodic-ci-openshift-hypershift-release-5.1-periodics-e2e-aws-autonode", "Matching nested AWS workflow, dependencies, and AutoNode configuration."},
+	{"pull-ci-openshift-hypershift-main-e2e-aws-external-oidc-techpreview", "periodic-ci-openshift-hypershift-release-5.1-periodics-e2e-aws-external-oidc-techpreview", "Matching external-OIDC workflow and tech-preview configuration."},
+	{"pull-ci-openshift-hypershift-main-e2e-aws-ovn-conformance-ccm", "periodic-ci-openshift-hypershift-release-5.1-periodics-e2e-aws-ovn-conformance-ccm", "Matching AWS conformance workflow and scenario configuration; the periodic runs monthly."},
+	{"pull-ci-openshift-hypershift-main-e2e-aws-ovn-conformance-techpreview", "periodic-ci-openshift-hypershift-release-5.1-periodics-e2e-aws-ovn-conformance-techpreview", "Matching AWS conformance workflow and guest feature set; the periodic additionally skips two NLB tests: internal reachability with hairpinning traffic and reachability with target-node-labels."},
+	{"pull-ci-openshift-hypershift-main-e2e-azure-aks-external-oidc-techpreview", "periodic-ci-openshift-hypershift-release-5.1-periodics-e2e-azure-aks-external-oidc-techpreview", "Matching Azure external-OIDC workflow and tech-preview configuration."},
+	{"pull-ci-openshift-hypershift-main-e2e-azure-aks-ovn-conformance", "periodic-ci-openshift-hypershift-release-5.1-periodics-e2e-azure-aks-ovn-conformance", "Matching Azure conformance workflow; the periodic clears the marketplace image publisher, offer, SKU, and version settings."},
+	{"pull-ci-openshift-hypershift-main-e2e-azure-aks-ovn-conformance-fips", "periodic-ci-openshift-hypershift-release-5.1-periodics-e2e-azure-aks-ovn-conformance-fips", "Matching Azure conformance workflow, FIPS setting, test suite, and skips; the periodic clears the marketplace image publisher, offer, SKU, and version settings."},
+	{"pull-ci-openshift-hypershift-main-e2e-azure-kubevirt-ovn", "periodic-ci-openshift-hypershift-release-5.1-periodics-e2e-azure-kubevirt-ovn", "Matching Azure KubeVirt conformance workflow and test suite. The presubmit pins the management-cluster installer image to latest-50, sets two HyperShift nodes, and uses ODF channel stable-4.20; the periodic uses prerelease ODF catalog 5.0 without those image and node-count overrides."},
+	{"pull-ci-openshift-hypershift-main-e2e-conformance", "periodic-ci-openshift-hypershift-release-5.1-periodics-e2e-aws-ovn-conformance", "Different CI target names select matching AWS conformance workflows, cluster profiles, and scenario configuration."},
+	{"pull-ci-openshift-hypershift-main-e2e-conformance-fips", "periodic-ci-openshift-hypershift-release-5.1-periodics-e2e-aws-ovn-conformance-fips", "Different CI target names select matching AWS conformance workflows, cluster profiles, and FIPS configuration."},
+	{"pull-ci-openshift-hypershift-main-e2e-openstack-aws", "periodic-ci-openshift-hypershift-release-5.1-periodics-e2e-openstack-aws", "Matching nested AWS workflow and OpenStack E2E test chain; only the presubmit explicitly adds OpenStack gathering, nested management-cluster cleanup, and a six-hour timeout."},
+	{"pull-ci-openshift-hypershift-main-e2e-openstack-aws-conformance", "periodic-ci-openshift-hypershift-release-5.1-periodics-e2e-openstack-aws-conformance", "Matching OpenStack conformance workflow and scenario configuration."},
+	{"pull-ci-openshift-hypershift-main-e2e-openstack-aws-csi-cinder", "periodic-ci-openshift-hypershift-release-5.1-periodics-e2e-openstack-aws-csi-cinder", "Matching OpenStack conformance workflow, CSI test suite, and Cinder driver manifest."},
+	{"pull-ci-openshift-hypershift-main-e2e-openstack-aws-csi-manila", "periodic-ci-openshift-hypershift-release-5.1-periodics-e2e-openstack-aws-csi-manila", "Matching OpenStack conformance workflow, CSI test suite, and Manila driver manifest."},
+	{"pull-ci-openshift-hypershift-main-e2e-openstack-aws-nfv", "periodic-ci-openshift-hypershift-release-5.1-periodics-e2e-openstack-aws-nfv", "Matching OpenStack NFV workflow and scenario configuration."},
+	{"pull-ci-openshift-hypershift-main-e2e-rosa-hyperfleet", "periodic-ci-openshift-hypershift-release-5.1-periodics-e2e-rosa-hyperfleet", "Matching ephemeral Hyperfleet E2E workflow. The presubmit injects PR-built operator images and uses candidate releases; the periodic uses published images and nightly releases, explicitly provisions the cluster, and waits for teardown."},
+	{"pull-ci-openshift-hypershift-main-e2e-v2-aws-backuprestore", "periodic-ci-openshift-hypershift-release-5.1-periodics-e2e-v2-aws-backuprestore", "Matching AWS backup/restore workflow and scenario configuration; the periodic runs weekly."},
 }
-
-var proposedPeriodicMappings = []periodicMapping{}
 
 func populatePeriodicCounterparts(registry *Registry, policy presubmitPolicy) error {
 	index := registry.Index()
@@ -114,34 +129,27 @@ func populatePeriodicCounterparts(registry *Registry, policy presubmitPolicy) er
 		}
 	}
 
-	mappingSets := []struct {
-		name         string
-		mappings     []periodicMapping
-		source       PeriodicCounterpartSource
-		verification PeriodicCounterpartVerification
-		rationale    string
-	}{
-		{"manual", manualPeriodicMappings, PeriodicCounterpartSourceRegistryManual, PeriodicCounterpartVerificationHuman, manualRationale},
-		{"proposal", proposedPeriodicMappings, PeriodicCounterpartSourceRegistryProposal, PeriodicCounterpartVerificationNeedsReview, proposalRationale},
-	}
-	for _, set := range mappingSets {
-		for _, mapping := range set.mappings {
-			presubmit := index[mapping.PresubmitID]
-			if presubmit == nil || presubmit.Type != "presubmit" || presubmit.Presubmit == nil {
-				return fmt.Errorf("%s mapping presubmit %q is not a presubmit job", set.name, mapping.PresubmitID)
-			}
-			periodic := index[mapping.PeriodicID]
-			if periodic == nil || periodic.Type != "periodic" || len(periodic.Versions) != 1 {
-				return fmt.Errorf("%s mapping periodic %q is not a single-release periodic job", set.name, mapping.PeriodicID)
-			}
-			presubmit.Presubmit.PeriodicCounterparts = append(presubmit.Presubmit.PeriodicCounterparts, PeriodicCounterpart{
-				JobID:         periodic.ID,
-				TestedRelease: periodic.Versions[0],
-				Source:        set.source,
-				Verification:  set.verification,
-				Rationale:     set.rationale,
-			})
+	for _, mapping := range verifiedPeriodicMappings {
+		presubmit := index[mapping.PresubmitID]
+		periodic := index[mapping.PeriodicID]
+		// A selected source snapshot may predate either job in a verified pair.
+		if presubmit == nil || periodic == nil {
+			continue
 		}
+		if presubmit.Type != JobTypePresubmit || presubmit.Presubmit == nil {
+			return fmt.Errorf("verified mapping presubmit %q is not a presubmit job", mapping.PresubmitID)
+		}
+		if periodic.Type != JobTypePeriodic || len(periodic.Versions) != 1 {
+			return fmt.Errorf("verified mapping periodic %q is not a single-release periodic job", mapping.PeriodicID)
+		}
+		presubmit.Presubmit.PeriodicCounterparts = append(presubmit.Presubmit.PeriodicCounterparts, PeriodicCounterpart{
+			JobID:         periodic.ID,
+			TestedRelease: periodic.Versions[0],
+			Source:        PeriodicCounterpartSourceRegistryManual,
+			Verification:  PeriodicCounterpartVerificationHuman,
+			Rationale:     manualRationale,
+			Notes:         mapping.Notes,
+		})
 	}
 
 	for i := range registry.Jobs {
@@ -188,15 +196,11 @@ func validatePeriodicCounterparts(registry *Registry, index map[string]*Job) err
 			if counterpart.JobID == "" || counterpart.TestedRelease == "" || counterpart.Source == "" || counterpart.Verification == "" || counterpart.Rationale == "" {
 				return fmt.Errorf("presubmit %q has an incomplete periodic counterpart", presubmit.ID)
 			}
-			if counterpart.Source != PeriodicCounterpartSourceRegistryManual && counterpart.Source != PeriodicCounterpartSourceRegistryProposal {
+			if counterpart.Source != PeriodicCounterpartSourceRegistryManual {
 				return fmt.Errorf("periodic counterpart %q on presubmit %q has unsupported source %q", counterpart.JobID, presubmit.ID, counterpart.Source)
 			}
-			if counterpart.Verification != PeriodicCounterpartVerificationHuman && counterpart.Verification != PeriodicCounterpartVerificationNeedsReview {
+			if counterpart.Verification != PeriodicCounterpartVerificationHuman {
 				return fmt.Errorf("periodic counterpart %q on presubmit %q has unsupported verification %q", counterpart.JobID, presubmit.ID, counterpart.Verification)
-			}
-			if counterpart.Source == PeriodicCounterpartSourceRegistryManual && counterpart.Verification != PeriodicCounterpartVerificationHuman ||
-				counterpart.Source == PeriodicCounterpartSourceRegistryProposal && counterpart.Verification != PeriodicCounterpartVerificationNeedsReview {
-				return fmt.Errorf("periodic counterpart %q on presubmit %q has inconsistent source %q and verification %q", counterpart.JobID, presubmit.ID, counterpart.Source, counterpart.Verification)
 			}
 			if _, found := seen[counterpart.JobID]; found {
 				return fmt.Errorf("presubmit %q contains duplicate periodic counterpart %q", presubmit.ID, counterpart.JobID)

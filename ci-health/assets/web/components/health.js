@@ -99,54 +99,55 @@ function JobLinks({ job, release, presubmit = false, registry }) {
 }
 
 function PeriodicLabel({ job }) {
-  const details = [job.relationship_rationale,
+  const details = [job.relationship_rationale, job.relationship_notes,
     job.relationship_source && `Source: ${job.relationship_source}`,
     job.relationship_verification && `Verification: ${job.relationship_verification}`].filter(Boolean).join(" · ");
-  const review = job.relationship_verification === "needs-review" ? " · needs review" : "";
-  return html`<${Tooltip} content=${details} className="job-type">periodic ${job.label || ""}${review}<//>`;
+  return html`<${Tooltip} content=${details} className="job-type">periodic ${job.label || ""}<//>`;
 }
 
-function RateCell({ job, slots, color }) {
+function RateCell({ job, slots, color, error }) {
+  if (error) return html`<td class="rate-chart-cell"><${Tooltip} content=${`Sippy analysis could not be retrieved. ${error}`} className="data-unavailable">Data unavailable<//></td>`;
+  if (!job.runs) return html`<td class="rate-chart-cell"><span class="rate-na">${job.sippy_ingestion_enabled === false ? "Sippy disabled" : "No recorded runs"}</span></td>`;
   return html`<td class="rate-chart-cell"><div class="rate-chart-inner">
     <${RateChart} data=${job.sparkline} slots=${slots} color=${color} />
     <${RateSummary} job=${job} />
   </div></td>`;
 }
 
-function PresubmitRow({ job, slots, window }) {
+function PresubmitRow({ job, slots, window, analysisError }) {
   const hasPeriodics = job.periodics?.length > 0;
   const enabled = job.sippy_ingestion_enabled;
   const registry = useRegistryDetail(job.id || job.prow, `presubmit-${job.id || job.prow}`);
   return html`<${Fragment}>
-    <tr>
+    <tr class="presubmit-row" data-job-id=${job.id} data-required=${String(job.required)}>
       <td class="job-name">
         <${StatusDot} rate=${job.rate} runs=${job.runs} />
         ${enabled
           ? html`<a href=${sippyJobURL(job.prow, "Presubmits")} target="_blank" rel="noopener">${job.name}</a>`
           : html`<span>${job.name}</span>`}
-        <span class="job-type">presubmit</span>
+        <span class="job-type">${job.required ? "Required" : "Optional"} presubmit</span>
         ${!enabled && html`<${Tooltip} content=${job.sippy_ingestion_basis || "Sippy ingestion is disabled."} className="job-type">· Sippy disabled<//>`}
         <${InfraBadge} job=${job} presubmit=${true} />
       </td>
-      <${RateCell} job=${job} slots=${slots} color="pre" />
+      <${RateCell} job=${job} slots=${slots} color="pre" error=${analysisError("Presubmits", job.prow)} />
       <td class="sparkline-cell"><${Sparkline} data=${job.sparkline} slots=${slots} correlated=${job.correlation?.indices} showDates=${!hasPeriodics} dateEvery=${WINDOWS[window].dateEvery} /></td>
       <${JobLinks} job=${job} release="Presubmits" presubmit=${true} registry=${registry} />
     </tr>
     <${RegistryDetailRow} registry=${registry} dashboards=${["presubmit_health"]} />
-    ${(job.periodics || []).map(periodic => html`<${PresubmitPeriodicRow} key=${periodic.id} periodic=${periodic} slots=${slots} window=${window} />`)}
+    ${(job.periodics || []).map(periodic => html`<${PresubmitPeriodicRow} key=${periodic.id} periodic=${periodic} slots=${slots} window=${window} error=${analysisError(periodic.release, periodic.prow)} />`)}
   <//>`;
 }
 
-function PresubmitPeriodicRow({ periodic, slots, window }) {
+function PresubmitPeriodicRow({ periodic, slots, window, error }) {
   const registry = useRegistryDetail(periodic.id || periodic.prow, `presubmit-periodic-${periodic.id || periodic.prow}`);
   return html`<${Fragment}>
-    <tr class="periodic-row">
+    <tr class="periodic-row" data-job-id=${periodic.id}>
       <td class="job-name periodic-name">
         <${StatusDot} rate=${periodic.rate} runs=${periodic.runs} />
         <a class="periodic-link" href=${sippyJobURL(periodic.prow, periodic.release)} target="_blank" rel="noopener">${periodic.name}</a>
         <${PeriodicLabel} job=${periodic} /><${InfraBadge} job=${periodic} />
       </td>
-      <${RateCell} job=${periodic} slots=${slots} color="per" />
+      <${RateCell} job=${periodic} slots=${slots} color="per" error=${error} />
       <td class="sparkline-cell"><${Sparkline} data=${periodic.sparkline} slots=${slots} dateEvery=${WINDOWS[window].dateEvery} /></td>
       <${JobLinks} job=${periodic} release=${periodic.release} registry=${registry} />
     </tr>
@@ -166,7 +167,7 @@ function Participation({ items }) {
   </div>`)}</div>`;
 }
 
-function PeriodicHealthRow({ job, slots, window, kind }) {
+function PeriodicHealthRow({ job, slots, window, kind, error }) {
   const registry = useRegistryDetail(job.id || job.prow, `${kind}-${job.release}-${job.id || job.prow}`);
   const availableRegistry = job.registry_missing ? null : registry;
   const dashboards = kind === "payload" ? ["release_payload"] : ["component_readiness"];
@@ -179,7 +180,7 @@ function PeriodicHealthRow({ job, slots, window, kind }) {
         <${InfraBadge} job=${job} />
         ${kind === "payload" && html`<${Participation} items=${job.participations} />`}
       </td>
-      <${RateCell} job=${job} slots=${slots} color="per" />
+      <${RateCell} job=${job} slots=${slots} color="per" error=${error} />
       <td class="sparkline-cell"><${Sparkline} data=${job.sparkline} slots=${slots} dateEvery=${WINDOWS[window].dateEvery} /></td>
       <${JobLinks} job=${job} release=${job.release} registry=${availableRegistry} />
     </tr>
@@ -197,21 +198,25 @@ function Legend({ explainFailures }) {
   <//>`;
 }
 
-function AlertBanner({ alerts }) {
+function AlertBanner({ alerts, scope }) {
   if (!alerts?.length) return null;
   const displayed = alerts.slice(0, 8);
   return html`<section class="alert-banner">
-    <h2>${alerts.length} ${alerts.length === 1 ? "test" : "tests"} newly failing in the last 4 hours</h2>
+    <h2>${scope === "all" ? "Presubmits" : scope === "optional" ? "Optional presubmits" : "Required presubmits"}: ${alerts.length} ${alerts.length === 1 ? "test" : "tests"} newly failing in the last 4 hours</h2>
     <ul>${displayed.map(alert => html`<li key=${alert.test_name}><span class="test-name">${alert.test_name}</span>
-      <span class="job-names"> (${alert.failure_count} ${alert.failure_count === 1 ? "failure" : "failures"}${alert.jobs?.length ? ` in ${alert.jobs.join(", ")}` : ""})</span>
+      <span class="job-names"> (${alert.failure_count} ${alert.failure_count === 1 ? "failure" : "failures"} in ${alert.jobs.map(job => `${job.name} [${job.required ? "Required" : "Optional"}${job.target_release ? ` · ${job.target_release}` : ""}]`).join(", ")})</span>
     </li>`)}</ul>
     ${alerts.length > 8 && html`<div class="more-alerts">… and ${alerts.length - 8} more</div>`}
   </section>`;
 }
 
-export function HealthView({ snapshot, view, group, platforms, selectedReleases, window, focus, onClearFocus }) {
+export function HealthView({ snapshot, view, group, platforms, selectedReleases, window, focus, onClearFocus, presubmitScope, onPresubmitScope, onIncludeFuture }) {
   const data = snapshot.data;
   const selected = new Set(selectedReleases);
+  const futureRelease = releasesInOrder(snapshot.releases)[0];
+  const errors = new Map((snapshot.collection || []).filter(item => item.kind === "analysis" && item.error)
+    .map(item => [`${item.release}/${item.prow_job_name}`, item.error]));
+  const analysisError = (release, name) => errors.get(`${release}/${name}`);
   let jobs;
   let title;
   let empty;
@@ -220,24 +225,34 @@ export function HealthView({ snapshot, view, group, platforms, selectedReleases,
     jobs = data.payload_blocking_jobs || [];
     title = "Release payload job";
     empty = "No release payload jobs found for the selected filters.";
-    row = job => html`<${PeriodicHealthRow} key=${`${job.id}-${job.release}`} job=${job} slots=${data.sparkline_slots} window=${window} kind="payload" />`;
+    row = job => html`<${PeriodicHealthRow} key=${`${job.id}-${job.release}`} job=${job} slots=${data.sparkline_slots} window=${window} kind="payload" error=${analysisError(job.release, job.prow)} />`;
   } else if (view === "component") {
     jobs = data.component_readiness_jobs || [];
     title = "Component Readiness job";
     empty = "No standard-tier Component Readiness jobs found for the selected filters.";
-    row = job => html`<${PeriodicHealthRow} key=${`${job.id}-${job.release}`} job=${job} slots=${data.sparkline_slots} window=${window} kind="component" />`;
+    row = job => html`<${PeriodicHealthRow} key=${`${job.id}-${job.release}`} job=${job} slots=${data.sparkline_slots} window=${window} kind="component" error=${analysisError(job.release, job.prow)} />`;
   } else {
     jobs = data.jobs || [];
     title = "Job";
     empty = "No presubmit jobs found for the selected filters.";
-    row = job => html`<${PresubmitRow} key=${job.id} job=${job} slots=${data.sparkline_slots} window=${window} />`;
+    row = job => html`<${PresubmitRow} key=${job.id} job=${job} slots=${data.sparkline_slots} window=${window} analysisError=${analysisError} />`;
   }
   const matchesFocus = job => !focus || job.id === focus || job.prow === focus || (job.periodics || []).some(periodic => periodic.id === focus || periodic.prow === focus);
   jobs = jobs.filter(job => {
     if (!matchesFocus(job)) return false;
     if (focus) return true;
+    if (view === "presubmit" && presubmitScope !== "all" && job.required !== (presubmitScope === "required")) return false;
     return selected.has(jobRelease(job)) && (!platforms.length || platforms.some(platform => (job.platforms || []).includes(platform)));
   });
+  const visibleIDs = new Set(jobs.map(job => job.id));
+  const alerts = (data.alerts || []).map(alert => {
+    const matching = alert.jobs.filter(job => visibleIDs.has(job.id));
+    return { ...alert, jobs: matching, failure_count: matching.reduce((count, job) => count + job.failure_count, 0) };
+  }).filter(alert => alert.jobs.length);
+  const futureExcluded = view === "presubmit" && presubmitScope === "optional" && !focus && futureRelease && !selected.has(futureRelease);
+  const optionalAvailable = view === "presubmit" && presubmitScope === "required" && !focus && (data.jobs || []).some(job =>
+    !job.required && selected.has(jobRelease(job)) && (!platforms.length || platforms.some(platform => job.platforms.includes(platform))));
+  if (view === "presubmit") empty = `No ${presubmitScope === "all" ? "" : `${presubmitScope} `}presubmits match the selected filters.`;
   const grouped = groupJobs(jobs, group, releasesInOrder(snapshot.releases));
   return html`<${Fragment}>
     ${focus && html`<div class="job-focus-banner">
@@ -245,11 +260,14 @@ export function HealthView({ snapshot, view, group, platforms, selectedReleases,
       <a href=${`/registry?job=${encodeURIComponent(focus)}`}>Registry details</a>
       <button onClick=${onClearFocus}>Show all jobs</button>
     </div>`}
-    ${view === "presubmit" && html`<${AlertBanner} alerts=${data.alerts} />`}
+    ${view === "presubmit" && html`<${AlertBanner} alerts=${alerts} scope=${presubmitScope} />`}
     <table>
       <thead><tr><th>${title}</th><th>Pass Rate</th><th>${WINDOWS[window].label}</th><th class="job-links-header">Links</th></tr></thead>
       <tbody>
-        ${!jobs.length && html`<tr><td colspan="4" class="loading">${empty}</td></tr>`}
+        ${!jobs.length && html`<tr><td colspan="4" class="loading presubmit-empty">
+          ${futureExcluded ? html`<div>Optional presubmits are shown for Future (${futureRelease}) only.</div><button type="button" onClick=${onIncludeFuture}>Include Future (${futureRelease})</button>`
+            : html`<div>${empty}</div>${optionalAvailable && html`<div>Optional presubmits match these filters. <button type="button" onClick=${() => onPresubmitScope("optional")}>Show optional</button></div>`}`}
+        </td></tr>`}
         ${grouped.map((section, index) => section.heading
           ? html`<${Fragment} key=${index}>
               ${section.dimension === "release" && index > 0 && html`<tr class="release-block-spacer" aria-hidden="true"><td colspan="4"></td></tr>`}

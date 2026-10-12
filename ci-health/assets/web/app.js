@@ -6,6 +6,7 @@ import { RegistryView } from "./components/registry.js";
 import { formatAge, html, releasesInOrder, WINDOWS } from "./ui.js";
 
 const VIEWS = new Set(["presubmit", "payload", "component", "registry"]);
+const PRESUBMIT_SCOPES = new Set(["required", "optional", "all"]);
 const GROUPS = new Set(["", "platform", "release", "platform-release", "release-platform"]);
 const DEFAULT_WINDOW = "2w";
 const DEFAULT_GROUP = "release-platform";
@@ -23,10 +24,12 @@ function stateFromURL() {
   const window = query.get("window") || DEFAULT_WINDOW;
   const view = VIEWS_BY_PATH[location.pathname] || "presubmit";
   const group = query.has("group") ? query.get("group") : DEFAULT_GROUP;
+  const presubmitScope = query.get("presubmit-scope") || "required";
   return {
     window: WINDOWS[window] ? window : DEFAULT_WINDOW,
     view: VIEWS.has(view) ? view : "presubmit",
     group: GROUPS.has(group) ? group : DEFAULT_GROUP,
+    presubmitScope: PRESUBMIT_SCOPES.has(presubmitScope) ? presubmitScope : "required",
     platforms: [...new Set(query.getAll("platform").filter(Boolean))],
     releaseStart: query.get("release-newest") || "",
     releaseEnd: query.get("release-oldest") || "",
@@ -53,6 +56,7 @@ function stateURL(state) {
   }
   if (state.window !== DEFAULT_WINDOW) query.set("window", state.window);
   if (state.group !== DEFAULT_GROUP) query.set("group", state.group);
+  if (state.view === "presubmit" && state.presubmitScope !== "required") query.set("presubmit-scope", state.presubmitScope);
   for (const platform of state.platforms) query.append("platform", platform);
   if (state.releaseStart) query.set("release-newest", state.releaseStart);
   if (state.releaseEnd) query.set("release-oldest", state.releaseEnd);
@@ -79,6 +83,7 @@ function App() {
     const request = fetch(`/_dashboard/health/windows/${encodeURIComponent(window)}`).then(async response => {
       if (!response.ok) throw new Error(response.status === 503 ? "Waiting for data…" : `${response.status} ${response.statusText}`);
       const value = await response.json();
+      if (value.complete !== true || value.collection?.some(item => item.error)) throw new Error("Incomplete health report rejected; a complete dataset is required.");
       snapshotsRef.current = { ...snapshotsRef.current, [window]: value };
       setSnapshots(snapshotsRef.current);
       return value;
@@ -130,6 +135,15 @@ function App() {
   }, [releases, state.releaseEnd, state.releaseStart]);
 
   useEffect(() => {
+    if (state.view !== "presubmit" || !state.focus || state.presubmitScope === "all") return;
+    const job = snapshot?.data?.jobs?.find(job => job.id === state.focus || job.prow === state.focus ||
+      (job.periodics || []).some(periodic => periodic.id === state.focus || periodic.prow === state.focus));
+    if (!job) return;
+    const presubmitScope = job.required ? "required" : "optional";
+    if (presubmitScope !== state.presubmitScope) setState(current => current.focus === state.focus && current.view === "presubmit" ? { ...current, presubmitScope } : current);
+  }, [snapshot, state.focus, state.presubmitScope, state.view]);
+
+  useEffect(() => {
     if (state.platforms.length && snapshot) {
       const available = new Set(snapshot.platforms || []);
       const platforms = state.platforms.filter(platform => available.has(platform));
@@ -154,21 +168,20 @@ function App() {
     setState(next);
   };
   const setRange = (start, end) => update({ releaseStart: releases[start], releaseEnd: releases[end] });
+  const setPresubmitScope = presubmitScope => update({ presubmitScope, focus: "" }, true);
   const selectedReleases = releases.slice(Math.max(0, releases.indexOf(state.releaseStart)), Math.max(0, releases.indexOf(state.releaseEnd)) + 1);
-  const failedCollections = snapshot?.collection?.filter(item => item.error).length || 0;
   const status = healthError
     ? { text: healthError, className: "cache-error" }
-    : snapshot?.complete === false
-      ? { text: `Partial report · ${failedCollections} failed request${failedCollections === 1 ? "" : "s"}`, className: "cache-error" }
-      : snapshot
-        ? { text: `Updated ${formatAge(snapshot.generated_at)}`, className: "cache-fresh" }
-        : { text: "Loading…", className: "cache-stale" };
+    : snapshot
+      ? { text: `Updated ${formatAge(snapshot.generated_at)}`, className: "cache-fresh" }
+      : { text: "Loading…", className: "cache-stale" };
   return html`<div class="page">
     <${Header} state=${state} platforms=${snapshot?.platforms || []} status=${status}
       onWindow=${window => update({ window }, true)} onGroup=${group => update({ group })}
       onPlatforms=${platforms => update({ platforms })} />
     <${Navigation} view=${state.view} onView=${view => update({ view, focus: "", selectedJob: "" }, true)} releases=${releases}
-      start=${state.releaseStart} end=${state.releaseEnd} onRange=${setRange} />
+      start=${state.releaseStart} end=${state.releaseEnd} onRange=${setRange}
+      presubmitScope=${state.presubmitScope} onPresubmitScope=${setPresubmitScope} />
     ${state.view === "registry"
       ? registry
         ? html`<${RegistryView} registry=${registry} snapshot=${snapshot} query=${state.search} selectedJob=${state.selectedJob}
@@ -177,7 +190,9 @@ function App() {
         : html`<div class=${`loading ${registryError ? "error" : ""}`}>${registryError ? `Failed to load job registry: ${registryError}` : "Loading job registry…"}</div>`
       : snapshot
         ? html`<${HealthView} snapshot=${snapshot} view=${state.view} group=${state.group} platforms=${state.platforms}
-            selectedReleases=${selectedReleases} window=${displayedWindow} focus=${state.focus} onClearFocus=${() => update({ focus: "" })} />`
+            selectedReleases=${selectedReleases} window=${displayedWindow} focus=${state.focus} onClearFocus=${() => update({ focus: "" })}
+            presubmitScope=${state.presubmitScope} onPresubmitScope=${setPresubmitScope}
+            onIncludeFuture=${() => update({ releaseStart: releases[0], focus: "" }, true)} />`
         : html`<div class=${`loading ${healthError ? "error" : ""}`}>${healthError || "Loading health window…"}</div>`}
   </div>`;
 }

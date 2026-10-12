@@ -1,8 +1,8 @@
 import { html } from "../ui.js";
 
-function Toggle({ values, active, onChange, label }) {
+export function Toggle({ values, active, onChange, label }) {
   return html`<div class="toggle" role="group" aria-label=${label}>
-    ${values.map(item => html`<button key=${item.value} class=${active === item.value ? "active" : ""} onClick=${() => onChange(item.value)}>${item.label}</button>`)}
+    ${values.map(item => html`<button type="button" key=${item.value} aria-pressed=${active === item.value} class=${active === item.value ? "active" : ""} onClick=${() => onChange(item.value)}>${item.label}</button>`)}
   </div>`;
 }
 
@@ -71,7 +71,7 @@ export function Header({ state, platforms, status, onWindow, onGroup, onPlatform
   </header>`;
 }
 
-export function Navigation({ view, onView, releases, start, end, onRange }) {
+export function Navigation({ view, onView, releases, start, end, onRange, presubmitScope, onPresubmitScope }) {
   const min = Math.max(0, releases.indexOf(start));
   const endIndex = releases.indexOf(end);
   const max = endIndex >= min ? endIndex : Math.min(2, releases.length - 1);
@@ -84,10 +84,17 @@ export function Navigation({ view, onView, releases, start, end, onRange }) {
     onRange(bound === "start" ? Math.min(index, max) : min, bound === "end" ? Math.max(index, min) : max);
   };
   return html`<div class="view-navigation">
-    <${Toggle} label="View" active=${view} onChange=${onView} values=${[
-      { value: "presubmit", label: "Presubmit" }, { value: "payload", label: "Release Payload" },
-      { value: "component", label: "Component Readiness" }, { value: "registry", label: "Job Registry" },
-    ]} />
+    <div class="navigation-selectors">
+      <${Toggle} label="View" active=${view} onChange=${onView} values=${[
+        { value: "presubmit", label: "Presubmit" }, { value: "payload", label: "Release Payload" },
+        { value: "component", label: "Component Readiness" }, { value: "registry", label: "Job Registry" },
+      ]} />
+      ${view === "presubmit" && html`<div class="presubmit-scope-control" title=${releases[0] ? `Optional presubmits are shown for Future (${releases[0]}) only.` : "Optional presubmits are shown for the development release only."}>
+        <${Toggle} label="Presubmit scope" active=${presubmitScope} onChange=${onPresubmitScope} values=${[
+          { value: "required", label: "Required" }, { value: "optional", label: "Optional" }, { value: "all", label: "All" },
+        ]} />
+      </div>`}
+    </div>
     ${view !== "registry" && releases.length > 0 && html`<div class="release-filter">
       <span class="release-filter-label">Releases <strong>${rangeLabel}</strong></span>
       <div class=${`release-range-control ${min === max ? "collapsed" : ""}`}>

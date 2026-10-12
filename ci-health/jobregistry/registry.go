@@ -19,7 +19,7 @@ import (
 
 const (
 	// CurrentAPIVersion identifies the schema emitted by the registry generator.
-	CurrentAPIVersion           = "job-registry/v7"
+	CurrentAPIVersion           = "job-registry/v8"
 	releaseRepository           = "openshift/release"
 	releaseMainURL              = "https://github.com/openshift/release/blob/main/"
 	defaultSippyURL             = "https://sippy.dptools.openshift.org"

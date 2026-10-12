@@ -3,7 +3,7 @@ package jobregistry
 // Registry is the stable, serializable registry contract.
 type Registry struct {
 	// APIVersion identifies the schema used to serialize the registry.
-	APIVersion string `json:"api_version" doc:"Schema version used to serialize this registry" example:"job-registry/v7" enum:"job-registry/v7"`
+	APIVersion string `json:"api_version" doc:"Schema version used to serialize this registry" example:"job-registry/v8" enum:"job-registry/v8"`
 	// Jobs contains every discovered job, ordered by stable job ID.
 	Jobs []Job `json:"jobs" doc:"Discovered jobs ordered by stable job ID"`
 }
@@ -37,8 +37,7 @@ const (
 type PeriodicCounterpartSource string
 
 const (
-	PeriodicCounterpartSourceRegistryManual   PeriodicCounterpartSource = "registry-manual"
-	PeriodicCounterpartSourceRegistryProposal PeriodicCounterpartSource = "registry-proposal"
+	PeriodicCounterpartSourceRegistryManual PeriodicCounterpartSource = "registry-manual"
 )
 
 // PeriodicCounterpartVerification identifies the review state of a periodic
@@ -46,8 +45,7 @@ const (
 type PeriodicCounterpartVerification string
 
 const (
-	PeriodicCounterpartVerificationHuman       PeriodicCounterpartVerification = "human-verified"
-	PeriodicCounterpartVerificationNeedsReview PeriodicCounterpartVerification = "needs-review"
+	PeriodicCounterpartVerificationHuman PeriodicCounterpartVerification = "human-verified"
 )
 
 // PeriodicCounterpart identifies a periodic believed to exercise the same
@@ -56,9 +54,10 @@ const (
 type PeriodicCounterpart struct {
 	JobID         string                          `json:"job_id" doc:"Stable ID of the associated periodic job"`
 	TestedRelease string                          `json:"tested_release" doc:"Concrete OpenShift release tested by the periodic" example:"4.22"`
-	Source        PeriodicCounterpartSource       `json:"source" doc:"Who asserted this relationship" enum:"registry-manual,registry-proposal"`
-	Verification  PeriodicCounterpartVerification `json:"verification" doc:"Review state of this relationship" enum:"human-verified,needs-review"`
+	Source        PeriodicCounterpartSource       `json:"source" doc:"Who asserted this relationship" enum:"registry-manual"`
+	Verification  PeriodicCounterpartVerification `json:"verification" doc:"Review state of this relationship" enum:"human-verified"`
 	Rationale     string                          `json:"rationale" doc:"Evidence supporting this relationship"`
+	Notes         string                          `json:"notes,omitempty" doc:"Mapping-specific scenario similarities and differences; omitted when not yet recorded"`
 }
 
 // Job describes one Prow job. A Prow job name is its globally unique, stable
@@ -132,9 +131,8 @@ type Presubmit struct {
 	// SkipIfOnlyChanged is a regular expression that skips the job when every
 	// changed file matches. It is omitted when the job has no such condition.
 	SkipIfOnlyChanged string `json:"skip_if_only_changed,omitempty" doc:"Regular expression that skips the job when every changed file matches"`
-	// PeriodicCounterparts contains registry-owned periodic associations and
-	// review proposals. Verification distinguishes reviewed mappings from
-	// candidates. An empty list means no counterpart has been identified.
+	// PeriodicCounterparts contains verified registry-owned periodic associations.
+	// An empty list means no counterpart has been identified.
 	PeriodicCounterparts []PeriodicCounterpart `json:"periodic_counterparts" doc:"Registry-owned associations with periodic jobs"`
 }
 

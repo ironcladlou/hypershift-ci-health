@@ -114,7 +114,13 @@ select { padding: 2px 6px; font-size: 12px; }
 .toggle button:last-child { border-right: 0; }
 .toggle button:hover { color: var(--text-primary); }
 .toggle button.active { background: var(--gridline); color: var(--text-primary); font-weight: 500; }
-.toggle[aria-label="View"] button.active { font-weight: inherit; }
+.toggle[aria-label="View"] button.active, .toggle[aria-label="Presubmit scope"] button.active { font-weight: inherit; }
+.navigation-selectors { display: flex; flex-wrap: wrap; align-items: flex-start; gap: 8px; }
+.navigation-selectors > .toggle { flex-shrink: 0; }
+.presubmit-scope-control { display: flex; }
+.presubmit-empty button { margin: 10px 0 0; border: 1px solid var(--baseline); border-radius: 4px; padding: 5px 9px; background: var(--surface); color: var(--text-primary); cursor: pointer; font: inherit; }
+.presubmit-empty button:hover { border-color: var(--series-1); }
+.data-unavailable { color: var(--text-secondary); }
 
 .cache-stale { color: var(--text-muted); }
 .cache-fresh { color: var(--delta-good); }
@@ -130,7 +136,7 @@ select { padding: 2px 6px; font-size: 12px; }
 .release-filter { display: flex; align-items: flex-start; gap: 12px; color: var(--text-muted); font-size: 11px; }
 .release-filter-label { line-height: 22px; white-space: nowrap; }
 .release-filter-label strong { margin-left: 3px; color: var(--text-primary); font-weight: 500; }
-.release-range-control { position: relative; width: min(420px, 42vw); min-width: 280px; height: 38px; }
+.release-range-control { position: relative; width: min(400px, 42vw); min-width: 280px; height: 38px; }
 .release-range-track {
   position: absolute;
   top: 9px;

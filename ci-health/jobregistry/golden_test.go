@@ -55,8 +55,8 @@ func TestGoldenRegistrySnapshot(t *testing.T) {
 		{"jobs", 893},
 		{"periodics", 464},
 		{"presubmits", 429},
-		{"presubmits with counterparts", 38},
-		{"counterparts", 38},
+		{"presubmits with counterparts", 54},
+		{"counterparts", 54},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
@@ -221,6 +221,106 @@ func TestGoldenRegistryJobQueries(t *testing.T) {
 	}
 }
 
+func TestOptionalFuturePeriodicCounterparts(t *testing.T) {
+	registry := loadGoldenRegistry(t)
+	// Exercise generation as well as the serialized fixture. Optionality must
+	// not prevent registry relationships from being published.
+	if err := populatePeriodicCounterparts(registry, defaultPresubmitPolicy); err != nil {
+		t.Fatal(err)
+	}
+	index := registry.Index()
+	for _, test := range []struct {
+		presubmit, periodic string
+	}{
+		{"e2e-conformance", "e2e-aws-ovn-conformance"},
+		{"e2e-conformance-fips", "e2e-aws-ovn-conformance-fips"},
+		{"e2e-openstack-aws-csi-cinder", "e2e-openstack-aws-csi-cinder"},
+		{"e2e-azure-kubevirt-ovn", "e2e-azure-kubevirt-ovn"},
+	} {
+		t.Run(test.presubmit, func(t *testing.T) {
+			job := index["pull-ci-openshift-hypershift-main-"+test.presubmit]
+			if job == nil || job.Presubmit == nil || job.Presubmit.Required {
+				t.Fatal("expected an optional presubmit")
+			}
+			counterparts := job.Presubmit.PeriodicCounterparts
+			if len(counterparts) != 1 {
+				t.Fatalf("counterparts = %+v", counterparts)
+			}
+			c := counterparts[0]
+			if c.JobID != "periodic-ci-openshift-hypershift-release-5.1-periodics-"+test.periodic || c.TestedRelease != "5.1" || c.Source != PeriodicCounterpartSourceRegistryManual || c.Verification != PeriodicCounterpartVerificationHuman || c.Rationale == "" || c.Notes == "" {
+				t.Fatalf("unexpected verified mapping: %+v", c)
+			}
+		})
+	}
+	for _, scenario := range []string{"e2e-kubevirt-aws-ovn", "e2e-kubevirt-azure-ovn", "e2e-aws-techpreview", "e2e-aws-major-version-upgrade", "e2e-agent-connected-ovn-ipv4-metal-backuprestore", "e2e-kubevirt-metal-ovn-backuprestore", "reqserving-e2e-aws"} {
+		job := index["pull-ci-openshift-hypershift-main-"+scenario]
+		if job == nil || job.Presubmit == nil {
+			t.Fatalf("missing presubmit %q", scenario)
+		}
+		if len(job.Presubmit.PeriodicCounterparts) != 0 {
+			t.Errorf("different scenarios or older releases must not be paired with %q", scenario)
+		}
+	}
+	kubevirt := index["pull-ci-openshift-hypershift-main-e2e-kubevirt-aws-ovn-reduced"].Presubmit
+	if len(kubevirt.PeriodicCounterparts) != 1 || kubevirt.PeriodicCounterparts[0].Verification != PeriodicCounterpartVerificationHuman {
+		t.Fatalf("existing KubeVirt mapping changed: %+v", kubevirt)
+	}
+	legacyJSON, err := json.Marshal(kubevirt.PeriodicCounterparts[0])
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(string(legacyJSON), `"notes"`) {
+		t.Fatal("existing mappings must omit notes until they are recorded")
+	}
+	for _, test := range []struct{ scenario, nuance string }{
+		{"e2e-aws-ovn-conformance-ccm", "monthly"},
+		{"e2e-aws-ovn-conformance-techpreview", "NLB"},
+		{"e2e-azure-aks-ovn-conformance-fips", "marketplace"},
+		{"e2e-azure-kubevirt-ovn", "stable-4.20"},
+		{"e2e-openstack-aws", "six-hour"},
+		{"e2e-v2-aws-backuprestore", "weekly"},
+	} {
+		c := index["pull-ci-openshift-hypershift-main-"+test.scenario].Presubmit.PeriodicCounterparts[0]
+		data, err := json.Marshal(c)
+		if err != nil {
+			t.Fatal(err)
+		}
+		var decoded PeriodicCounterpart
+		if err := json.Unmarshal(data, &decoded); err != nil {
+			t.Fatal(err)
+		}
+		if decoded.Notes != c.Notes || !strings.Contains(decoded.Notes, test.nuance) {
+			t.Errorf("%s notes lost their scenario nuance: %q", test.scenario, decoded.Notes)
+		}
+	}
+}
+
+func TestVerifiedCounterpartsWithMissingEndpoints(t *testing.T) {
+	registry := loadGoldenRegistry(t)
+	const presubmitID = "pull-ci-openshift-hypershift-main-e2e-aks-managed-hsm"
+	const periodicID = "periodic-ci-openshift-hypershift-release-5.1-periodics-e2e-aks-managed-hsm"
+	if err := populatePeriodicCounterparts(registry, defaultPresubmitPolicy); err != nil {
+		t.Fatal(err)
+	}
+	if len(registry.Index()[presubmitID].Presubmit.PeriodicCounterparts) != 0 {
+		t.Fatal("mapping must be absent when its periodic is absent from the source snapshot")
+	}
+	periodic := *registry.Index()["periodic-ci-openshift-hypershift-release-5.1-periodics-e2e-aks"]
+	periodic.ID, periodic.Name = periodicID, periodicID
+	registry.Jobs = append(registry.Jobs, periodic)
+	if err := populatePeriodicCounterparts(registry, defaultPresubmitPolicy); err != nil {
+		t.Fatal(err)
+	}
+	cs := registry.Index()[presubmitID].Presubmit.PeriodicCounterparts
+	if len(cs) != 1 || cs[0].JobID != periodicID || cs[0].Verification != PeriodicCounterpartVerificationHuman || cs[0].Notes == "" {
+		t.Fatalf("mapping must become available when both jobs exist: %+v", cs)
+	}
+	registry.Jobs = slices.DeleteFunc(registry.Jobs, func(job Job) bool { return job.ID == presubmitID })
+	if err := populatePeriodicCounterparts(registry, defaultPresubmitPolicy); err != nil {
+		t.Fatalf("absent verified presubmit: %v", err)
+	}
+}
+
 func TestSippyIngestionReleaseAllowlist(t *testing.T) {
 	golden := loadGoldenRegistry(t)
 	tests := []struct {
@@ -273,10 +373,6 @@ func TestValidateRejectsBrokenInvariants(t *testing.T) {
 		{"incomplete counterpart", func(r *Registry) { _, c := withCounterpart(r); c.Rationale = "" }, "incomplete periodic counterpart"},
 		{"unsupported counterpart source", func(r *Registry) { _, c := withCounterpart(r); c.Source = "heuristic" }, "unsupported source"},
 		{"unsupported counterpart verification", func(r *Registry) { _, c := withCounterpart(r); c.Verification = "suggested" }, "unsupported verification"},
-		{"inconsistent counterpart state", func(r *Registry) {
-			_, c := withCounterpart(r)
-			c.Verification = PeriodicCounterpartVerificationNeedsReview
-		}, "inconsistent source"},
 		{"missing Sippy ingestion basis", func(r *Registry) {
 			r.Index()["pull-ci-openshift-hypershift-main-e2e-aws"].Presubmit.SippyIngestion.Basis = ""
 		}, "no Sippy ingestion basis"},

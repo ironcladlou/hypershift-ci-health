@@ -36,6 +36,7 @@ type PeriodicReference struct {
 	Source        jobregistry.PeriodicCounterpartSource       `json:"source"`
 	Verification  jobregistry.PeriodicCounterpartVerification `json:"verification"`
 	Rationale     string                                      `json:"rationale"`
+	Notes         string                                      `json:"notes,omitempty"`
 }
 
 type Presubmit struct {
@@ -101,7 +102,10 @@ func Build(registry *jobregistry.Registry, policy SelectionPolicy) (*Plan, error
 
 	for i := range registry.Jobs {
 		job := &registry.Jobs[i]
-		if job.Type != jobregistry.JobTypePresubmit || job.Presubmit == nil || !job.Presubmit.Required || job.E2EFramework == jobregistry.E2EFrameworkNone || job.Presubmit.TargetRelease == "" {
+		if job.Type != jobregistry.JobTypePresubmit || job.Presubmit == nil || job.E2EFramework == jobregistry.E2EFrameworkNone || job.Presubmit.TargetRelease == "" {
+			continue
+		}
+		if !job.Presubmit.Required && (job.Presubmit.TargetBranch != policy.DevelopmentBranch || job.Presubmit.TargetRelease != policy.DevelopmentRelease) {
 			continue
 		}
 		if containsAny(job.Versions, policy.ExcludedReleases) || !supportedRelease(job.Presubmit.TargetRelease, policy) {
@@ -115,7 +119,7 @@ func Build(registry *jobregistry.Registry, policy SelectionPolicy) (*Plan, error
 		}
 		entry := Presubmit{JobID: job.ID, Periodics: []PeriodicReference{}}
 		for _, counterpart := range job.Presubmit.PeriodicCounterparts {
-			entry.Periodics = append(entry.Periodics, PeriodicReference{JobID: counterpart.JobID, TestedRelease: counterpart.TestedRelease, Source: counterpart.Source, Verification: counterpart.Verification, Rationale: counterpart.Rationale})
+			entry.Periodics = append(entry.Periodics, PeriodicReference{JobID: counterpart.JobID, TestedRelease: counterpart.TestedRelease, Source: counterpart.Source, Verification: counterpart.Verification, Rationale: counterpart.Rationale, Notes: counterpart.Notes})
 		}
 		plan.Presubmits = append(plan.Presubmits, entry)
 	}
@@ -156,12 +160,12 @@ func Build(registry *jobregistry.Registry, policy SelectionPolicy) (*Plan, error
 		}
 		return index[plan.PayloadJobs[i].JobID].Name < index[plan.PayloadJobs[j].JobID].Name
 	})
+	plan.AnalysisTargets = analysisTargets(plan, index)
 	plan.Releases = releases(plan, index)
 	for i := range plan.Presubmits {
 		plan.Presubmits[i].Role = roleForRelease(index[plan.Presubmits[i].JobID].Presubmit.TargetRelease, plan.Releases)
 	}
 	plan.Platforms = platforms(plan, index)
-	plan.AnalysisTargets = analysisTargets(plan, index)
 	if err := plan.Validate(registry); err != nil {
 		return nil, err
 	}
@@ -282,6 +286,11 @@ func releases(plan *Plan, index map[string]*jobregistry.Job) []string {
 	for _, e := range plan.PayloadJobs {
 		add(e.Release)
 	}
+	for _, target := range plan.AnalysisTargets {
+		if target.Release != "Presubmits" {
+			add(target.Release)
+		}
+	}
 	sort.Slice(result, func(i, j int) bool { return releaseRank(result[i]) < releaseRank(result[j]) })
 	return result
 }
@@ -325,6 +334,25 @@ func analysisTargets(plan *Plan, index map[string]*jobregistry.Job) []AnalysisTa
 	}
 	for _, e := range plan.PayloadJobs {
 		add(e.Release, e.JobID)
+	}
+	// Collection covers the development release independently of dashboard rows
+	// and counterpart mappings. Keep older releases on their existing selection.
+	if supportedRelease(plan.Policy.DevelopmentRelease, plan.Policy) {
+		for _, job := range index {
+			if containsAny(job.Versions, plan.Policy.ExcludedReleases) {
+				continue
+			}
+			switch job.Type {
+			case jobregistry.JobTypePresubmit:
+				if job.Presubmit != nil && job.Presubmit.TargetBranch == plan.Policy.DevelopmentBranch && job.Presubmit.TargetRelease == plan.Policy.DevelopmentRelease && job.E2EFramework != jobregistry.E2EFrameworkNone && job.Presubmit.SippyIngestion.Enabled {
+					add("Presubmits", job.ID)
+				}
+			case jobregistry.JobTypePeriodic:
+				if slices.Contains(job.Versions, plan.Policy.DevelopmentRelease) {
+					add(plan.Policy.DevelopmentRelease, job.ID)
+				}
+			}
+		}
 	}
 	sort.Slice(result, func(i, j int) bool {
 		if result[i].Release != result[j].Release {

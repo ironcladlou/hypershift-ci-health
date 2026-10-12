@@ -52,20 +52,29 @@ generate-report-plan: build
 generate-sippy-observation: build
 	@test -f job-registry.json || (echo "job-registry.json is required" >&2; exit 1)
 	@test -f report-plan.json || (echo "report-plan.json is required" >&2; exit 1)
-	./$(BIN) sippy-observation --job-registry=job-registry.json --report-plan=report-plan.json > sippy-observation.json
+	@set -e; artifact_tmp=$$(mktemp .sippy-observation.XXXXXX); \
+		trap 'rm -f "$$artifact_tmp"' EXIT; \
+		./$(BIN) sippy-observation --job-registry=job-registry.json --report-plan=report-plan.json > "$$artifact_tmp"; \
+		mv "$$artifact_tmp" sippy-observation.json
 
 generate-health-report: build
 	@test -f job-registry.json || (echo "job-registry.json is required" >&2; exit 1)
 	@test -f report-plan.json || (echo "report-plan.json is required" >&2; exit 1)
 	@test -f sippy-observation.json || (echo "sippy-observation.json is required" >&2; exit 1)
-	./$(BIN) health-report --job-registry=job-registry.json --report-plan=report-plan.json --sippy-observation=sippy-observation.json > health-report.json
+	@set -e; artifact_tmp=$$(mktemp .health-report.XXXXXX); \
+		trap 'rm -f "$$artifact_tmp"' EXIT; \
+		./$(BIN) health-report --job-registry=job-registry.json --report-plan=report-plan.json --sippy-observation=sippy-observation.json > "$$artifact_tmp"; \
+		mv "$$artifact_tmp" health-report.json
 
 generate-artifacts: build
 	@test -n "$(RELEASE_DIR)" || (echo "RELEASE_DIR is required" >&2; exit 1)
-	./$(BIN) job-registry --release-dir=$(RELEASE_DIR) > job-registry.json
-	./$(BIN) report-plan --job-registry=job-registry.json > report-plan.json
-	./$(BIN) sippy-observation --job-registry=job-registry.json --report-plan=report-plan.json > sippy-observation.json
-	./$(BIN) health-report --job-registry=job-registry.json --report-plan=report-plan.json --sippy-observation=sippy-observation.json > health-report.json
+	@set -e; artifact_dir=$$(mktemp -d .artifacts.XXXXXX); \
+		trap 'rm -rf "$$artifact_dir"' EXIT; \
+		./$(BIN) job-registry --release-dir="$(RELEASE_DIR)" > "$$artifact_dir/job-registry.json"; \
+		./$(BIN) report-plan --job-registry="$$artifact_dir/job-registry.json" > "$$artifact_dir/report-plan.json"; \
+		./$(BIN) sippy-observation --job-registry="$$artifact_dir/job-registry.json" --report-plan="$$artifact_dir/report-plan.json" > "$$artifact_dir/sippy-observation.json"; \
+		./$(BIN) health-report --job-registry="$$artifact_dir/job-registry.json" --report-plan="$$artifact_dir/report-plan.json" --sippy-observation="$$artifact_dir/sippy-observation.json" > "$$artifact_dir/health-report.json"; \
+		mv "$$artifact_dir/job-registry.json" "$$artifact_dir/report-plan.json" "$$artifact_dir/sippy-observation.json" "$$artifact_dir/health-report.json" .
 
 update-golden: build
 	@test -n "$(RELEASE_DIR)" || (echo "RELEASE_DIR is required" >&2; exit 1)

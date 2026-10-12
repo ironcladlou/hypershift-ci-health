@@ -197,3 +197,114 @@ test("browses, filters, and deep-links the job registry", async ({ page }) => {
   await expect(selectedRow.locator(".registry-job-link")).toBeFocused();
   expect(await page.evaluate(() => localStorage.length)).toBe(0);
 });
+
+test("selects required optional and all presubmits and restores scope", async ({ page }) => {
+  await page.goto("/presubmits?window=1w&release-newest=5.1&release-oldest=5.1");
+  const scope = page.getByRole("group", { name: "Presubmit scope" });
+  await expect(scope.getByRole("button", { name: "Required", exact: true })).toHaveAttribute("aria-pressed", "true");
+  await expect(page.locator('.presubmit-row[data-required="true"]')).not.toHaveCount(0);
+  await expect(page.locator('.presubmit-row[data-required="false"]')).toHaveCount(0);
+
+  await scope.getByRole("button", { name: "Optional", exact: true }).click();
+  await expect(page.locator('.presubmit-row[data-required="true"]')).toHaveCount(0);
+  await expect(page.locator('.presubmit-row[data-required="false"]')).not.toHaveCount(0);
+  await expect(page.locator(".periodic-row")).not.toHaveCount(0);
+  const autonode = page.locator('.presubmit-row[data-job-id="pull-ci-openshift-hypershift-main-e2e-aws-autonode"]');
+  await expect(autonode).toContainText("Optional presubmit");
+  await expect(autonode.locator(".rate-chart-cell")).toHaveText("No recorded runs");
+  await expect(page.locator('.periodic-row[data-job-id="periodic-ci-openshift-hypershift-release-5.1-periodics-e2e-aws-autonode"]')).toBeVisible();
+  await expect.poll(() => new URL(page.url()).searchParams.get("presubmit-scope")).toBe("optional");
+  await page.reload();
+  await expect(scope.getByRole("button", { name: "Optional", exact: true })).toHaveAttribute("aria-pressed", "true");
+
+  await scope.getByRole("button", { name: "All", exact: true }).click();
+  await expect(page.locator('.presubmit-row[data-required="true"]')).not.toHaveCount(0);
+  await expect(page.locator('.presubmit-row[data-required="false"]')).not.toHaveCount(0);
+  await page.goBack();
+  await expect(scope.getByRole("button", { name: "Optional", exact: true })).toHaveAttribute("aria-pressed", "true");
+  await scope.getByRole("button", { name: "Required", exact: true }).click();
+  await expect.poll(() => new URL(page.url()).searchParams.has("presubmit-scope")).toBe(false);
+  await expect(page.locator('.presubmit-row[data-required="false"]')).toHaveCount(0);
+});
+
+test("explains optional Future scope and offers matching optional coverage", async ({ page }) => {
+  await page.goto("/presubmits?presubmit-scope=optional&release-newest=4.22&release-oldest=4.22");
+  await expect(page.locator(".presubmit-row")).toHaveCount(0);
+  await expect(page.locator(".presubmit-empty")).toContainText("Optional presubmits are shown for Future (5.1) only.");
+  await page.getByRole("button", { name: "Include Future (5.1)", exact: true }).click();
+  await expect(page.locator('.presubmit-row[data-required="false"]')).not.toHaveCount(0);
+  await expect.poll(() => new URL(page.url()).searchParams.get("release-newest")).toBe("5.1");
+  await expect.poll(() => new URL(page.url()).searchParams.get("release-oldest")).toBe("4.22");
+  await expect.poll(() => new URL(page.url()).searchParams.get("presubmit-scope")).toBe("optional");
+
+  await page.goto("/presubmits?release-newest=5.1&release-oldest=5.1&platform=openstack");
+  await expect(page.locator(".presubmit-row")).toHaveCount(0);
+  await page.getByRole("button", { name: "Show optional", exact: true }).click();
+  await expect(page.locator('.presubmit-row[data-required="false"]')).not.toHaveCount(0);
+  await expect.poll(() => new URL(page.url()).searchParams.getAll("platform")).toEqual(["openstack"]);
+});
+
+test("deep-links optional presubmits and displays mapping nuances", async ({ page }) => {
+  const job = "pull-ci-openshift-hypershift-main-e2e-aws-ovn-conformance-techpreview";
+  await page.goto(`/presubmits?window=1w&job=${job}`);
+  await expect(page.getByRole("group", { name: "Presubmit scope" }).getByRole("button", { name: "Optional", exact: true })).toHaveAttribute("aria-pressed", "true");
+  await expect(page.locator(".presubmit-row")).toHaveCount(1);
+  await expect(page.locator(".presubmit-row")).toContainText("Optional presubmit");
+  const periodic = page.locator('.periodic-row[data-job-id="periodic-ci-openshift-hypershift-release-5.1-periodics-e2e-aws-ovn-conformance-techpreview"]');
+  await periodic.locator(".job-type.has-tip").hover();
+  await expect(periodic.getByRole("tooltip")).toContainText("NLB tests");
+  await page.screenshot({ path: "/tmp/ci-health-optional-presubmit.png" });
+  await page.getByRole("group", { name: "Presubmit scope" }).getByRole("button", { name: "Required", exact: true }).click();
+  await expect.poll(() => new URL(page.url()).searchParams.has("job")).toBe(false);
+  await expect(page.locator('.presubmit-row[data-required="false"]')).toHaveCount(0);
+});
+
+test("scopes failure alerts and labels jobs without recorded runs", async ({ page }) => {
+  await page.route("**/_dashboard/health/windows/*", async route => {
+    const response = await route.fetch();
+    const snapshot = await response.json();
+    const required = snapshot.data.jobs.find(job => job.id === "pull-ci-openshift-hypershift-main-e2e-aws");
+    const optional = snapshot.data.jobs.find(job => job.id === "pull-ci-openshift-hypershift-main-e2e-aws-metrics");
+    const noRuns = snapshot.data.jobs.find(job => job.id === "pull-ci-openshift-hypershift-main-e2e-aws-autonode");
+    optional.runs = 0;
+    noRuns.runs = 0;
+    snapshot.data.alerts = [{ test_name: "Shared test failure", failure_count: 3, jobs: [
+      { id: required.id, name: required.name, target_release: required.target_release, required: true, failure_count: 1 },
+      { id: optional.id, name: optional.name, target_release: optional.target_release, required: false, failure_count: 2 },
+    ] }];
+    await route.fulfill({ response, json: snapshot });
+  });
+  await page.goto("/presubmits?window=1w&release-newest=5.1&release-oldest=5.1");
+  const alerts = page.locator(".alert-banner");
+  await expect(alerts).toContainText("Required presubmits:");
+  await expect(alerts).toContainText("1 failure");
+  await expect(alerts).not.toContainText("e2e-aws-metrics");
+  const scope = page.getByRole("group", { name: "Presubmit scope" });
+  await scope.getByRole("button", { name: "Optional", exact: true }).click();
+  await expect(alerts).toContainText("Optional presubmits:");
+  await expect(alerts).toContainText("2 failures");
+  await expect(alerts).toContainText("[Optional");
+  await expect(alerts).not.toContainText("[Required");
+  const metrics = page.locator('.presubmit-row[data-job-id="pull-ci-openshift-hypershift-main-e2e-aws-metrics"]');
+  await expect(metrics.locator(".rate-chart-cell")).toHaveText("No recorded runs");
+  await expect(page.locator('.presubmit-row[data-job-id="pull-ci-openshift-hypershift-main-e2e-aws-autonode"] .rate-chart-cell')).toHaveText("No recorded runs");
+  await scope.getByRole("button", { name: "All", exact: true }).click();
+  await expect(alerts).toContainText("3 failures");
+  await expect(alerts).toContainText("[Required");
+  await expect(alerts).toContainText("[Optional");
+  await page.getByLabel("Platform filter").click();
+  await page.getByRole("checkbox", { name: "openstack", exact: true }).check();
+  await expect(alerts).toHaveCount(0);
+});
+
+test("rejects partial health responses", async ({ page }) => {
+  await page.route("**/_dashboard/health/windows/*", async route => {
+    const response = await route.fetch();
+    const snapshot = await response.json();
+    snapshot.complete = false;
+    await route.fulfill({ response, json: snapshot });
+  });
+  await page.goto("/presubmits");
+  await expect(page.locator(".loading.error")).toHaveText("Incomplete health report rejected; a complete dataset is required.");
+  await expect(page.locator(".presubmit-row")).toHaveCount(0);
+});

@@ -171,5 +171,8 @@ func CollectObservation(ctx context.Context, client *Client, registry *jobregist
 		return nil, status, fmt.Errorf("validate Sippy observation: %w", err)
 	}
 	fmt.Fprintf(logWriter, "sippy: collection %s: %d/%d requests succeeded\n", status.State, status.Total-status.Failed, status.Total)
+	if !observation.Complete {
+		return observation, status, fmt.Errorf("incomplete Sippy collection: %d/%d requests failed; last error: %s", status.Failed, status.Total, status.LastError)
+	}
 	return observation, status, nil
 }

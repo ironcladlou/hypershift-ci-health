@@ -1,5 +1,5 @@
 {
-  "api_version": "job-registry/v7",
+  "api_version": "job-registry/v8",
   "jobs": [
     {
       "id": "periodic-ci-openshift-hypershift-main-azure-deprovision-azure-deprovision",
@@ -12835,7 +12835,16 @@
           "^main-"
         ],
         "skip_branches": [],
-        "periodic_counterparts": []
+        "periodic_counterparts": [
+          {
+            "job_id": "periodic-ci-openshift-hypershift-release-5.1-periodics-e2e-aro-hcp",
+            "tested_release": "5.1",
+            "source": "registry-manual",
+            "verification": "human-verified",
+            "rationale": "A human reviewed the job definitions and verified that these jobs exercise corresponding test scenarios.",
+            "notes": "Matching ARO HCP workflow and scenario configuration."
+          }
+        ]
       },
       "release_controller": [],
       "sippy_url": "https://sippy.dptools.openshift.org/sippy-ng/jobs/Presubmits/analysis?filters=%7B%22items%22%3A%5B%7B%22columnField%22%3A%22name%22%2C%22operatorValue%22%3A%22equals%22%2C%22value%22%3A%22pull-ci-openshift-hypershift-main-e2e-aro-hcp%22%7D%5D%7D",
@@ -12953,7 +12962,16 @@
           "^main-"
         ],
         "skip_branches": [],
-        "periodic_counterparts": []
+        "periodic_counterparts": [
+          {
+            "job_id": "periodic-ci-openshift-hypershift-release-5.1-periodics-e2e-aws-autonode",
+            "tested_release": "5.1",
+            "source": "registry-manual",
+            "verification": "human-verified",
+            "rationale": "A human reviewed the job definitions and verified that these jobs exercise corresponding test scenarios.",
+            "notes": "Matching nested AWS workflow, dependencies, and AutoNode configuration."
+          }
+        ]
       },
       "release_controller": [],
       "sippy_url": "https://sippy.dptools.openshift.org/sippy-ng/jobs/Presubmits/analysis?filters=%7B%22items%22%3A%5B%7B%22columnField%22%3A%22name%22%2C%22operatorValue%22%3A%22equals%22%2C%22value%22%3A%22pull-ci-openshift-hypershift-main-e2e-aws-autonode%22%7D%5D%7D",
@@ -13025,7 +13043,16 @@
           "^main-"
         ],
         "skip_branches": [],
-        "periodic_counterparts": []
+        "periodic_counterparts": [
+          {
+            "job_id": "periodic-ci-openshift-hypershift-release-5.1-periodics-e2e-aws-external-oidc-techpreview",
+            "tested_release": "5.1",
+            "source": "registry-manual",
+            "verification": "human-verified",
+            "rationale": "A human reviewed the job definitions and verified that these jobs exercise corresponding test scenarios.",
+            "notes": "Matching external-OIDC workflow and tech-preview configuration."
+          }
+        ]
       },
       "release_controller": [],
       "sippy_url": "https://sippy.dptools.openshift.org/sippy-ng/jobs/Presubmits/analysis?filters=%7B%22items%22%3A%5B%7B%22columnField%22%3A%22name%22%2C%22operatorValue%22%3A%22equals%22%2C%22value%22%3A%22pull-ci-openshift-hypershift-main-e2e-aws-external-oidc-techpreview%22%7D%5D%7D",
@@ -13206,7 +13233,16 @@
           "^main-"
         ],
         "skip_branches": [],
-        "periodic_counterparts": []
+        "periodic_counterparts": [
+          {
+            "job_id": "periodic-ci-openshift-hypershift-release-5.1-periodics-e2e-aws-ovn-conformance-ccm",
+            "tested_release": "5.1",
+            "source": "registry-manual",
+            "verification": "human-verified",
+            "rationale": "A human reviewed the job definitions and verified that these jobs exercise corresponding test scenarios.",
+            "notes": "Matching AWS conformance workflow and scenario configuration; the periodic runs monthly."
+          }
+        ]
       },
       "release_controller": [],
       "sippy_url": "https://sippy.dptools.openshift.org/sippy-ng/jobs/Presubmits/analysis?filters=%7B%22items%22%3A%5B%7B%22columnField%22%3A%22name%22%2C%22operatorValue%22%3A%22equals%22%2C%22value%22%3A%22pull-ci-openshift-hypershift-main-e2e-aws-ovn-conformance-ccm%22%7D%5D%7D",
@@ -13242,7 +13278,16 @@
           "^main-"
         ],
         "skip_branches": [],
-        "periodic_counterparts": []
+        "periodic_counterparts": [
+          {
+            "job_id": "periodic-ci-openshift-hypershift-release-5.1-periodics-e2e-aws-ovn-conformance-techpreview",
+            "tested_release": "5.1",
+            "source": "registry-manual",
+            "verification": "human-verified",
+            "rationale": "A human reviewed the job definitions and verified that these jobs exercise corresponding test scenarios.",
+            "notes": "Matching AWS conformance workflow and guest feature set; the periodic additionally skips two NLB tests: internal reachability with hairpinning traffic and reachability with target-node-labels."
+          }
+        ]
       },
       "release_controller": [],
       "sippy_url": "https://sippy.dptools.openshift.org/sippy-ng/jobs/Presubmits/analysis?filters=%7B%22items%22%3A%5B%7B%22columnField%22%3A%22name%22%2C%22operatorValue%22%3A%22equals%22%2C%22value%22%3A%22pull-ci-openshift-hypershift-main-e2e-aws-ovn-conformance-techpreview%22%7D%5D%7D",
@@ -13388,7 +13433,16 @@
           "^main-"
         ],
         "skip_branches": [],
-        "periodic_counterparts": []
+        "periodic_counterparts": [
+          {
+            "job_id": "periodic-ci-openshift-hypershift-release-5.1-periodics-e2e-azure-aks-ovn-conformance",
+            "tested_release": "5.1",
+            "source": "registry-manual",
+            "verification": "human-verified",
+            "rationale": "A human reviewed the job definitions and verified that these jobs exercise corresponding test scenarios.",
+            "notes": "Matching Azure conformance workflow; the periodic clears the marketplace image publisher, offer, SKU, and version settings."
+          }
+        ]
       },
       "release_controller": [],
       "sippy_url": "https://sippy.dptools.openshift.org/sippy-ng/jobs/Presubmits/analysis?filters=%7B%22items%22%3A%5B%7B%22columnField%22%3A%22name%22%2C%22operatorValue%22%3A%22equals%22%2C%22value%22%3A%22pull-ci-openshift-hypershift-main-e2e-azure-aks-ovn-conformance%22%7D%5D%7D",
@@ -13425,7 +13479,16 @@
           "^main-"
         ],
         "skip_branches": [],
-        "periodic_counterparts": []
+        "periodic_counterparts": [
+          {
+            "job_id": "periodic-ci-openshift-hypershift-release-5.1-periodics-e2e-azure-aks-ovn-conformance-fips",
+            "tested_release": "5.1",
+            "source": "registry-manual",
+            "verification": "human-verified",
+            "rationale": "A human reviewed the job definitions and verified that these jobs exercise corresponding test scenarios.",
+            "notes": "Matching Azure conformance workflow, FIPS setting, test suite, and skips; the periodic clears the marketplace image publisher, offer, SKU, and version settings."
+          }
+        ]
       },
       "release_controller": [],
       "sippy_url": "https://sippy.dptools.openshift.org/sippy-ng/jobs/Presubmits/analysis?filters=%7B%22items%22%3A%5B%7B%22columnField%22%3A%22name%22%2C%22operatorValue%22%3A%22equals%22%2C%22value%22%3A%22pull-ci-openshift-hypershift-main-e2e-azure-aks-ovn-conformance-fips%22%7D%5D%7D",
@@ -13462,7 +13525,16 @@
           "^main-"
         ],
         "skip_branches": [],
-        "periodic_counterparts": []
+        "periodic_counterparts": [
+          {
+            "job_id": "periodic-ci-openshift-hypershift-release-5.1-periodics-e2e-azure-kubevirt-ovn",
+            "tested_release": "5.1",
+            "source": "registry-manual",
+            "verification": "human-verified",
+            "rationale": "A human reviewed the job definitions and verified that these jobs exercise corresponding test scenarios.",
+            "notes": "Matching Azure KubeVirt conformance workflow and test suite. The presubmit pins the management-cluster installer image to latest-50, sets two HyperShift nodes, and uses ODF channel stable-4.20; the periodic uses prerelease ODF catalog 5.0 without those image and node-count overrides."
+          }
+        ]
       },
       "release_controller": [],
       "sippy_url": "https://sippy.dptools.openshift.org/sippy-ng/jobs/Presubmits/analysis?filters=%7B%22items%22%3A%5B%7B%22columnField%22%3A%22name%22%2C%22operatorValue%22%3A%22equals%22%2C%22value%22%3A%22pull-ci-openshift-hypershift-main-e2e-azure-kubevirt-ovn%22%7D%5D%7D",
@@ -13498,7 +13570,16 @@
           "^main-"
         ],
         "skip_branches": [],
-        "periodic_counterparts": []
+        "periodic_counterparts": [
+          {
+            "job_id": "periodic-ci-openshift-hypershift-release-5.1-periodics-e2e-aws-ovn-conformance",
+            "tested_release": "5.1",
+            "source": "registry-manual",
+            "verification": "human-verified",
+            "rationale": "A human reviewed the job definitions and verified that these jobs exercise corresponding test scenarios.",
+            "notes": "Different CI target names select matching AWS conformance workflows, cluster profiles, and scenario configuration."
+          }
+        ]
       },
       "release_controller": [],
       "sippy_url": "https://sippy.dptools.openshift.org/sippy-ng/jobs/Presubmits/analysis?filters=%7B%22items%22%3A%5B%7B%22columnField%22%3A%22name%22%2C%22operatorValue%22%3A%22equals%22%2C%22value%22%3A%22pull-ci-openshift-hypershift-main-e2e-conformance%22%7D%5D%7D",
@@ -13534,7 +13615,16 @@
           "^main-"
         ],
         "skip_branches": [],
-        "periodic_counterparts": []
+        "periodic_counterparts": [
+          {
+            "job_id": "periodic-ci-openshift-hypershift-release-5.1-periodics-e2e-aws-ovn-conformance-fips",
+            "tested_release": "5.1",
+            "source": "registry-manual",
+            "verification": "human-verified",
+            "rationale": "A human reviewed the job definitions and verified that these jobs exercise corresponding test scenarios.",
+            "notes": "Different CI target names select matching AWS conformance workflows, cluster profiles, and FIPS configuration."
+          }
+        ]
       },
       "release_controller": [],
       "sippy_url": "https://sippy.dptools.openshift.org/sippy-ng/jobs/Presubmits/analysis?filters=%7B%22items%22%3A%5B%7B%22columnField%22%3A%22name%22%2C%22operatorValue%22%3A%22equals%22%2C%22value%22%3A%22pull-ci-openshift-hypershift-main-e2e-conformance-fips%22%7D%5D%7D",
@@ -13727,7 +13817,16 @@
           "^main-"
         ],
         "skip_branches": [],
-        "periodic_counterparts": []
+        "periodic_counterparts": [
+          {
+            "job_id": "periodic-ci-openshift-hypershift-release-5.1-periodics-e2e-openstack-aws",
+            "tested_release": "5.1",
+            "source": "registry-manual",
+            "verification": "human-verified",
+            "rationale": "A human reviewed the job definitions and verified that these jobs exercise corresponding test scenarios.",
+            "notes": "Matching nested AWS workflow and OpenStack E2E test chain; only the presubmit explicitly adds OpenStack gathering, nested management-cluster cleanup, and a six-hour timeout."
+          }
+        ]
       },
       "release_controller": [],
       "sippy_url": "https://sippy.dptools.openshift.org/sippy-ng/jobs/Presubmits/analysis?filters=%7B%22items%22%3A%5B%7B%22columnField%22%3A%22name%22%2C%22operatorValue%22%3A%22equals%22%2C%22value%22%3A%22pull-ci-openshift-hypershift-main-e2e-openstack-aws%22%7D%5D%7D",
@@ -13764,7 +13863,16 @@
           "^main-"
         ],
         "skip_branches": [],
-        "periodic_counterparts": []
+        "periodic_counterparts": [
+          {
+            "job_id": "periodic-ci-openshift-hypershift-release-5.1-periodics-e2e-openstack-aws-conformance",
+            "tested_release": "5.1",
+            "source": "registry-manual",
+            "verification": "human-verified",
+            "rationale": "A human reviewed the job definitions and verified that these jobs exercise corresponding test scenarios.",
+            "notes": "Matching OpenStack conformance workflow and scenario configuration."
+          }
+        ]
       },
       "release_controller": [],
       "sippy_url": "https://sippy.dptools.openshift.org/sippy-ng/jobs/Presubmits/analysis?filters=%7B%22items%22%3A%5B%7B%22columnField%22%3A%22name%22%2C%22operatorValue%22%3A%22equals%22%2C%22value%22%3A%22pull-ci-openshift-hypershift-main-e2e-openstack-aws-conformance%22%7D%5D%7D",
@@ -13801,7 +13909,16 @@
           "^main-"
         ],
         "skip_branches": [],
-        "periodic_counterparts": []
+        "periodic_counterparts": [
+          {
+            "job_id": "periodic-ci-openshift-hypershift-release-5.1-periodics-e2e-openstack-aws-csi-cinder",
+            "tested_release": "5.1",
+            "source": "registry-manual",
+            "verification": "human-verified",
+            "rationale": "A human reviewed the job definitions and verified that these jobs exercise corresponding test scenarios.",
+            "notes": "Matching OpenStack conformance workflow, CSI test suite, and Cinder driver manifest."
+          }
+        ]
       },
       "release_controller": [],
       "sippy_url": "https://sippy.dptools.openshift.org/sippy-ng/jobs/Presubmits/analysis?filters=%7B%22items%22%3A%5B%7B%22columnField%22%3A%22name%22%2C%22operatorValue%22%3A%22equals%22%2C%22value%22%3A%22pull-ci-openshift-hypershift-main-e2e-openstack-aws-csi-cinder%22%7D%5D%7D",
@@ -13838,7 +13955,16 @@
           "^main-"
         ],
         "skip_branches": [],
-        "periodic_counterparts": []
+        "periodic_counterparts": [
+          {
+            "job_id": "periodic-ci-openshift-hypershift-release-5.1-periodics-e2e-openstack-aws-csi-manila",
+            "tested_release": "5.1",
+            "source": "registry-manual",
+            "verification": "human-verified",
+            "rationale": "A human reviewed the job definitions and verified that these jobs exercise corresponding test scenarios.",
+            "notes": "Matching OpenStack conformance workflow, CSI test suite, and Manila driver manifest."
+          }
+        ]
       },
       "release_controller": [],
       "sippy_url": "https://sippy.dptools.openshift.org/sippy-ng/jobs/Presubmits/analysis?filters=%7B%22items%22%3A%5B%7B%22columnField%22%3A%22name%22%2C%22operatorValue%22%3A%22equals%22%2C%22value%22%3A%22pull-ci-openshift-hypershift-main-e2e-openstack-aws-csi-manila%22%7D%5D%7D",
@@ -13875,7 +14001,16 @@
           "^main-"
         ],
         "skip_branches": [],
-        "periodic_counterparts": []
+        "periodic_counterparts": [
+          {
+            "job_id": "periodic-ci-openshift-hypershift-release-5.1-periodics-e2e-openstack-aws-nfv",
+            "tested_release": "5.1",
+            "source": "registry-manual",
+            "verification": "human-verified",
+            "rationale": "A human reviewed the job definitions and verified that these jobs exercise corresponding test scenarios.",
+            "notes": "Matching OpenStack NFV workflow and scenario configuration."
+          }
+        ]
       },
       "release_controller": [],
       "sippy_url": "https://sippy.dptools.openshift.org/sippy-ng/jobs/Presubmits/analysis?filters=%7B%22items%22%3A%5B%7B%22columnField%22%3A%22name%22%2C%22operatorValue%22%3A%22equals%22%2C%22value%22%3A%22pull-ci-openshift-hypershift-main-e2e-openstack-aws-nfv%22%7D%5D%7D",
@@ -13955,7 +14090,16 @@
           "^main-"
         ],
         "skip_branches": [],
-        "periodic_counterparts": []
+        "periodic_counterparts": [
+          {
+            "job_id": "periodic-ci-openshift-hypershift-release-5.1-periodics-e2e-v2-aws-backuprestore",
+            "tested_release": "5.1",
+            "source": "registry-manual",
+            "verification": "human-verified",
+            "rationale": "A human reviewed the job definitions and verified that these jobs exercise corresponding test scenarios.",
+            "notes": "Matching AWS backup/restore workflow and scenario configuration; the periodic runs weekly."
+          }
+        ]
       },
       "release_controller": [],
       "sippy_url": "https://sippy.dptools.openshift.org/sippy-ng/jobs/Presubmits/analysis?filters=%7B%22items%22%3A%5B%7B%22columnField%22%3A%22name%22%2C%22operatorValue%22%3A%22equals%22%2C%22value%22%3A%22pull-ci-openshift-hypershift-main-e2e-v2-aws-backuprestore%22%7D%5D%7D",

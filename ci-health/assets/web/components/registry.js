@@ -13,7 +13,7 @@ const VALUE_LABELS = {
   "sippy-disabled": "Sippy disabled", "has-counterpart": "Has counterpart", blocking: "Blocking",
   informing: "Informing", async: "Async", disabled: "Disabled", presubmit_health: "Presubmit Health",
   release_payload: "Release Payload", component_readiness: "Component Readiness", not_selected: "Not selected",
-  "human-verified": "Human verified", "needs-review": "Needs review",
+  "human-verified": "Human verified",
 };
 
 function label(value) {
@@ -135,6 +135,7 @@ export function JobDetailsCard({ job, dashboards = null, onRelatedSelect, elemen
         <a href=${registryJobURL(item.job_id, true)} onClick=${onRelatedSelect ? event => { event.preventDefault(); onRelatedSelect(item.job_id); } : undefined}>${item.job_id}</a>
         <span><${Tag}>${item.tested_release}<//> <${Tag}>${label(item.verification)}<//></span>
         <p>${item.rationale}</p>
+        ${item.notes && html`<p>${item.notes}</p>`}
       </li>`)}</ul>
     </section>` : null}
     ${job.release_controller?.length ? html`<section class="registry-detail-wide">

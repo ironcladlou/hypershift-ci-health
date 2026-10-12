@@ -12,7 +12,7 @@ import (
 	"github.com/ironcladlou/hypershift-ci-health/ci-health/sippy"
 )
 
-const CurrentAPIVersion = "health-report/v2"
+const CurrentAPIVersion = "health-report/v3"
 
 type SparklineSlot struct {
 	TotalRuns     int
@@ -51,6 +51,7 @@ type PeriodicJobHealth struct {
 	RelationshipSource       string           `json:"relationship_source,omitempty"`
 	RelationshipVerification string           `json:"relationship_verification,omitempty"`
 	RelationshipRationale    string           `json:"relationship_rationale,omitempty"`
+	RelationshipNotes        string           `json:"relationship_notes,omitempty"`
 	Rate                     *float64         `json:"rate"`
 	Prev                     *float64         `json:"prev"`
 	PrevRuns                 int              `json:"prev_runs"`
@@ -91,6 +92,7 @@ type JobHealth struct {
 	Prow                  string              `json:"prow"`
 	TargetBranch          string              `json:"target_branch"`
 	TargetRelease         string              `json:"target_release"`
+	Required              bool                `json:"required"`
 	Platforms             []string            `json:"platforms"`
 	Role                  string              `json:"role"`
 	RoleLabel             string              `json:"role_label"`
@@ -111,10 +113,18 @@ type JobHealth struct {
 	ProwJobHistoryURL     string              `json:"prow_job_history_url,omitempty"`
 }
 
+type AlertJob struct {
+	ID            string `json:"id"`
+	Name          string `json:"name"`
+	TargetRelease string `json:"target_release"`
+	Required      bool   `json:"required"`
+	FailureCount  int    `json:"failure_count"`
+}
+
 type Alert struct {
-	TestName     string   `json:"test_name"`
-	FailureCount int      `json:"failure_count"`
-	Jobs         []string `json:"jobs"`
+	TestName     string     `json:"test_name"`
+	FailureCount int        `json:"failure_count"`
+	Jobs         []AlertJob `json:"jobs"`
 }
 
 type WindowData struct {
@@ -171,6 +181,9 @@ func (r *Report) Validate(registryDigest, planDigest, observationDigest string) 
 	}
 	if r.Complete == hasFailure {
 		return fmt.Errorf("health report completeness disagrees with collection results")
+	}
+	if !r.Complete {
+		return fmt.Errorf("partial health reports are invalid")
 	}
 	return nil
 }
