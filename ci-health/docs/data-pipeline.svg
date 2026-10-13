@@ -1,0 +1,72 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1100" height="590" viewBox="0 0 1100 590" role="img" aria-labelledby="title description">
+  <title id="title">CI health data pipeline</title>
+  <desc id="description">OpenShift release configuration produces a job registry. The registry and team policy produce an independent team job catalog. The registry and selection policy produce a report plan. The plan and Sippy produce observations. Registry facts, the plan, and observations feed the health report.</desc>
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#64748b"/>
+    </marker>
+    <style>
+      text { font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+      .label { font-size: 19px; font-weight: 600; fill: #0f172a; }
+      .note { font-size: 14px; fill: #475569; }
+      .input { fill: #f8fafc; stroke: #cbd5e1; stroke-width: 1.5; }
+      .artifact { fill: #eff6ff; stroke: #93c5fd; stroke-width: 1.5; }
+      .policy { fill: #f0fdfa; stroke: #5eead4; stroke-width: 1.5; }
+      .report { fill: #eff6ff; stroke: #60a5fa; stroke-width: 2; }
+      .flow { fill: none; stroke: #64748b; stroke-width: 2; stroke-linejoin: round; marker-end: url(#arrow); }
+    </style>
+  </defs>
+  <rect width="1100" height="590" rx="16" fill="#ffffff"/>
+
+  <!-- Dependencies are drawn behind the artifact cards. -->
+  <path class="flow" d="M 240 106 H 300"/>
+  <path class="flow" d="M 415 142 V 260"/>
+  <path class="flow" d="M 240 296 H 300"/>
+  <path class="flow" d="M 415 332 V 460"/>
+  <path class="flow" d="M 240 496 H 300"/>
+  <path class="flow" d="M 530 106 H 595 V 252 H 670"/>
+  <path class="flow" d="M 820 142 V 210"/>
+  <path class="flow" d="M 530 130 H 565 V 370 H 705 V 430 H 760"/>
+  <path class="flow" d="M 530 296 H 650 V 462 H 760"/>
+  <path class="flow" d="M 530 496 H 760"/>
+
+  <rect class="input" x="40" y="70" width="200" height="72" rx="12"/>
+  <text class="label" x="140" y="102" text-anchor="middle">openshift/release</text>
+  <text class="note" x="140" y="124" text-anchor="middle">Job configuration</text>
+
+  <rect class="artifact" x="300" y="70" width="230" height="72" rx="12"/>
+  <text class="label" x="415" y="102" text-anchor="middle">Job registry</text>
+  <text class="note" x="415" y="124" text-anchor="middle">Reusable job facts</text>
+
+  <rect class="input" x="670" y="70" width="300" height="72" rx="12"/>
+  <text class="label" x="820" y="102" text-anchor="middle">Team policy</text>
+  <text class="note" x="820" y="124" text-anchor="middle">Priorities and health objectives</text>
+
+  <rect class="policy" x="670" y="210" width="300" height="84" rx="12"/>
+  <text class="label" x="820" y="242" text-anchor="middle">Team job catalog</text>
+  <text class="note" x="820" y="265" text-anchor="middle">Independent policy view / API</text>
+  <text class="note" x="820" y="285" text-anchor="middle">Does not drive collection</text>
+
+  <rect class="input" x="40" y="260" width="200" height="72" rx="12"/>
+  <text class="label" x="140" y="292" text-anchor="middle">Selection policy</text>
+  <text class="note" x="140" y="314" text-anchor="middle">Existing dashboard needs</text>
+
+  <rect class="artifact" x="300" y="260" width="230" height="72" rx="12"/>
+  <text class="label" x="415" y="292" text-anchor="middle">Report plan</text>
+  <text class="note" x="415" y="314" text-anchor="middle">Jobs selected for analysis</text>
+
+  <rect class="input" x="40" y="460" width="200" height="72" rx="12"/>
+  <text class="label" x="140" y="492" text-anchor="middle">Sippy</text>
+  <text class="note" x="140" y="514" text-anchor="middle">Health evidence</text>
+
+  <rect class="artifact" x="300" y="460" width="230" height="72" rx="12"/>
+  <text class="label" x="415" y="492" text-anchor="middle">Sippy observation</text>
+  <text class="note" x="415" y="514" text-anchor="middle">Collected evidence</text>
+
+  <rect class="report" x="760" y="405" width="280" height="127" rx="12"/>
+  <text class="note" x="778" y="435">Registry</text>
+  <text class="note" x="778" y="467">Plan</text>
+  <text class="note" x="778" y="501">Observations</text>
+  <text class="label" x="918" y="456" text-anchor="middle">Health report</text>
+  <text class="note" x="918" y="480" text-anchor="middle">Dashboard views</text>
+</svg>

@@ -73,3 +73,14 @@ func (r *Registry) Index() map[string]*Job {
 	}
 	return result
 }
+
+// ValidateDevelopmentRelease detects disagreement with the registry's recorded
+// development-branch mapping without interpreting tested releases as targets.
+func (r *Registry) ValidateDevelopmentRelease(branch, release string) error {
+	for _, job := range r.Jobs {
+		if job.Presubmit != nil && job.Presubmit.TargetBranch == branch && job.Presubmit.TargetRelease != "" && job.Presubmit.TargetRelease != release {
+			return fmt.Errorf("job %q maps development branch %q to release %q, conflicting with configured release %q", job.ID, branch, job.Presubmit.TargetRelease, release)
+		}
+	}
+	return nil
+}

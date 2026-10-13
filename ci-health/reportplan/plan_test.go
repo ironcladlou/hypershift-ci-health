@@ -194,7 +194,7 @@ func TestFutureCollectionUsesPolicyAndIngestionScope(t *testing.T) {
 		newPresubmit("disabled-future", "development", "6.2", jobregistry.E2EFrameworkV1, false),
 		newPresubmit("non-e2e-future", "development", "6.2", jobregistry.E2EFrameworkNone, true),
 		newPresubmit("other-branch", "main", "6.2", jobregistry.E2EFrameworkV1, true),
-		newPresubmit("other-release", "development", "6.1", jobregistry.E2EFrameworkV1, true),
+		newPresubmit("other-release", "release-6.1", "6.1", jobregistry.E2EFrameworkV1, true),
 		{ID: "future-performance", Name: "future-performance", Type: jobregistry.JobTypePeriodic, E2EFramework: jobregistry.E2EFrameworkNone, Versions: []string{"6.2"}},
 		{ID: "older-periodic", Name: "older-periodic", Type: jobregistry.JobTypePeriodic, Versions: []string{"6.1"}},
 	}}

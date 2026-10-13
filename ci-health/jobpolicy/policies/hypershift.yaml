@@ -1,0 +1,70 @@
+api_version: team-job-policy/v1
+team: hypershift
+version: hypershift/v1
+# Development branch/release default to releaseconfig and are serialized explicitly.
+groups:
+  - id: hypershift-release-controller
+    description: Active HyperShift release-controller participants
+    match: release-controller
+    streams: [hypershift]
+    roles: [blocking, informing, async]
+  - id: openshift-ci-release-controller
+    description: Active OpenShift CI release-controller participants
+    match: release-controller
+    stream_kinds: [ci]
+    roles: [blocking, informing, async]
+  - id: openshift-nightly-release-controller
+    description: Active OpenShift nightly release-controller participants
+    match: release-controller
+    stream_kinds: [nightly]
+    roles: [blocking, informing, async]
+  - id: required-auto-run
+    description: Required presubmits configured to always run
+    match: required-auto-run
+  - id: other
+    description: Remaining registry jobs
+    match: all
+# The configured development branch represents the development release; release branches for that release or
+# later are prospective definitions and follow active jobs (before upcoming jobs).
+# Within each group, development-branch presubmits precede other presubmits;
+# then prefer presubmits with e2e_framework: none before release/cloud.
+# Prefer periodics with a verified counterpart relationship to a required presubmit.
+dimensions: [development-presubmit, non-e2e-presubmit, required-presubmit-periodic, release, cloud]
+cloud_order: [aws, azure, gcp]
+cloud_aliases:
+  aro: azure
+cohorts:
+  team-presubmits-same-branch:
+    scope: team
+    job_type: presubmit
+    target_branch: same-as-job
+    release_scopes: [in-horizon]
+    exclude_presubmit_branch_scopes: [prospective]
+health_objectives:
+  presubmit:
+    assessment: presubmit-systemic-health/v1
+    objective: no-systemic-failures
+    checks:
+      job_permafailing:
+        window: 24h
+        minimum_distinct_prs: 5
+        maximum_successful_prs: 0
+      correlated_failures:
+        window: 4h
+        minimum_distinct_prs: 3
+        minimum_distinct_jobs: 2
+        cohort: team-presubmits-same-branch
+        signature: test-or-infrastructure-error
+    attribution:
+      require: unrelated-to-pr-contents
+    insufficient_evidence: indeterminate
+  periodic:
+    assessment: job-pass-rate/v1
+    objective: pass-rate-at-least-threshold
+    checks:
+      pass_rate:
+        window: 1w
+        minimum_pass_rate_bps: 8000
+        minimum_runs: 10
+        denominator: completed-non-aborted-runs
+    insufficient_evidence: indeterminate

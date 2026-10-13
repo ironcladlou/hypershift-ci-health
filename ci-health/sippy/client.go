@@ -60,13 +60,18 @@ func fieldFilter(field, operator, value string) string {
 	return string(b)
 }
 
-func (c *Client) get(ctx context.Context, path string, params url.Values) (*http.Response, error) {
+func (c *Client) get(ctx context.Context, path string, params url.Values) (response *http.Response, err error) {
 	u, err := url.Parse(c.BaseURL)
 	if err != nil {
 		return nil, err
 	}
 	u.Path = path
 	u.RawQuery = params.Encode()
+	defer func() {
+		if err != nil {
+			fmt.Fprintf(logWriter, "sippy: request failed: url=%s error=%v\n", u.String(), err)
+		}
+	}()
 
 	delay := initialRetryDelay
 	for attempt := 1; attempt <= maxRequestAttempts; attempt++ {
@@ -78,7 +83,7 @@ func (c *Client) get(ctx context.Context, path string, params url.Values) (*http
 		resp, requestErr := c.HTTPClient.Do(req)
 		if requestErr == nil && resp.StatusCode == http.StatusOK {
 			if attempt > 1 {
-				fmt.Fprintf(logWriter, "sippy: request recovered: path=%s release=%s attempt=%d/%d duration=%s\n", path, params.Get("release"), attempt, maxRequestAttempts, time.Since(attemptStarted).Round(time.Millisecond))
+				fmt.Fprintf(logWriter, "sippy: request recovered: path=%s url=%s release=%s attempt=%d/%d duration=%s\n", path, u.String(), params.Get("release"), attempt, maxRequestAttempts, time.Since(attemptStarted).Round(time.Millisecond))
 			}
 			return resp, nil
 		}
@@ -98,13 +103,26 @@ func (c *Client) get(ctx context.Context, path string, params url.Values) (*http
 			}
 			return nil, fmt.Errorf("%w after %d attempts", requestErr, attempt)
 		}
-		fmt.Fprintf(logWriter, "sippy: request retry: path=%s release=%s attempt=%d/%d duration=%s error=%v backoff=%s\n", path, params.Get("release"), attempt, maxRequestAttempts, time.Since(attemptStarted).Round(time.Millisecond), requestErr, delay)
+		fmt.Fprintf(logWriter, "sippy: request retry: path=%s url=%s release=%s attempt=%d/%d duration=%s error=%v backoff=%s\n", path, u.String(), params.Get("release"), attempt, maxRequestAttempts, time.Since(attemptStarted).Round(time.Millisecond), requestErr, delay)
 		if err := waitForRetry(ctx, delay); err != nil {
 			return nil, err
 		}
 		delay *= 2
 	}
 	return nil, fmt.Errorf("sippy %s: request failed", path)
+}
+
+func decodeResponse(resp *http.Response, result any, description string) error {
+	if err := json.NewDecoder(resp.Body).Decode(result); err != nil {
+		requestURL := ""
+		if resp.Request != nil && resp.Request.URL != nil {
+			requestURL = resp.Request.URL.String()
+		}
+		err = fmt.Errorf("decoding %s: %w", description, err)
+		fmt.Fprintf(logWriter, "sippy: response decode failed: url=%s error=%v\n", requestURL, err)
+		return err
+	}
+	return nil
 }
 
 func retryableStatus(statusCode int) bool {
@@ -140,8 +158,8 @@ func (c *Client) fetchJobAnalysis(ctx context.Context, release, jobName string, 
 	defer resp.Body.Close()
 
 	var result jobAnalysisResponse
-	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
-		return nil, fmt.Errorf("decoding job analysis: %w", err)
+	if err := decodeResponse(resp, &result, "job analysis"); err != nil {
+		return nil, err
 	}
 	return &result, nil
 }
@@ -158,8 +176,8 @@ func (c *Client) fetchComponentReadinessMembership(ctx context.Context, release 
 	defer resp.Body.Close()
 
 	var result []jobListItem
-	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
-		return nil, fmt.Errorf("decoding component readiness jobs: %w", err)
+	if err := decodeResponse(resp, &result, "component readiness jobs"); err != nil {
+		return nil, err
 	}
 
 	memberships := make([]ComponentReadinessMembership, 0, len(result))
@@ -203,8 +221,8 @@ func (c *Client) fetchRecentFailures(ctx context.Context, release, period, previ
 	defer resp.Body.Close()
 
 	var result recentFailuresResponse
-	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
-		return nil, fmt.Errorf("decoding recent failures: %w", err)
+	if err := decodeResponse(resp, &result, "recent failures"); err != nil {
+		return nil, err
 	}
 	return result.Rows, nil
 }

@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"github.com/ironcladlou/hypershift-ci-health/ci-health/jobregistry"
+	"github.com/ironcladlou/hypershift-ci-health/ci-health/releaseconfig"
 	"github.com/spf13/cobra"
 )
 
@@ -13,6 +14,8 @@ func newJobRegistryCommand() *cobra.Command {
 		prowBaseURL          string
 		releaseStatusBaseURL string
 		pretty               bool
+		developmentBranch    string
+		developmentRelease   string
 	)
 
 	command := &cobra.Command{
@@ -21,6 +24,8 @@ func newJobRegistryCommand() *cobra.Command {
 		Args:  cobra.NoArgs,
 		RunE: func(command *cobra.Command, args []string) error {
 			registry, err := jobregistry.Discover(releaseDir, jobregistry.Options{
+				DevelopmentBranch:    developmentBranch,
+				DevelopmentRelease:   developmentRelease,
 				SippyBaseURL:         sippyBaseURL,
 				SippyStreamBaseURL:   sippyStreamBaseURL,
 				ProwBaseURL:          prowBaseURL,
@@ -41,5 +46,7 @@ func newJobRegistryCommand() *cobra.Command {
 	command.Flags().StringVar(&prowBaseURL, "prow-base-url", "", "Base URL for generated Prow job history links")
 	command.Flags().StringVar(&releaseStatusBaseURL, "release-status-base-url", "", "Base URL for generated release payload status links")
 	command.Flags().BoolVar(&pretty, "pretty", false, "Indent JSON for human review")
+	command.Flags().StringVar(&developmentBranch, "development-branch", releaseconfig.DevelopmentBranch, "Development branch mapped by the registry")
+	command.Flags().StringVar(&developmentRelease, "development-release", releaseconfig.DevelopmentRelease, "Release represented by the development branch")
 	return command
 }

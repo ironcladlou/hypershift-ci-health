@@ -9,3 +9,5 @@ report-plan.json
 sippy-observation.json
 health-report.json
 !jobregistry/testdata/job-registry.json
+
+team-job-catalog.json

@@ -2,9 +2,9 @@
 
 A dashboard for the health of HyperShift's required presubmit jobs, release
 payload blockers, and Component Readiness blockers. Its data pipeline produces
-four immutable, versioned artifacts: registry facts, a report plan, Sippy
-observations, and an evaluated health report. The HTTP server performs no live
-collection.
+five immutable, versioned artifacts: registry facts, an independent team job
+policy catalog, a report plan, Sippy observations, and an evaluated health
+report. The HTTP server performs no live collection.
 
 ## Quick start
 
@@ -15,11 +15,50 @@ Generate the artifacts and start the server:
 
 ```bash
 make generate-artifacts RELEASE_DIR=/path/to/openshift-release
-./bin/ci-health serve
+make dev
 ```
 
 The server reads the generated files from its current directory. File paths can
 be overridden with command-line flags.
+
+## Data pipeline
+
+![Data pipeline: registry facts feed an independent team policy catalog and the collection and health-report pipeline.](docs/data-pipeline.svg)
+
+The registry is the reusable job inventory. The report plan selects the jobs to
+analyze. Sippy is authoritative  job
+health evidence and Component Readiness participation. The health report combines those inputs for presentation.
+
+## Job Policy
+
+Job policy separates team priorities from registry facts. It combines job
+dimensions with explicit team assumptions to produce a deterministic importance
+ranking and structured health objectives, giving API clients a consistent basis
+for prioritization and future health analysis.
+
+The standalone `/policy` view exposes these decisions and their explanations.
+Policy output does not yet drive collection or health evaluation, so teams can
+refine it without changing the existing dashboard's collection set. See the
+[team policy documentation](jobpolicy/README.md) for configuration and usage.
+
+## Public API
+
+The job registry and team policy APIs provide a supported contract for external
+clients. See the running server's [API documentation](/api/docs) for endpoints
+and schemas.
+
+Dashboard-specific APIs are private and carry no compatibility guarantee. This
+boundary lets the UI evolve while external integrations rely on the public
+contract.
+
+## Deployment
+
+Deployment targets OpenShift and requires `oc` access to the target cluster:
+
+```bash
+make setup
+make deploy
+```
 
 ## UI development
 
@@ -39,9 +78,8 @@ caching, so editing a component or stylesheet only requires a page refresh.
 checks the application modules. Node is optional and is not part of the build.
 
 Each dashboard perspective has a shareable path: `/presubmits`, `/payload`,
-`/component-readiness`, and `/registry`. View state is encoded in query
-parameters (`window`, `group`, repeatable `platform`, `release-newest`, `release-oldest`,
-and registry search `q`). The URL is the sole persisted source of UI state;
+`/component-readiness`, `/registry`, and `/policy`. View state is encoded in query
+parameters. The URL is the sole persisted source of UI state;
 navigation works with browser history and the application does not use local
 storage. The root path redirects to `/presubmits`.
 
@@ -65,49 +103,4 @@ UI responsibilities are split between:
 - `assets/web/styles.css` — the dashboard visual system.
 
 The UI consumes the private per-window dashboard projection and the public job
-registry API. It does not reach into report-plan or observation artifacts.
-
-## Data pipeline
-
-```text
-openshift/release -> job registry
-job registry + selection policy -> report plan
-report plan + Sippy -> Sippy observation
-registry + plan + observation -> health report
-```
-
-The registry is the reusable job inventory. The report plan selects the jobs to
-analyze. Sippy is authoritative for Component Readiness participation and job
-health evidence. The health report combines those inputs for presentation.
-
-Every downstream artifact carries a digest of its inputs, so mismatched or stale
-artifact sets fail validation instead of being served silently. Individual Sippy
-request failures are recorded in the observation and produce a partial report;
-successful results remain available.
-
-To generate only the reusable registry:
-
-```bash
-make generate-job-registry RELEASE_DIR=/path/to/openshift-release
-```
-
-## Deployment
-
-Deployment targets OpenShift and requires `oc` access to the target cluster:
-
-```bash
-make setup
-make deploy
-```
-
-## Public Job Registry API
-
-- `GET /api/job-registry` — complete generated job registry
-- `GET /api/job-registry/jobs/{id}` — one job registry entry
-- `GET /api/docs` — interactive Scalar API reference
-- `GET /api/openapi.json` or `/api/openapi.yaml` — machine-readable OpenAPI description
-- `GET /api/schemas/{schema}.json` — generated JSON Schema for an API resource
-
-These endpoints form the supported external API and are described by the
-published OpenAPI contract. Other HTTP endpoints are private implementation
-details of the dashboard and carry no compatibility guarantee.
+registry and team policy APIs. It does not reach into report-plan or observation artifacts.

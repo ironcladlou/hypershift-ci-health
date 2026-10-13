@@ -2,10 +2,11 @@ import { render } from "preact";
 import { useCallback, useEffect, useMemo, useRef, useState } from "preact/hooks";
 import { Header, Navigation } from "./components/controls.js";
 import { HealthView } from "./components/health.js";
+import { JobPolicyView } from "./components/policy.js";
 import { RegistryView } from "./components/registry.js";
 import { formatAge, html, releasesInOrder, WINDOWS } from "./ui.js";
 
-const VIEWS = new Set(["presubmit", "payload", "component", "registry"]);
+const VIEWS = new Set(["presubmit", "payload", "component", "registry", "policy"]);
 const PRESUBMIT_SCOPES = new Set(["required", "optional", "all"]);
 const GROUPS = new Set(["", "platform", "release", "platform-release", "release-platform"]);
 const DEFAULT_WINDOW = "2w";
@@ -15,8 +16,10 @@ const PATHS = {
   payload: "/payload",
   component: "/component-readiness",
   registry: "/registry",
+  policy: "/policy",
 };
 const VIEWS_BY_PATH = Object.fromEntries(Object.entries(PATHS).map(([view, path]) => [path, view]));
+const POLICY_FILTERS = ["type", "platform", "release", "framework", "repository", "configuration", "payload-role", "release-scope", "presubmit-branch", "importance-group", "team-label", "override"];
 const REGISTRY_FILTERS = ["type", "platform", "release", "framework", "repository", "configuration", "payload-role", "dashboard"];
 
 function stateFromURL() {
@@ -36,8 +39,11 @@ function stateFromURL() {
     releaseEnd: query.get("release-oldest") || "",
     search: query.get("q") || "",
     selectedJob: query.get("job") || "",
-    focus: view === "registry" ? "" : query.get("job") || "",
-    registryFilters: Object.fromEntries(REGISTRY_FILTERS.map(key => [key, [...new Set(query.getAll(key).filter(Boolean))]])),
+    team: query.get("team") || "hypershift",
+    policySort: query.get("sort") === "name" ? "name" : "rank",
+    policyOrder: query.get("order") === "desc" ? "desc" : "asc",
+    focus: ["registry", "policy"].includes(view) ? "" : query.get("job") || "",
+    registryFilters: Object.fromEntries([...new Set([...REGISTRY_FILTERS, ...POLICY_FILTERS])].map(key => [key, [...new Set(query.getAll(key).filter(Boolean))]])),
     registrySort: query.get("sort") || "name",
     registryOrder: query.get("order") === "desc" ? "desc" : "asc",
     registryPage: Math.max(1, Number(query.get("page")) || 1),
@@ -46,14 +52,18 @@ function stateFromURL() {
 
 function stateURL(state) {
   const query = new URLSearchParams();
-  if (state.view === "registry") {
+  if (["registry", "policy"].includes(state.view)) {
+    const policy = state.view === "policy";
+    if (policy || state.team !== "hypershift") query.set("team", state.team);
     if (state.search) query.set("q", state.search);
     if (state.selectedJob) query.set("job", state.selectedJob);
-    for (const key of REGISTRY_FILTERS) for (const value of state.registryFilters[key] || []) query.append(key, value);
-    if (state.registrySort !== "name") query.set("sort", state.registrySort);
-    if (state.registryOrder !== "asc") query.set("order", state.registryOrder);
+    for (const key of policy ? POLICY_FILTERS : REGISTRY_FILTERS) for (const value of state.registryFilters[key] || []) query.append(key, value);
+    const sort = policy ? state.policySort : state.registrySort;
+    const order = policy ? state.policyOrder : state.registryOrder;
+    if (sort !== (policy ? "rank" : "name")) query.set("sort", sort);
+    if (order !== "asc") query.set("order", order);
     if (state.registryPage > 1) query.set("page", state.registryPage);
-    return `${PATHS.registry}${query.size ? `?${query}` : ""}`;
+    return `${PATHS[state.view]}${query.size ? `?${query}` : ""}`;
   }
   if (state.window !== DEFAULT_WINDOW) query.set("window", state.window);
   if (state.group !== DEFAULT_GROUP) query.set("group", state.group);
@@ -70,6 +80,8 @@ function App() {
   const [state, setState] = useState(stateFromURL);
   const [snapshots, setSnapshots] = useState({});
   const [registry, setRegistry] = useState(null);
+  const [policyData, setPolicyData] = useState(null);
+  const [policyError, setPolicyError] = useState("");
   const [registryError, setRegistryError] = useState("");
   const [healthError, setHealthError] = useState("");
   const [displayedWindow, setDisplayedWindow] = useState(null);
@@ -107,6 +119,7 @@ function App() {
   }, [fetchHealthWindow]);
 
   useEffect(() => {
+    if (state.view === "policy") return;
     requestedWindowRef.current = state.window;
     const cached = snapshotsRef.current[state.window];
     if (cached) {
@@ -115,13 +128,13 @@ function App() {
       return;
     }
     presentHealthWindow(state.window);
-  }, [presentHealthWindow, state.window]);
+  }, [presentHealthWindow, state.window, state.view]);
   useEffect(() => {
-    if (!displayedWindow) return;
+    if (!displayedWindow || state.view === "policy") return;
     for (const window of Object.keys(WINDOWS)) {
       if (window !== displayedWindow) fetchHealthWindow(window).catch(() => {});
     }
-  }, [displayedWindow, fetchHealthWindow]);
+  }, [displayedWindow, fetchHealthWindow, state.view]);
   useEffect(() => {
     if (state.view !== "registry" || registry || registryError) return;
     fetch("/api/job-registry", { headers: { Accept: "application/json" } }).then(response => {
@@ -129,6 +142,23 @@ function App() {
       return response.json();
     }).then(setRegistry).catch(cause => setRegistryError(cause.message));
   }, [registry, registryError, state.view]);
+
+  useEffect(() => {
+    if (state.view !== "policy") return;
+    let current = true;
+    setPolicyError("");
+    setPolicyData(null);
+    const base = `/api/teams/${encodeURIComponent(state.team)}`;
+    const fetchJSON = async path => {
+      const response = await fetch(path, { headers: { Accept: "application/json" } });
+      if (!response.ok) throw new Error(`${response.status} ${response.statusText}`);
+      return response.json();
+    };
+    fetchJSON(`${base}/jobs`).then(catalog => {
+      if (current) setPolicyData(catalog);
+    }).catch(cause => { if (current) setPolicyError(cause.message); });
+    return () => { current = false; };
+  }, [state.view, state.team]);
 
   useEffect(() => {
     if (!releases.length) return;
@@ -148,7 +178,7 @@ function App() {
   }, [snapshot, state.focus, state.presubmitScope, state.view]);
 
   useEffect(() => {
-    if (state.platforms.length && snapshot) {
+    if (state.view !== "policy" && state.platforms.length && snapshot) {
       const available = new Set(snapshot.platforms || []);
       const platforms = state.platforms.filter(platform => available.has(platform));
       if (platforms.length !== state.platforms.length) {
@@ -174,7 +204,9 @@ function App() {
   const setRange = (start, end) => update({ releaseStart: releases[start], releaseEnd: releases[end] });
   const setPresubmitScope = presubmitScope => update({ presubmitScope, focus: "" }, true);
   const selectedReleases = releases.slice(Math.max(0, releases.indexOf(state.releaseStart)), Math.max(0, releases.indexOf(state.releaseEnd)) + 1);
-  const status = healthError
+  const status = state.view === "policy"
+    ? { text: policyError || (policyData ? `${policyData.policy_version} · ${policyData.algorithm_version}` : "Loading policy…"), className: policyError ? "cache-error" : "cache-fresh" }
+    : healthError
     ? { text: healthError, className: "cache-error" }
     : snapshot
       ? { text: `Updated ${formatAge(snapshot.generated_at)}`, className: "cache-fresh" }
@@ -183,13 +215,24 @@ function App() {
     <${Header} state=${state} platforms=${snapshot?.platforms || []} status=${status}
       onWindow=${window => update({ window }, true)} onGroup=${group => update({ group })}
       onPlatforms=${platforms => update({ platforms })} />
-    <${Navigation} view=${state.view} onView=${view => update({ view, focus: "", selectedJob: "" }, true)} releases=${releases}
+    <${Navigation} view=${state.view} onView=${view => update({ view, focus: "", selectedJob: "", registryPage: 1 }, true)} releases=${releases}
       start=${state.releaseStart} end=${state.releaseEnd} onRange=${setRange}
       presubmitScope=${state.presubmitScope} onPresubmitScope=${setPresubmitScope}
       streams=${streams} selectedStreams=${state.streams} onStreams=${streams => update({ streams, focus: "" }, true)} />
-    ${state.view === "registry"
+    ${state.view === "policy"
+      ? policyData
+        ? html`<${JobPolicyView} catalog=${policyData} query=${state.search} selectedJob=${state.selectedJob}
+            filters=${state.registryFilters} sort=${state.policySort} order=${state.policyOrder} page=${state.registryPage}
+            onState=${values => {
+              const next = { ...values };
+              if ("registrySort" in next) { next.policySort = next.registrySort; delete next.registrySort; }
+              if ("registryOrder" in next) { next.policyOrder = next.registryOrder; delete next.registryOrder; }
+              update(next);
+            }} />`
+        : html`<div class=${`loading ${policyError ? "error" : ""}`}>${policyError ? `Failed to load job policy: ${policyError}` : "Loading job policy…"}</div>`
+      : state.view === "registry"
       ? registry
-        ? html`<${RegistryView} registry=${registry} snapshot=${snapshot} query=${state.search} selectedJob=${state.selectedJob}
+        ? html`<${RegistryView} registry=${registry} team=${state.team} snapshot=${snapshot} query=${state.search} selectedJob=${state.selectedJob}
             filters=${state.registryFilters} sort=${state.registrySort} order=${state.registryOrder} page=${state.registryPage}
             onState=${values => update(values)} />`
         : html`<div class=${`loading ${registryError ? "error" : ""}`}>${registryError ? `Failed to load job registry: ${registryError}` : "Loading job registry…"}</div>`

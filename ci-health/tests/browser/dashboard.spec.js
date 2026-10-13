@@ -55,6 +55,7 @@ test("renders the health dashboard and changes perspectives", async ({ page }) =
   await expect(page.getByRole("heading", { name: "Identity and source" })).toBeVisible();
   expect(page.url()).toBe(healthURL);
   await expect(registryInfo).toHaveAttribute("aria-expanded", "true");
+  await expect(page.getByRole("link", { name: "View in Job Policy" })).toHaveCount(0);
   const passRateAfter = await page.getByRole("columnheader", { name: "Pass Rate" }).boundingBox();
   const timelineAfter = await page.getByRole("columnheader", { name: "Last 2w" }).boundingBox();
   expect(Math.abs(passRateAfter.x - passRateBefore.x)).toBeLessThan(0.1);
@@ -114,6 +115,7 @@ test("filters payload streams and restores multiple selections from the URL", as
   const filter = page.getByLabel("Release stream filter");
   const menu = page.locator(".stream-menu");
   const rows = page.locator("tbody .periodic-row");
+  await expect(rows).not.toHaveCount(0);
   const allCount = await rows.count();
   await expect(filter).toHaveText("Streams All");
   await filter.click();

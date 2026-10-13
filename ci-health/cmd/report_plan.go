@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"github.com/ironcladlou/hypershift-ci-health/ci-health/jobregistry"
+	"github.com/ironcladlou/hypershift-ci-health/ci-health/releaseconfig"
 	"github.com/ironcladlou/hypershift-ci-health/ci-health/reportplan"
 	"github.com/spf13/cobra"
 )
@@ -23,8 +24,8 @@ func newReportPlanCommand() *cobra.Command {
 		return writeArtifactJSON(command, plan, "report plan", false)
 	}}
 	command.Flags().StringVar(&registryPath, "job-registry", "", "Path to a generated job registry")
-	command.Flags().StringVar(&developmentBranch, "development-branch", "main", "Development branch represented by the report")
-	command.Flags().StringVar(&developmentRelease, "development-release", "5.1", "Development release represented by the report")
+	command.Flags().StringVar(&developmentBranch, "development-branch", releaseconfig.DevelopmentBranch, "Development branch represented by the report")
+	command.Flags().StringVar(&developmentRelease, "development-release", releaseconfig.DevelopmentRelease, "Development release represented by the report")
 	command.MarkFlagRequired("job-registry")
 	return command
 }
