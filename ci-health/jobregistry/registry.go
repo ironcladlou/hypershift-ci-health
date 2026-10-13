@@ -19,17 +19,18 @@ import (
 
 const (
 	// CurrentAPIVersion identifies the schema emitted by the registry generator.
-	CurrentAPIVersion           = "job-registry/v8"
-	releaseRepository           = "openshift/release"
-	releaseMainURL              = "https://github.com/openshift/release/blob/main/"
-	defaultSippyURL             = "https://sippy.dptools.openshift.org"
-	defaultSippyStreamURL       = "https://sippy-auth.dptools.openshift.org"
-	defaultProwURL              = "https://prow.ci.openshift.org"
-	defaultReleaseStatusURL     = "https://openshift-release.apps.ci.l2s4.p1.openshiftapps.com"
-	sippyPresubmits             = "Presubmits"
-	jobsRoot                    = "ci-operator/jobs"
-	hypershiftJobsDir           = "ci-operator/jobs/openshift/hypershift"
-	releaseControllerConfigsDir = "core-services/release-controller/_releases"
+	CurrentAPIVersion                 = "job-registry/v8"
+	releaseRepository                 = "openshift/release"
+	releaseMainURL                    = "https://github.com/openshift/release/blob/main/"
+	defaultSippyURL                   = "https://sippy.dptools.openshift.org"
+	defaultSippyStreamURL             = "https://sippy-auth.dptools.openshift.org"
+	defaultProwURL                    = "https://prow.ci.openshift.org"
+	defaultReleaseStatusURL           = "https://openshift-release.apps.ci.l2s4.p1.openshiftapps.com"
+	defaultHyperShiftReleaseStatusURL = "https://hypershift-release.apps.ci.l2s4.p1.openshiftapps.com"
+	sippyPresubmits                   = "Presubmits"
+	jobsRoot                          = "ci-operator/jobs"
+	hypershiftJobsDir                 = "ci-operator/jobs/openshift/hypershift"
+	releaseControllerConfigsDir       = "core-services/release-controller/_releases"
 )
 
 var (
@@ -94,9 +95,11 @@ type prowRef struct {
 	Repo string `yaml:"repo"`
 }
 
-// Options controls deterministic navigation links added during discovery.
-// Empty values use the public OpenShift service defaults.
+// Options controls development mapping and deterministic navigation links
+// added during discovery. Empty values use shared development and service defaults.
 type Options struct {
+	DevelopmentBranch    string
+	DevelopmentRelease   string
 	SippyBaseURL         string
 	SippyStreamBaseURL   string
 	ProwBaseURL          string
@@ -105,7 +108,14 @@ type Options struct {
 
 // Discover builds a registry from an openshift/release checkout.
 func Discover(releaseDir string, options Options) (Registry, error) {
-	if err := defaultPresubmitPolicy.validate(); err != nil {
+	policy := defaultPresubmitPolicy
+	if options.DevelopmentBranch != "" {
+		policy.developmentBranch = options.DevelopmentBranch
+	}
+	if options.DevelopmentRelease != "" {
+		policy.developmentRelease = options.DevelopmentRelease
+	}
+	if err := policy.validate(); err != nil {
 		return Registry{}, fmt.Errorf("validate presubmit generator policy: %w", err)
 	}
 	if options.SippyBaseURL == "" {
@@ -130,10 +140,10 @@ func Discover(releaseDir string, options Options) (Registry, error) {
 	if err := populateReleaseController(&registry, releaseDir, options.SippyStreamBaseURL, options.ReleaseStatusBaseURL); err != nil {
 		return Registry{}, fmt.Errorf("discover release-controller participation: %w", err)
 	}
-	if err := populatePeriodicCounterparts(&registry, defaultPresubmitPolicy); err != nil {
+	if err := populatePeriodicCounterparts(&registry, policy); err != nil {
 		return Registry{}, fmt.Errorf("discover periodic counterparts: %w", err)
 	}
-	populateSippyIngestion(&registry, defaultPresubmitPolicy)
+	populateSippyIngestion(&registry, policy)
 	if err := registry.Validate(); err != nil {
 		return Registry{}, fmt.Errorf("validate decorated registry: %w", err)
 	}
@@ -258,12 +268,15 @@ func releaseControllerParticipation(config releaseControllerConfig, verification
 }
 
 func releaseStatusURL(baseURL, stream, architecture string) string {
-	// The central status application exposes amd64 streams. Other recognized
-	// architectures are served by their architecture-specific release
-	// controller. A caller-provided base URL intentionally overrides this
-	// default routing for every architecture.
-	if baseURL == defaultReleaseStatusURL && architecture != "" && architecture != "amd64" {
-		baseURL = "https://" + architecture + ".ocp.releases.ci.openshift.org"
+	// HyperShift has its own controller. OCP amd64 streams use the central
+	// application and other recognized architectures use their own controller.
+	// A caller-provided base URL overrides the default routing for every stream.
+	if baseURL == defaultReleaseStatusURL {
+		if stream == "hypershift" {
+			baseURL = defaultHyperShiftReleaseStatusURL
+		} else if architecture != "" && architecture != "amd64" {
+			baseURL = "https://" + architecture + ".ocp.releases.ci.openshift.org"
+		}
 	}
 	return strings.TrimRight(baseURL, "/") + "/releasestream/" + url.PathEscape(stream)
 }

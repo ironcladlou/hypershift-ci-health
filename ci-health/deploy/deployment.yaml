@@ -36,6 +36,9 @@ spec:
                 core-services/release-controller/_releases
               ci-health job-registry --release-dir=/tmp/openshift-release \
                 > /var/lib/ci-health/job-registry.json
+              ci-health job-policy \
+                --job-registry=/var/lib/ci-health/job-registry.json \
+                > /var/lib/ci-health/team-job-catalog.json
               ci-health report-plan \
                 --job-registry=/var/lib/ci-health/job-registry.json \
                 > /var/lib/ci-health/report-plan.json
@@ -57,6 +60,7 @@ spec:
           args:
             - serve
             - --job-registry=/etc/ci-health/artifacts/job-registry.json
+            - --job-policy=/etc/ci-health/artifacts/team-job-catalog.json
             - --report-plan=/etc/ci-health/artifacts/report-plan.json
             - --health-report=/etc/ci-health/artifacts/health-report.json
             - --sippy-observation=/etc/ci-health/artifacts/sippy-observation.json

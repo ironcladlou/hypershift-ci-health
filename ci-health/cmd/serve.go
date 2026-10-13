@@ -18,6 +18,7 @@ import (
 	"github.com/danielgtaylor/huma/v2/adapters/humago"
 	webassets "github.com/ironcladlou/hypershift-ci-health/ci-health/assets"
 	"github.com/ironcladlou/hypershift-ci-health/ci-health/healthreport"
+	"github.com/ironcladlou/hypershift-ci-health/ci-health/jobpolicy"
 	"github.com/ironcladlou/hypershift-ci-health/ci-health/jobregistry"
 	"github.com/ironcladlou/hypershift-ci-health/ci-health/reportplan"
 	"github.com/ironcladlou/hypershift-ci-health/ci-health/sippy"
@@ -32,6 +33,7 @@ func newServeCommand() *cobra.Command {
 		reportPlanPath   string
 		healthReportPath string
 		observationPath  string
+		jobPolicyPath    string
 	)
 
 	command := &cobra.Command{
@@ -59,6 +61,16 @@ func newServeCommand() *cobra.Command {
 				return err
 			}
 			state := newApplicationState(registry, health)
+			catalog, err := jobpolicy.LoadFile(jobPolicyPath, registry)
+			if err != nil {
+				return fmt.Errorf("load job policy catalog: %w", err)
+			}
+			if catalog.Policy.DevelopmentBranch != plan.Policy.DevelopmentBranch || catalog.Policy.DevelopmentRelease != plan.Policy.DevelopmentRelease {
+				return fmt.Errorf("team policy and report plan disagree on development branch/release")
+			}
+			if err := state.setJobPolicy(catalog); err != nil {
+				return err
+			}
 			server := &http.Server{Addr: addr, Handler: newHTTPHandler(dev, state)}
 			go func() {
 				<-command.Context().Done()
@@ -85,10 +97,15 @@ func newServeCommand() *cobra.Command {
 	command.Flags().StringVar(&reportPlanPath, "report-plan", "report-plan.json", "Path to a generated report plan JSON file")
 	command.Flags().StringVar(&healthReportPath, "health-report", "health-report.json", "Path to an evaluated health report JSON file")
 	command.Flags().StringVar(&observationPath, "sippy-observation", "sippy-observation.json", "Path to the Sippy observation used by the health report")
+	command.Flags().StringVar(&jobPolicyPath, "job-policy", "team-job-catalog.json", "Path to the evaluated team job catalog")
 	return command
 }
 
 type applicationState struct {
+	jobPolicy          *jobpolicy.Catalog
+	teamCatalog        *teamCatalog
+	teamJobIndex       map[string]*teamJob
+	policyETags        map[string]string
 	registry           *jobregistry.Registry
 	registryIndex      map[string]*jobregistry.Job
 	registryETag       string
@@ -160,7 +177,7 @@ func newHTTPHandler(dev bool, state *applicationState) http.Handler {
 			return
 		}
 		switch r.URL.Path {
-		case "/presubmits", "/payload", "/component-readiness", "/registry":
+		case "/presubmits", "/payload", "/component-readiness", "/registry", "/policy":
 		default:
 			http.NotFound(w, r)
 			return
@@ -248,6 +265,9 @@ func withResponseCaching(next http.Handler, state *applicationState) http.Handle
 }
 
 func (state *applicationState) etagForPath(path string) string {
+	if etag := state.policyETags[path]; etag != "" {
+		return etag
+	}
 	const healthWindowPath = "/_dashboard/health/windows/"
 	if strings.HasPrefix(path, healthWindowPath) {
 		return state.healthWindowETags[strings.TrimPrefix(path, healthWindowPath)]
@@ -363,6 +383,10 @@ const jobRegistryAPIDescription = `The HyperShift job registry is the versioned,
 
 The registry is generated solely from a selected ` + "`openshift/release`" + ` checkout. Generation does not query live Prow, Sippy, or release-controller services. Source references identify the configuration behind each record; service URLs are navigation hints rather than evidence of current data availability.
 
+## Team job policy
+
+The team endpoints expose an independent, versioned policy projection over every registry job. They return importance ordering, explanations, team metadata, and declared health objectives. This projection does not select jobs for collection or evaluate health. Its response identifies the policy, algorithm, registry, and snapshot digests; the latest policy means the policy deployed by this server.
+
 ## Using the contract
 
 The top-level ` + "`api_version`" + ` identifies the registry schema. A job is the unit of record, identifiers are globally unique and stable, and multi-valued facts remain arrays. Unknown or inapplicable values are empty, null, or omitted rather than represented by sentinel strings.
@@ -374,7 +398,7 @@ const jobRegistryTagDescription = `Browse the complete generated registry or ret
 func registerJobRegistryAPI(mux *http.ServeMux, state *applicationState) {
 	config := huma.DefaultConfig("HyperShift Job Registry API", jobregistry.CurrentAPIVersion)
 	config.Info.Description = jobRegistryAPIDescription
-	config.Tags = []*huma.Tag{{
+	config.Tags = []*huma.Tag{{Name: "Job policy", Description: "Deterministic team interpretation of registry facts. Health targets are declarations only."}, {
 		Name:        "Job registry",
 		Description: jobRegistryTagDescription,
 		ExternalDocs: &huma.ExternalDocs{
@@ -394,6 +418,7 @@ func registerJobRegistryAPI(mux *http.ServeMux, state *applicationState) {
 	}
 	config.RejectUnknownQueryParameters = true
 	api := humago.New(mux, config)
+	registerJobPolicyAPI(api, state)
 
 	huma.Register(api, huma.Operation{
 		OperationID: "get-job-registry",

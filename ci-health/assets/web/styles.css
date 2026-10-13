@@ -441,3 +441,18 @@ button.registry-link-icon { padding: 0; background: none; cursor: pointer; }
   .job-focus-banner { align-items: flex-start; flex-wrap: wrap; }
   .job-focus-banner a { margin-left: 0; }
 }
+
+.policy-context { margin-bottom: 16px; color: var(--text-muted); font-size: 12px; }
+.policy-context h2 { margin: 0 0 6px; color: var(--text-primary); font-size: 16px; }
+.policy-context p { margin: 6px 0; }
+.policy-context summary { cursor: pointer; }
+.policy-context dl, .policy-explanation dl { display: grid; grid-template-columns: 130px minmax(0, 1fr); gap: 6px 12px; }
+.policy-context dd, .policy-explanation dd { margin: 0; overflow-wrap: anywhere; }
+.policy-context code { font-size: 11px; }
+.policy-table th:first-child { width: 6%; }
+.policy-table th:nth-child(2) { width: 40%; }
+.policy-table th:nth-child(3) { width: 20%; }
+.policy-table th:nth-child(4) { width: 16%; }
+.policy-rank { font-variant-numeric: tabular-nums; }
+.policy-explanation { padding: 12px 0 18px; color: var(--text-secondary); font-size: 12px; border-bottom: 1px solid var(--gridline); margin-bottom: 16px; }
+.policy-explanation h3 { margin: 0; font-size: 13px; }

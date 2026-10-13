@@ -14,6 +14,7 @@ import (
 	"strings"
 
 	"github.com/ironcladlou/hypershift-ci-health/ci-health/jobregistry"
+	"github.com/ironcladlou/hypershift-ci-health/ci-health/releaseconfig"
 )
 
 const CurrentAPIVersion = "report-plan/v1"
@@ -27,6 +28,12 @@ type SelectionPolicy struct {
 }
 
 func DefaultSelectionPolicy(branch, release string) SelectionPolicy {
+	if branch == "" {
+		branch = releaseconfig.DevelopmentBranch
+	}
+	if release == "" {
+		release = releaseconfig.DevelopmentRelease
+	}
 	return SelectionPolicy{DevelopmentBranch: branch, DevelopmentRelease: release, MinimumRelease: "4.14", MaximumRelease: release, ExcludedReleases: []string{"4.23"}}
 }
 
@@ -86,6 +93,9 @@ func Digest(plan *Plan) (string, error) {
 func Build(registry *jobregistry.Registry, policy SelectionPolicy) (*Plan, error) {
 	if err := registry.Validate(); err != nil {
 		return nil, fmt.Errorf("validate job registry: %w", err)
+	}
+	if err := registry.ValidateDevelopmentRelease(policy.DevelopmentBranch, policy.DevelopmentRelease); err != nil {
+		return nil, err
 	}
 	if policy.DevelopmentBranch == "" || policy.DevelopmentRelease == "" || policy.MinimumRelease == "" || policy.MaximumRelease == "" {
 		return nil, fmt.Errorf("development branch, development release, minimum release, and maximum release are required")

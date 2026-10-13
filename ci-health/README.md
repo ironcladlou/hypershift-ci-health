@@ -2,9 +2,9 @@
 
 A dashboard for the health of HyperShift's required presubmit jobs, release
 payload blockers, and Component Readiness blockers. Its data pipeline produces
-four immutable, versioned artifacts: registry facts, a report plan, Sippy
-observations, and an evaluated health report. The HTTP server performs no live
-collection.
+five immutable, versioned artifacts: registry facts, an independent team job
+policy catalog, a report plan, Sippy observations, and an evaluated health
+report. The HTTP server performs no live collection.
 
 ## Quick start
 
@@ -39,7 +39,7 @@ caching, so editing a component or stylesheet only requires a page refresh.
 checks the application modules. Node is optional and is not part of the build.
 
 Each dashboard perspective has a shareable path: `/presubmits`, `/payload`,
-`/component-readiness`, and `/registry`. View state is encoded in query
+`/component-readiness`, `/registry`, and `/policy`. View state is encoded in query
 parameters (`window`, `group`, repeatable `platform`, `release-newest`, `release-oldest`,
 and registry search `q`). The URL is the sole persisted source of UI state;
 navigation works with browser history and the application does not use local
@@ -65,12 +65,13 @@ UI responsibilities are split between:
 - `assets/web/styles.css` — the dashboard visual system.
 
 The UI consumes the private per-window dashboard projection and the public job
-registry API. It does not reach into report-plan or observation artifacts.
+registry and team policy APIs. It does not reach into report-plan or observation artifacts.
 
 ## Data pipeline
 
 ```text
 openshift/release -> job registry
+job registry + team policy -> team job catalog (independent policy view/API)
 job registry + selection policy -> report plan
 report plan + Sippy -> Sippy observation
 registry + plan + observation -> health report
@@ -91,6 +92,33 @@ To generate only the reusable registry:
 make generate-job-registry RELEASE_DIR=/path/to/openshift-release
 ```
 
+## Job Policy
+
+The standalone `/policy` view displays all jobs in deterministic team importance
+order, with declared health objectives and ranking explanations. It shares search,
+filtering, pagination, and detail widgets with the registry browser. It does not
+collect or evaluate health data, and does not change the prefab views or their
+collection set.
+
+Generate policy output from an existing registry without contacting Sippy:
+
+```bash
+make generate-job-policy
+```
+
+Use `POLICY=/path/to/reviewed-policy.yaml` for a custom team policy. The default
+[HyperShift policy](jobpolicy/policies/hypershift.yaml) is embedded in the binary.
+The server loads `team-job-catalog.json` (overridden with `serve --job-policy`).
+See [team policy documentation](jobpolicy/README.md) for ordering assumptions,
+configuration, overrides, versioning, and provenance.
+
+The shared development branch/release defaults are defined in
+[releaseconfig](releaseconfig/config.go). The policy records them explicitly and
+places jobs testing or targeting a release beyond the development release at
+the end of the ranked catalog as "Upcoming". These jobs remain visible. For a
+consistent pipeline override, pass `DEVELOPMENT_RELEASE` (and optionally
+`DEVELOPMENT_BRANCH`) to Make; a custom policy must agree with those values.
+
 ## Deployment
 
 Deployment targets OpenShift and requires `oc` access to the target cluster:
@@ -104,6 +132,9 @@ make deploy
 
 - `GET /api/job-registry` — complete generated job registry
 - `GET /api/job-registry/jobs/{id}` — one job registry entry
+- `GET /api/teams/{team}/jobs` — every registry job in deterministic importance order with team metadata
+- `GET /api/teams/{team}/jobs/{id}` — one job with evaluated team metadata
+- `GET /api/teams/{team}/policy` — the reviewed policy used by the catalog
 - `GET /api/docs` — interactive Scalar API reference
 - `GET /api/openapi.json` or `/api/openapi.yaml` — machine-readable OpenAPI description
 - `GET /api/schemas/{schema}.json` — generated JSON Schema for an API resource

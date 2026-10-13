@@ -69,7 +69,7 @@ function StreamFilter({ streams, selected, onChange }) {
 }
 
 export function Header({ state, platforms, status, onWindow, onGroup, onPlatforms }) {
-  const registry = state.view === "registry";
+  const browser = ["registry", "policy"].includes(state.view);
   return html`<header class="header">
     <div>
       <h1>HyperShift CI Health</h1>
@@ -80,9 +80,9 @@ export function Header({ state, platforms, status, onWindow, onGroup, onPlatform
       </nav>
     </div>
     <div class="header-meta">
-      ${!registry && html`<${PlatformFilter} platforms=${platforms} selected=${state.platforms} onChange=${onPlatforms} />`}
-      ${!registry && html`<${GroupFilter} selected=${state.group} onChange=${onGroup} />`}
-      ${!registry && html`<${Toggle} label="Health window" active=${state.window} onChange=${onWindow} values=${[
+      ${!browser && html`<${PlatformFilter} platforms=${platforms} selected=${state.platforms} onChange=${onPlatforms} />`}
+      ${!browser && html`<${GroupFilter} selected=${state.group} onChange=${onGroup} />`}
+      ${!browser && html`<${Toggle} label="Health window" active=${state.window} onChange=${onWindow} values=${[
         { value: "24h", label: "24h" }, { value: "48h", label: "48h" },
         { value: "1w", label: "1w" }, { value: "2w", label: "2w" }, { value: "1m", label: "1m" },
       ]} />`}
@@ -106,7 +106,7 @@ export function Navigation({ view, onView, releases, start, end, onRange, presub
     <div class="navigation-selectors">
       <${Toggle} label="View" active=${view} onChange=${onView} values=${[
         { value: "presubmit", label: "Presubmit" }, { value: "payload", label: "Release Payload" },
-        { value: "component", label: "Component Readiness" }, { value: "registry", label: "Job Registry" },
+        { value: "component", label: "Component Readiness" }, { value: "registry", label: "Job Registry" }, { value: "policy", label: "Job Policy" },
       ]} />
       ${view === "presubmit" && html`<div class="presubmit-scope-control" title=${releases[0] ? `Optional presubmits are shown for Future (${releases[0]}) only.` : "Optional presubmits are shown for the development release only."}>
         <${Toggle} label="Presubmit scope" active=${presubmitScope} onChange=${onPresubmitScope} values=${[
@@ -115,7 +115,7 @@ export function Navigation({ view, onView, releases, start, end, onRange, presub
       </div>`}
       ${view === "payload" && html`<${StreamFilter} streams=${streams} selected=${selectedStreams} onChange=${onStreams} />`}
     </div>
-    ${view !== "registry" && releases.length > 0 && html`<div class="release-filter">
+    ${!["registry", "policy"].includes(view) && releases.length > 0 && html`<div class="release-filter">
       <span class="release-filter-label">Releases <strong>${rangeLabel}</strong></span>
       <div class=${`release-range-control ${min === max ? "collapsed" : ""}`}>
         <div class="release-range-track"><span style=${{ left: `${100 * min / denominator}%`, width: `${100 * (max - min) / denominator}%` }}></span></div>

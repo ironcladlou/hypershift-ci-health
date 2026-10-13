@@ -3,8 +3,10 @@ BIN_DIR := bin
 BIN := $(BIN_DIR)/$(APP)
 NAMESPACE := ci-health
 ROUTE_PREFIX := hypershift-ci-health
+# Omitted values use releaseconfig defaults in every generation command.
+DEVELOPMENT_ARGS = $(if $(DEVELOPMENT_BRANCH),--development-branch="$(DEVELOPMENT_BRANCH)") $(if $(DEVELOPMENT_RELEASE),--development-release="$(DEVELOPMENT_RELEASE)")
 
-.PHONY: build dev fmt test test-ui test-e2e install-e2e serve-e2e check generate-job-registry generate-report-plan generate-sippy-observation generate-health-report generate-artifacts update-golden image setup deploy
+.PHONY: build dev fmt test test-ui test-e2e install-e2e serve-e2e check generate-job-registry generate-job-policy generate-report-plan generate-sippy-observation generate-health-report generate-artifacts update-golden image setup deploy
 
 build:
 	mkdir -p $(BIN_DIR)
@@ -43,11 +45,18 @@ check: test build
 
 generate-job-registry: build
 	@test -n "$(RELEASE_DIR)" || (echo "RELEASE_DIR is required" >&2; exit 1)
-	./$(BIN) job-registry --release-dir=$(RELEASE_DIR) > job-registry.json
+	./$(BIN) job-registry $(DEVELOPMENT_ARGS) --release-dir=$(RELEASE_DIR) > job-registry.json
+
+generate-job-policy: build
+	@test -f job-registry.json || (echo "job-registry.json is required" >&2; exit 1)
+	@set -e; artifact_tmp=$$(mktemp .team-job-catalog.XXXXXX); \
+		trap 'rm -f "$$artifact_tmp"' EXIT; \
+		./$(BIN) job-policy $(DEVELOPMENT_ARGS) --job-registry=job-registry.json $(if $(POLICY),--policy="$(POLICY)") > "$$artifact_tmp"; \
+		mv "$$artifact_tmp" team-job-catalog.json
 
 generate-report-plan: build
 	@test -f job-registry.json || (echo "job-registry.json is required" >&2; exit 1)
-	./$(BIN) report-plan --job-registry=job-registry.json > report-plan.json
+	./$(BIN) report-plan $(DEVELOPMENT_ARGS) --job-registry=job-registry.json > report-plan.json
 
 generate-sippy-observation: build
 	@test -f job-registry.json || (echo "job-registry.json is required" >&2; exit 1)
@@ -70,15 +79,16 @@ generate-artifacts: build
 	@test -n "$(RELEASE_DIR)" || (echo "RELEASE_DIR is required" >&2; exit 1)
 	@set -e; artifact_dir=$$(mktemp -d .artifacts.XXXXXX); \
 		trap 'rm -rf "$$artifact_dir"' EXIT; \
-		./$(BIN) job-registry --release-dir="$(RELEASE_DIR)" > "$$artifact_dir/job-registry.json"; \
-		./$(BIN) report-plan --job-registry="$$artifact_dir/job-registry.json" > "$$artifact_dir/report-plan.json"; \
+		./$(BIN) job-registry $(DEVELOPMENT_ARGS) --release-dir="$(RELEASE_DIR)" > "$$artifact_dir/job-registry.json"; \
+		./$(BIN) job-policy $(DEVELOPMENT_ARGS) --job-registry="$$artifact_dir/job-registry.json" $(if $(POLICY),--policy="$(POLICY)") > "$$artifact_dir/team-job-catalog.json"; \
+		./$(BIN) report-plan $(DEVELOPMENT_ARGS) --job-registry="$$artifact_dir/job-registry.json" > "$$artifact_dir/report-plan.json"; \
 		./$(BIN) sippy-observation --job-registry="$$artifact_dir/job-registry.json" --report-plan="$$artifact_dir/report-plan.json" > "$$artifact_dir/sippy-observation.json"; \
 		./$(BIN) health-report --job-registry="$$artifact_dir/job-registry.json" --report-plan="$$artifact_dir/report-plan.json" --sippy-observation="$$artifact_dir/sippy-observation.json" > "$$artifact_dir/health-report.json"; \
-		mv "$$artifact_dir/job-registry.json" "$$artifact_dir/report-plan.json" "$$artifact_dir/sippy-observation.json" "$$artifact_dir/health-report.json" .
+		mv "$$artifact_dir/team-job-catalog.json" "$$artifact_dir/job-registry.json" "$$artifact_dir/report-plan.json" "$$artifact_dir/sippy-observation.json" "$$artifact_dir/health-report.json" .
 
 update-golden: build
 	@test -n "$(RELEASE_DIR)" || (echo "RELEASE_DIR is required" >&2; exit 1)
-	./$(BIN) job-registry --pretty --release-dir=$(RELEASE_DIR) > jobregistry/testdata/job-registry.json
+	./$(BIN) job-registry --pretty $(DEVELOPMENT_ARGS) --release-dir=$(RELEASE_DIR) > jobregistry/testdata/job-registry.json
 
 image:
 	mkdir -p $(BIN_DIR)

@@ -17,6 +17,7 @@ func NewRootCommand() *cobra.Command {
 	}
 	root.AddCommand(newServeCommand())
 	root.AddCommand(newJobRegistryCommand())
+	root.AddCommand(newJobPolicyCommand())
 	root.AddCommand(newReportPlanCommand())
 	root.AddCommand(newSippyObservationCommand())
 	root.AddCommand(newHealthReportCommand())

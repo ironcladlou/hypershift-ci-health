@@ -5,12 +5,12 @@ import (
 	"regexp"
 	"sort"
 	"strings"
+
+	"github.com/ironcladlou/hypershift-ci-health/ci-health/releaseconfig"
 )
 
 const (
-	developmentBranch  = "main"
-	developmentRelease = "5.1"
-	manualRationale    = "A human reviewed the job definitions and verified that these jobs exercise corresponding test scenarios."
+	manualRationale = "A human reviewed the job definitions and verified that these jobs exercise corresponding test scenarios."
 )
 
 type presubmitPolicy struct {
@@ -20,8 +20,8 @@ type presubmitPolicy struct {
 }
 
 var defaultPresubmitPolicy = presubmitPolicy{
-	developmentBranch:           developmentBranch,
-	developmentRelease:          developmentRelease,
+	developmentBranch:           releaseconfig.DevelopmentBranch,
+	developmentRelease:          releaseconfig.DevelopmentRelease,
 	sippyReleaseBranchAllowlist: []string{},
 }
 
@@ -31,8 +31,8 @@ var defaultPresubmitPolicy = presubmitPolicy{
 // resolution state of derived facts instead.
 
 func (p presubmitPolicy) validate() error {
-	if p.developmentBranch == "" || p.developmentRelease == "" {
-		return fmt.Errorf("development branch and release are required")
+	if err := releaseconfig.Validate(p.developmentBranch, p.developmentRelease); err != nil {
+		return err
 	}
 	if !sort.StringsAreSorted(p.sippyReleaseBranchAllowlist) {
 		return fmt.Errorf("Sippy release branch allowlist is not sorted")

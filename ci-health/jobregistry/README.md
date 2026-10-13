@@ -40,8 +40,8 @@ name.
 - Periodic counterparts are registry-owned properties of presubmit jobs. Each
   presubmit records the branch and release receiving the pull request, while
   each counterpart records the release it tests. These differ for N-1
-  compatibility jobs. A private generator rule maps `main` to the development
-  release; `release-X.Y` maps to `X.Y`. Counterparts come only
+  compatibility jobs. A generator rule uses shared `releaseconfig` defaults to map `main` to the development
+  release (overridable with `--development-branch` and `--development-release`); `release-X.Y` maps to `X.Y`. Counterparts come only
   from explicit registry lists: reviewed manual mappings and candidates
   awaiting review. Each counterpart records its source, verification, and
   rationale so consumers can distinguish proposals and do not treat either
@@ -106,6 +106,7 @@ Use `--sippy-stream-base-url` to generate release stream links for another
 Sippy deployment and `--release-status-base-url` to generate payload status
 links for another release-controller deployment. By default, amd64 links use
 the central release status application while other recognized architectures
-use their architecture-specific OCP release-controller host. An explicit
-`--release-status-base-url` overrides that routing for every architecture.
+use their architecture-specific OCP release-controller host. The `hypershift`
+stream uses `https://hypershift-release.apps.ci.l2s4.p1.openshiftapps.com`.
+An explicit `--release-status-base-url` overrides that routing for every stream.
 These links are navigation hints and are not validated.

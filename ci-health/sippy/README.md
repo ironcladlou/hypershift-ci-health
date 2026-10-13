@@ -9,3 +9,7 @@ Collection first discovers Component Readiness membership, then queries the
 deduplicated union of those standard-tier jobs and the report plan's static
 targets. Request failures make an observation partial but do not discard
 successful evidence.
+
+Request retry and terminal failure diagnostics print the full request URL,
+including encoded query parameters, to stderr. Invalid JSON responses also
+print their request URL so failing queries can be reproduced for debugging.
