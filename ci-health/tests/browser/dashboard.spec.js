@@ -92,6 +92,58 @@ test("selects short windows and restores them from the URL", async ({ page }) =>
   }
 });
 
+test("shows HyperShift payload participation with its declared role and tested release", async ({ page }) => {
+  await page.goto("/payload?release-newest=4.22&release-oldest=4.22");
+  const older = page.locator(".periodic-row").filter({ has: page.getByRole("button", { name: "Registry details for periodic-ci-openshift-hypershift-release-4.22-periodics-e2e-aks-multi-x-ax", exact: true }) });
+  await expect(older).toHaveCount(1);
+  await expect(older.locator(".perspective-context")).toContainText("hypershift · informing");
+  await expect(older.locator(".perspective-context")).toContainText("4.22.0-0.nightly-multi · blocking");
+  await expect(older.locator('a[href$="/releasestream/hypershift"]')).toHaveText("payload status");
+  await expect(older).not.toContainText("unknown architecture");
+
+  await page.goto("/payload?release-newest=5.1&release-oldest=5.1");
+  const future = page.locator(".periodic-row").filter({ has: page.getByRole("button", { name: "Registry details for periodic-ci-openshift-hypershift-release-5.1-periodics-e2e-aks", exact: true }) });
+  await expect(future).toHaveCount(1);
+  await expect(future.locator(".perspective-context")).toContainText("hypershift · blocking");
+  await expect(future.locator(".perspective-context")).toContainText("5.1.0-0.ci · blocking");
+  await expect(older).toHaveCount(0);
+});
+
+test("filters payload streams and restores multiple selections from the URL", async ({ page }) => {
+  await page.goto("/payload?release-newest=4.22&release-oldest=4.22");
+  const filter = page.getByLabel("Release stream filter");
+  const menu = page.locator(".stream-menu");
+  const rows = page.locator("tbody .periodic-row");
+  const allCount = await rows.count();
+  await expect(filter).toHaveText("Streams All");
+  await filter.click();
+  await expect(menu.getByRole("checkbox", { name: "All streams", exact: true })).toBeChecked();
+  await menu.getByRole("checkbox", { name: "hypershift", exact: true }).check();
+  await expect(rows).toHaveCount(4);
+  await expect(filter).toHaveText("Streams hypershift");
+  await expect(page.locator(".perspective-context")).not.toContainText(["4.22.0-0.nightly-multi"]);
+  await expect.poll(() => new URL(page.url()).searchParams.getAll("stream")).toEqual(["hypershift"]);
+
+  await menu.getByRole("checkbox", { name: "4.22.0-0.nightly-multi", exact: true }).check();
+  await expect(filter).toHaveText("Streams 2 selected");
+  const selectedCount = await rows.count();
+  expect(selectedCount).toBeGreaterThanOrEqual(4);
+  await page.reload();
+  await expect(rows).toHaveCount(selectedCount);
+  await expect(filter).toHaveText("Streams 2 selected");
+  await filter.click();
+  await expect(menu.getByRole("checkbox", { name: "hypershift", exact: true })).toBeChecked();
+  await expect(menu.getByRole("checkbox", { name: "4.22.0-0.nightly-multi", exact: true })).toBeChecked();
+  await menu.getByRole("checkbox", { name: "All streams", exact: true }).check();
+  await expect(rows).toHaveCount(allCount);
+  await expect(filter).toHaveText("Streams All");
+  await expect.poll(() => new URL(page.url()).searchParams.has("stream")).toBe(false);
+  await page.goBack();
+  await expect(filter).toHaveText("Streams 2 selected");
+  await page.getByRole("button", { name: "Presubmit", exact: true }).click();
+  await expect(filter).toHaveCount(0);
+});
+
 test("keeps the current table visible while an uncached window loads", async ({ page }) => {
   await expect(page.getByRole("columnheader", { name: "Last 2w" })).toBeVisible();
   const requestedWindow = page.getByRole("button", { name: "1w", exact: true });

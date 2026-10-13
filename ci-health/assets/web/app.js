@@ -31,6 +31,7 @@ function stateFromURL() {
     group: GROUPS.has(group) ? group : DEFAULT_GROUP,
     presubmitScope: PRESUBMIT_SCOPES.has(presubmitScope) ? presubmitScope : "required",
     platforms: [...new Set(query.getAll("platform").filter(Boolean))],
+    streams: [...new Set(query.getAll("stream").filter(Boolean))],
     releaseStart: query.get("release-newest") || "",
     releaseEnd: query.get("release-oldest") || "",
     search: query.get("q") || "",
@@ -57,6 +58,7 @@ function stateURL(state) {
   if (state.window !== DEFAULT_WINDOW) query.set("window", state.window);
   if (state.group !== DEFAULT_GROUP) query.set("group", state.group);
   if (state.view === "presubmit" && state.presubmitScope !== "required") query.set("presubmit-scope", state.presubmitScope);
+  if (state.view === "payload") for (const stream of state.streams) query.append("stream", stream);
   for (const platform of state.platforms) query.append("platform", platform);
   if (state.releaseStart) query.set("release-newest", state.releaseStart);
   if (state.releaseEnd) query.set("release-oldest", state.releaseEnd);
@@ -76,6 +78,8 @@ function App() {
   const requestedWindowRef = useRef(state.window);
   const snapshot = displayedWindow ? snapshots[displayedWindow] : null;
   const releases = useMemo(() => releasesInOrder(snapshot?.releases), [snapshot]);
+  const streams = useMemo(() => [...new Set((snapshot?.data?.payload_blocking_jobs || [])
+    .flatMap(job => (job.participations || []).map(item => item.stream_name)).filter(Boolean))].sort(), [snapshot]);
 
   const fetchHealthWindow = useCallback(window => {
     if (snapshotsRef.current[window]) return Promise.resolve(snapshotsRef.current[window]);
@@ -181,7 +185,8 @@ function App() {
       onPlatforms=${platforms => update({ platforms })} />
     <${Navigation} view=${state.view} onView=${view => update({ view, focus: "", selectedJob: "" }, true)} releases=${releases}
       start=${state.releaseStart} end=${state.releaseEnd} onRange=${setRange}
-      presubmitScope=${state.presubmitScope} onPresubmitScope=${setPresubmitScope} />
+      presubmitScope=${state.presubmitScope} onPresubmitScope=${setPresubmitScope}
+      streams=${streams} selectedStreams=${state.streams} onStreams=${streams => update({ streams, focus: "" }, true)} />
     ${state.view === "registry"
       ? registry
         ? html`<${RegistryView} registry=${registry} snapshot=${snapshot} query=${state.search} selectedJob=${state.selectedJob}
@@ -192,6 +197,7 @@ function App() {
         ? html`<${HealthView} snapshot=${snapshot} view=${state.view} group=${state.group} platforms=${state.platforms}
             selectedReleases=${selectedReleases} window=${displayedWindow} focus=${state.focus} onClearFocus=${() => update({ focus: "" })}
             presubmitScope=${state.presubmitScope} onPresubmitScope=${setPresubmitScope}
+            selectedStreams=${state.streams}
             onIncludeFuture=${() => update({ releaseStart: releases[0], focus: "" }, true)} />`
         : html`<div class=${`loading ${healthError ? "error" : ""}`}>${healthError || "Loading health window…"}</div>`}
   </div>`;

@@ -118,6 +118,8 @@ select { padding: 2px 6px; font-size: 12px; }
 .navigation-selectors { display: flex; flex-wrap: wrap; align-items: flex-start; gap: 8px; }
 .navigation-selectors > .toggle { flex-shrink: 0; }
 .presubmit-scope-control { display: flex; }
+.stream-filter summary { max-width: 176px; overflow: hidden; text-overflow: ellipsis; }
+.stream-menu { right: auto; left: 0; }
 .presubmit-empty button { margin: 10px 0 0; border: 1px solid var(--baseline); border-radius: 4px; padding: 5px 9px; background: var(--surface); color: var(--text-primary); cursor: pointer; font: inherit; }
 .presubmit-empty button:hover { border-color: var(--series-1); }
 .data-unavailable { color: var(--text-secondary); }

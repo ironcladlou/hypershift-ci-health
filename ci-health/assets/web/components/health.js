@@ -162,7 +162,8 @@ function Participation({ items }) {
     ${item.stream_sippy_url
       ? html`<a href=${item.stream_sippy_url} target="_blank" rel="noopener">${item.stream_name || "release stream"}</a>`
       : item.stream_name || "release stream"}
-    · ${item.stream_kind || "stream"} / ${item.architecture || "unknown architecture"}
+    ${item.role && html` · ${item.role}`}
+    ${item.stream_kind && html` · ${item.stream_kind}`}${item.architecture && html` / ${item.architecture}`}
     ${item.release_status_url && html` · <a href=${item.release_status_url} target="_blank" rel="noopener">payload status</a>`}
   </div>`)}</div>`;
 }
@@ -210,7 +211,7 @@ function AlertBanner({ alerts, scope }) {
   </section>`;
 }
 
-export function HealthView({ snapshot, view, group, platforms, selectedReleases, window, focus, onClearFocus, presubmitScope, onPresubmitScope, onIncludeFuture }) {
+export function HealthView({ snapshot, view, group, platforms, selectedReleases, window, focus, onClearFocus, presubmitScope, onPresubmitScope, onIncludeFuture, selectedStreams }) {
   const data = snapshot.data;
   const selected = new Set(selectedReleases);
   const futureRelease = releasesInOrder(snapshot.releases)[0];
@@ -242,8 +243,12 @@ export function HealthView({ snapshot, view, group, platforms, selectedReleases,
     if (!matchesFocus(job)) return false;
     if (focus) return true;
     if (view === "presubmit" && presubmitScope !== "all" && job.required !== (presubmitScope === "required")) return false;
+    if (view === "payload" && selectedStreams.length && !(job.participations || []).some(item => selectedStreams.includes(item.stream_name))) return false;
     return selected.has(jobRelease(job)) && (!platforms.length || platforms.some(platform => (job.platforms || []).includes(platform)));
   });
+  if (view === "payload" && selectedStreams.length && !focus) {
+    jobs = jobs.map(job => ({ ...job, participations: job.participations.filter(item => selectedStreams.includes(item.stream_name)) }));
+  }
   const visibleIDs = new Set(jobs.map(job => job.id));
   const alerts = (data.alerts || []).map(alert => {
     const matching = alert.jobs.filter(job => visibleIDs.has(job.id));

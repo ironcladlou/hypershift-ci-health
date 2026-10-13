@@ -70,6 +70,7 @@ type ReleasePayloadParticipation struct {
 	StreamKind       string  `json:"stream_kind"`
 	Architecture     string  `json:"architecture"`
 	VerificationName string  `json:"verification_name"`
+	Role             string  `json:"role"`
 	StreamSippyURL   *string `json:"stream_sippy_url"`
 	ReleaseStatusURL string  `json:"release_status_url"`
 }

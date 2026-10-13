@@ -128,6 +128,48 @@ func TestPeriodicMappingNotesReachHealthReport(t *testing.T) {
 	}
 }
 
+func TestHypershiftPayloadHealthUsesTestedReleaseAndDeclaredRole(t *testing.T) {
+	registry := &jobregistry.Registry{APIVersion: jobregistry.CurrentAPIVersion}
+	roles := []jobregistry.ReleaseControllerRole{jobregistry.ReleaseControllerRoleBlocking, jobregistry.ReleaseControllerRoleInforming}
+	for _, role := range roles {
+		name := string(role)
+		registry.Jobs = append(registry.Jobs, jobregistry.Job{ID: name, Name: name, Type: jobregistry.JobTypePeriodic, Versions: []string{"4.22"}, ReleaseController: []jobregistry.ReleaseControllerParticipation{{
+			Stream:       jobregistry.ReleaseControllerStream{Name: "hypershift", ReleaseStatusURL: "https://example.test/releasestream/hypershift"},
+			Verification: jobregistry.ReleaseControllerVerification{Name: name, Role: role},
+		}}})
+	}
+	plan, err := reportplan.Build(registry, reportplan.DefaultSelectionPolicy("main", "5.1"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	digest, err := reportplan.Digest(plan)
+	if err != nil {
+		t.Fatal(err)
+	}
+	now := time.Date(2026, 10, 13, 12, 0, 0, 0, time.UTC)
+	observation := &sippy.Observation{APIVersion: sippy.CurrentObservationAPIVersion, PlanDigest: digest, SourceBaseURL: "https://sippy.example.test", Releases: plan.Releases, StartedAt: now, ObservedAt: now, Complete: true}
+	for _, role := range roles {
+		observation.Analyses = append(observation.Analyses, sippy.JobAnalysis{Target: sippy.AnalysisTarget{Release: "4.22", ProwJobName: string(role)}, ByPeriod: map[string]sippy.AnalysisPeriod{now.Add(-time.Hour).Format("2006-01-02 15:00"): {TotalRuns: 2, ResultCount: map[string]int{"S": 1, "F": 1}}}})
+	}
+	report, err := Evaluate(registry, plan, observation)
+	if err != nil {
+		t.Fatal(err)
+	}
+	rows := report.Windows["1w"].PayloadBlockingJobs
+	if len(rows) != 2 {
+		t.Fatalf("expected blocking and informing payload jobs: %+v", rows)
+	}
+	for _, row := range rows {
+		if row.Release != "4.22" || row.Runs != 2 || row.Rate == nil || *row.Rate != 50 || len(row.Participations) != 1 {
+			t.Fatalf("wrong release or missing health data: %+v", row)
+		}
+		item := row.Participations[0]
+		if item.StreamName != "hypershift" || item.Role != row.ID || item.ReleaseStatusURL != "https://example.test/releasestream/hypershift" {
+			t.Errorf("participation metadata lost: %+v", item)
+		}
+	}
+}
+
 func TestAlertsPreservePerJobCountsAndClassification(t *testing.T) {
 	registry, err := jobregistry.LoadFile("../jobregistry/testdata/job-registry.json")
 	if err != nil {

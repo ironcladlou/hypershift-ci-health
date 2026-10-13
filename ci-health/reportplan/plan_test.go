@@ -105,6 +105,57 @@ func TestPlanRejectsDifferentRegistry(t *testing.T) {
 	}
 }
 
+func TestHypershiftPayloadSelection(t *testing.T) {
+	participation := func(stream, release string, role jobregistry.ReleaseControllerRole, eol bool) jobregistry.ReleaseControllerParticipation {
+		return jobregistry.ReleaseControllerParticipation{Stream: jobregistry.ReleaseControllerStream{Name: stream, Release: release, EndOfLife: eol}, Verification: jobregistry.ReleaseControllerVerification{Role: role}}
+	}
+	registry := &jobregistry.Registry{APIVersion: jobregistry.CurrentAPIVersion}
+	for _, tc := range []struct {
+		id       string
+		versions []string
+		stream   string
+		release  string
+		role     jobregistry.ReleaseControllerRole
+		eol      bool
+	}{
+		{"blocking", []string{"5.1"}, "hypershift", "", jobregistry.ReleaseControllerRoleBlocking, false},
+		{"informing", []string{"4.20"}, "hypershift", "", jobregistry.ReleaseControllerRoleInforming, false},
+		{"async", []string{"4.21"}, "hypershift", "", jobregistry.ReleaseControllerRoleAsync, false},
+		{"disabled", []string{"4.22"}, "hypershift", "", jobregistry.ReleaseControllerRoleDisabled, false},
+		{"end-of-life", []string{"4.22"}, "hypershift", "", jobregistry.ReleaseControllerRoleBlocking, true},
+		{"unsupported", []string{"4.13", "4.23", "5.2"}, "hypershift", "", jobregistry.ReleaseControllerRoleBlocking, false},
+		{"no-version", nil, "hypershift", "", jobregistry.ReleaseControllerRoleBlocking, false},
+		{"other-unversioned", []string{"4.22"}, "other", "", jobregistry.ReleaseControllerRoleBlocking, false},
+		{"ocp-informing", []string{"4.22"}, "4.22.0-0.nightly", "4.22", jobregistry.ReleaseControllerRoleInforming, false},
+		{"dual-stream", []string{"4.22", "4.22"}, "hypershift", "", jobregistry.ReleaseControllerRoleInforming, false},
+	} {
+		registry.Jobs = append(registry.Jobs, jobregistry.Job{ID: tc.id, Name: tc.id, Type: jobregistry.JobTypePeriodic, Versions: tc.versions, ReleaseController: []jobregistry.ReleaseControllerParticipation{participation(tc.stream, tc.release, tc.role, tc.eol)}})
+	}
+	dual := registry.Index()["dual-stream"]
+	dual.ReleaseController = append(dual.ReleaseController, participation("4.22.0-0.nightly", "4.22", jobregistry.ReleaseControllerRoleBlocking, false))
+	plan, err := Build(registry, DefaultSelectionPolicy("main", "5.1"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := map[string]string{"blocking": "5.1", "informing": "4.20", "async": "4.21", "dual-stream": "4.22"}
+	if len(plan.PayloadJobs) != len(want) || len(plan.AnalysisTargets) != len(want) {
+		t.Fatalf("unexpected payload or collection selection: payload=%+v targets=%+v", plan.PayloadJobs, plan.AnalysisTargets)
+	}
+	for _, entry := range plan.PayloadJobs {
+		if want[entry.JobID] != entry.Release || !slices.Contains(plan.AnalysisTargets, AnalysisTarget{Release: entry.Release, JobID: entry.JobID}) {
+			t.Errorf("wrong tested release or missing analysis: %+v", entry)
+		}
+		if entry.JobID == "dual-stream" && len(entry.Participations) != 2 {
+			t.Errorf("overlapping streams must share one row: %+v", entry)
+		}
+		for _, item := range entry.Participations {
+			if item.Stream.Name == "hypershift" && item.Stream.Release != "" {
+				t.Error("unversioned stream metadata was rewritten")
+			}
+		}
+	}
+}
+
 func TestFutureCollectionIncludesJobsOutsideDashboard(t *testing.T) {
 	registry, plan := goldenPlan(t)
 	index := registry.Index()

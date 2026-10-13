@@ -442,6 +442,7 @@ func transformWindow(raw *rawData, windowKey string, now time.Time, inputs repor
 				StreamKind:       string(participation.Stream.Kind),
 				Architecture:     participation.Stream.Architecture,
 				VerificationName: participation.Verification.Name,
+				Role:             string(participation.Verification.Role),
 				StreamSippyURL:   participation.Stream.SippyURL,
 				ReleaseStatusURL: participation.Stream.ReleaseStatusURL,
 			})

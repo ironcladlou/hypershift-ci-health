@@ -49,6 +49,25 @@ function GroupFilter({ selected, onChange }) {
   </details>`;
 }
 
+function StreamFilter({ streams, selected, onChange }) {
+  const enabled = new Set(selected);
+  const summary = selected.length === 0 ? "All" : selected.length === 1 ? selected[0] : `${selected.length} selected`;
+  const toggle = stream => onChange(enabled.has(stream)
+    ? selected.filter(value => value !== stream)
+    : [...selected, stream]);
+  return html`<details class="header-filter stream-filter" name="header-filter">
+    <summary aria-label="Release stream filter" title=${selected.length ? selected.join(", ") : "All streams"}>Streams <span>${summary}</span></summary>
+    <div class="filter-menu stream-menu">
+      <div class="filter-menu-header"><strong>Release streams</strong></div>
+      <label><input type="checkbox" checked=${selected.length === 0} onChange=${() => onChange([])} /><span>All streams</span></label>
+      ${streams.map(stream => html`<label key=${stream}>
+        <input type="checkbox" value=${stream} checked=${enabled.has(stream)} onChange=${() => toggle(stream)} />
+        <span>${stream}</span>
+      </label>`)}
+    </div>
+  </details>`;
+}
+
 export function Header({ state, platforms, status, onWindow, onGroup, onPlatforms }) {
   const registry = state.view === "registry";
   return html`<header class="header">
@@ -71,7 +90,7 @@ export function Header({ state, platforms, status, onWindow, onGroup, onPlatform
   </header>`;
 }
 
-export function Navigation({ view, onView, releases, start, end, onRange, presubmitScope, onPresubmitScope }) {
+export function Navigation({ view, onView, releases, start, end, onRange, presubmitScope, onPresubmitScope, streams, selectedStreams, onStreams }) {
   const min = Math.max(0, releases.indexOf(start));
   const endIndex = releases.indexOf(end);
   const max = endIndex >= min ? endIndex : Math.min(2, releases.length - 1);
@@ -94,6 +113,7 @@ export function Navigation({ view, onView, releases, start, end, onRange, presub
           { value: "required", label: "Required" }, { value: "optional", label: "Optional" }, { value: "all", label: "All" },
         ]} />
       </div>`}
+      ${view === "payload" && html`<${StreamFilter} streams=${streams} selected=${selectedStreams} onChange=${onStreams} />`}
     </div>
     ${view !== "registry" && releases.length > 0 && html`<div class="release-filter">
       <span class="release-filter-label">Releases <strong>${rangeLabel}</strong></span>

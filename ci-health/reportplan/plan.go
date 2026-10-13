@@ -132,17 +132,16 @@ func Build(registry *jobregistry.Registry, policy SelectionPolicy) (*Plan, error
 			continue
 		}
 		for _, participation := range job.ReleaseController {
-			if participation.Verification.Role != jobregistry.ReleaseControllerRoleBlocking || participation.Stream.EndOfLife || !supportedRelease(participation.Stream.Release, policy) {
-				continue
+			for _, release := range payloadReleases(job, participation, policy) {
+				key := payloadKey{release, job.ID}
+				at, found := payloadIndices[key]
+				if !found {
+					at = len(plan.PayloadJobs)
+					payloadIndices[key] = at
+					plan.PayloadJobs = append(plan.PayloadJobs, PayloadJob{JobID: job.ID, Release: release, Participations: []jobregistry.ReleaseControllerParticipation{}})
+				}
+				plan.PayloadJobs[at].Participations = append(plan.PayloadJobs[at].Participations, participation)
 			}
-			key := payloadKey{participation.Stream.Release, job.ID}
-			at, found := payloadIndices[key]
-			if !found {
-				at = len(plan.PayloadJobs)
-				payloadIndices[key] = at
-				plan.PayloadJobs = append(plan.PayloadJobs, PayloadJob{JobID: job.ID, Release: participation.Stream.Release, Participations: []jobregistry.ReleaseControllerParticipation{}})
-			}
-			plan.PayloadJobs[at].Participations = append(plan.PayloadJobs[at].Participations, participation)
 		}
 	}
 	for i := range plan.PayloadJobs {
@@ -170,6 +169,30 @@ func Build(registry *jobregistry.Registry, policy SelectionPolicy) (*Plan, error
 		return nil, err
 	}
 	return plan, nil
+}
+
+func payloadReleases(job *jobregistry.Job, participation jobregistry.ReleaseControllerParticipation, policy SelectionPolicy) []string {
+	if participation.Stream.EndOfLife || participation.Verification.Role == jobregistry.ReleaseControllerRoleDisabled {
+		return nil
+	}
+	hypershift := participation.Stream.Name == "hypershift"
+	if participation.Verification.Role != jobregistry.ReleaseControllerRoleBlocking &&
+		(!hypershift || (participation.Verification.Role != jobregistry.ReleaseControllerRoleInforming && participation.Verification.Role != jobregistry.ReleaseControllerRoleAsync)) {
+		return nil
+	}
+	releases := []string{participation.Stream.Release}
+	if hypershift && participation.Stream.Release == "" {
+		// The HyperShift stream spans release branches. Keep the stream metadata
+		// intact and use each job's tested versions for grouping and Sippy queries.
+		releases = job.Versions
+	}
+	var selected []string
+	for _, release := range releases {
+		if supportedRelease(release, policy) && !slices.Contains(selected, release) {
+			selected = append(selected, release)
+		}
+	}
+	return selected
 }
 
 func (p *Plan) Validate(registry *jobregistry.Registry) error {
